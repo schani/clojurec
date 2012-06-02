@@ -21,7 +21,7 @@
 (declare confirm-bindings)
 (declare munge)
 (declare ^:dynamic *cljs-file*)
-;(require 'cljs.core)
+(require 'cljc.core)
 
 (def js-reserved
   #{"abstract" "boolean" "break" "byte" "case"
@@ -98,7 +98,7 @@
 (defn core-name?
   "Is sym visible from core in the current compilation namespace?"
   [env sym]
-  (and (get (:defs (@namespaces 'cljs.core)) sym)
+  (and (get (:defs (@namespaces 'cljc.core)) sym)
        (not (contains? (-> env :ns :excludes) sym))))
 
 (defn js-var [sym]
@@ -117,7 +117,7 @@
 
        (namespace sym)
        (let [ns (namespace sym)
-             ns (if (= "clojure.core" ns) "cljs.core" ns)
+             ns (if (= "clojure.core" ns) "cljc.core" ns)
              full-ns (resolve-ns-alias env ns)]
          (confirm-var-exists env full-ns (symbol (name sym)))
          (merge (get-in @namespaces [full-ns :defs (symbol (name sym))])
@@ -150,7 +150,7 @@
 
        :else
        (let [full-ns (if (core-name? env sym)
-                       'cljs.core
+                       'cljc.core
                        (-> env :ns :name))]
          (confirm-var-exists env full-ns sym)
          (merge (get-in @namespaces [full-ns :defs sym])
@@ -168,7 +168,7 @@
 
        (namespace sym)
        (let [ns (namespace sym)
-             ns (if (= "clojure.core" ns) "cljs.core" ns)]
+             ns (if (= "clojure.core" ns) "cljc.core" ns)]
          {:name (symbol (str (resolve-ns-alias env ns) "." (munge (name sym))))})
 
        (.contains s ".")
@@ -188,7 +188,7 @@
 
        :else
        (let [s (str (if (core-name? env sym)
-                      'cljs.core
+                      'cljc.core
                       (-> env :ns :name))
                     "." (munge (name sym)))]
          {:name (munge (symbol s))})))))
@@ -759,7 +759,7 @@
         fn? (and *cljs-static-fns*
                  (not (:dynamic info))
                  (:fn-var info))
-        opt-not? (and (= (:name-sym info) 'cljs.core/not)
+        opt-not? (and (= (:name-sym info) 'cljc.core/not)
                       (= (infer-tag (first (:args expr))) 'boolean))
         ns (:ns info)
         js? (= ns 'js)
@@ -829,7 +829,7 @@
 (defmethod emit :ns
   [{:keys [name requires uses requires-macros env]}]
   (emitln "goog.provide('" (munge name) "');")
-  (when-not (= name 'cljs.core)
+  (when-not (= name 'cljc.core)
     (emitln "goog.require('cljs.core');"))
   (doseq [lib (into (vals requires) (distinct (vals uses)))]
     (emitln "goog.require('" (munge lib) "');")))
@@ -989,7 +989,7 @@
         dynamic (-> sym meta :dynamic)
         ns-name (-> env :ns :name)]
     (assert (not (namespace sym)) "Can't def ns-qualified name")
-    (let [env (if (or (and (not= ns-name 'cljs.core)
+    (let [env (if (or (and (not= ns-name 'cljc.core)
                            (core-name? env sym))
                       (get-in @namespaces [ns-name :uses sym]))
                 (let [ev (resolve-existing-var (dissoc env :locals) sym)]
@@ -1300,7 +1300,7 @@
     (when (seq @deps)
       (analyze-deps @deps))
     (set! *cljs-ns* name)
-    (require 'cljs.core)
+    (require 'cljc.core)
     (doseq [nsym (concat (vals requires-macros) (vals uses-macros))]
       (clojure.core/require nsym))
     (swap! namespaces #(-> %
@@ -1503,14 +1503,14 @@
                                     (get-in @namespaces [(-> env :ns :name) :uses-macros sym])))))
           (if-let [nstr (namespace sym)]
             (when-let [ns (cond
-                           (= "clojure.core" nstr) (find-ns 'cljs.core)
+                           (= "clojure.core" nstr) (find-ns 'cljc.core)
                            (.contains nstr ".") (find-ns (symbol nstr))
                            :else
                            (-> env :ns :requires-macros (get (symbol nstr))))]
               (.findInternedVar ^clojure.lang.Namespace ns (symbol (name sym))))
             (if-let [nsym (-> env :ns :uses-macros sym)]
               (.findInternedVar ^clojure.lang.Namespace (find-ns nsym) sym)
-              (.findInternedVar ^clojure.lang.Namespace (find-ns 'cljs.core) sym))))]
+              (.findInternedVar ^clojure.lang.Namespace (find-ns 'cljc.core) sym))))]
     (when (and mvar (.isMacro ^clojure.lang.Var mvar))
       @mvar)))
 
@@ -1642,7 +1642,7 @@
 (defmacro with-core-cljs
   "Ensure that core.cljs has been loaded."
   [& body]
-  `(do ;(when-not (:defs (get @namespaces 'cljs.core))
+  `(do ;(when-not (:defs (get @namespaces 'cljc.core))
          ;(analyze-file "cljs/core.cljs"))
        ~@body))
 
@@ -1665,7 +1665,7 @@
                     (recur (rest forms) ns-name deps))))
             {:ns (or ns-name 'cljs.user)
              :provides [ns-name]
-             :requires (if (= ns-name 'cljs.core) (set (vals deps)) (conj (set (vals deps)) 'cljs.core))
+             :requires (if (= ns-name 'cljc.core) (set (vals deps)) (conj (set (vals deps)) 'cljc.core))
              :file dest}))))))
 
 (defn requires-compilation?
@@ -1791,8 +1791,8 @@
 
 (extend-type number ISeq (-seq [x] x))
 (seq 42)
-;(aset cljs.core.ISeq "number" true)
-;(aget cljs.core.ISeq "number")
+;(aset cljc.core.ISeq "number" true)
+;(aget cljc.core.ISeq "number")
 (satisfies? ISeq 42)
 (extend-type nil ISeq (-seq [x] x))
 (satisfies? ISeq nil)
