@@ -202,6 +202,8 @@
         (warning env
           (str "WARNING: " (:name-sym ev) " not declared ^:dynamic"))))))
 
+(def ^:dynamic *env-stack* nil)
+
 (defn- comma-sep [xs]
   (interpose "," xs))
 
@@ -348,9 +350,30 @@
 (defmethod emit :no-op
   [m] (emits ";"))
 
+(defn some-indexed [pred coll]
+  (loop [coll coll
+         i 0]
+    (if (empty? coll)
+      nil
+      (if-let [result (pred i (first coll))]
+        result
+        (recur (rest coll) (inc i))))))
+
 (defmethod emit :var
   [{:keys [info env] :as arg}]
-  (emit-wrap env (emits "VAR_NAME (" (:name info) ")")))
+  (let [name (:name info)]
+    (emit-wrap env
+               (if ((:locals env) name)
+                 (let [[num-ups index] (some-indexed (fn [up level]
+                                                       (some-indexed (fn [i n]
+                                                                       (if (= name n)
+                                                                         [up i]
+                                                                         false))
+                                                                     level))
+                                                     *env-stack*)]
+                   (assert (and num-ups index))
+                   (emits "env_fetch (env, " num-ups ", " index ")"))
+                 (emits "VAR_NAME (" (:name info) ")")))))
 
 (defmethod emit :meta
   [{:keys [expr meta env]}]
@@ -525,14 +548,17 @@
 
 (defn emit-fn-method
   [{:keys [name params statements ret recurs]}]
-  (loop [params params
-         indexes (iterate inc 1)]
-    (when-not (empty? params)
-      (emitln "value_t *VAR_NAME (" (first params) ") = arg" (first indexes) ";")
-      (recur (rest params) (rest indexes))))
+  (when-not (empty? params)
+    (emitln "environment_t *new_env = alloc_env (env, " (count params) ");")
+    (doseq [index (take (count params) (iterate inc 0))]
+      (emitln "env_set (new_env, " index ", arg" index ");"))
+    (emitln "env = new_env;"))
   (when recurs
     (emitln "while (1) {"))
-  (emit-block :return statements ret)
+  (binding [*env-stack* (if (empty? params)
+                          params
+                          (cons params *env-stack*))]
+    (emit-block :return statements ret))
   (when recurs
     (emitln "break;")
     (emitln "}")))
@@ -603,7 +629,7 @@
          (if variadic
            (assert false "variadic not yet supported")
            (do
-             (emitln "static value_t* FN_NAME (" name ") (int nargs, environment_t *env, value_t *arg1, value_t *arg2, value_t *arg3, value_t *argrest) {")
+             (emitln "static value_t* FN_NAME (" name ") (int nargs, environment_t *env, value_t *arg0, value_t *arg1, value_t *arg2, value_t *argrest) {")
              (emit-fn-method (assoc (first methods) :name name))
              (emitln "}")))
          (assert false "multi-method fns not yet supported"))))))

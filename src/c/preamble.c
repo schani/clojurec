@@ -13,7 +13,10 @@ typedef struct {
 #define VALUE_NIL	((value_t*)0)
 #define VALUE_NONE	((value_t*)-1)
 
-typedef struct {
+typedef struct environment {
+	struct environment *up;
+	int num_bindings;
+	value_t *bindings [0];
 } environment_t;
 
 typedef value_t* (*function_t) (int nargs, environment_t *env, value_t *arg1, value_t *arg2, value_t *arg3, value_t *argrest);
@@ -111,6 +114,31 @@ static void
 set_vtable_entry (closure_t **vtable, int index, closure_t *closure)
 {
 	vtable [index] = closure;
+}
+
+static environment_t*
+alloc_env (environment_t *up, int num_bindings)
+{
+	environment_t *env = GC_malloc (sizeof (environment_t) + num_bindings * sizeof (value_t*));
+	env->up = up;
+	env->num_bindings = num_bindings;
+	return env;
+}
+
+static void
+env_set (environment_t *env, int index, value_t *val)
+{
+	env->bindings [index] = val;
+}
+
+static value_t*
+env_fetch (environment_t *env, int num_ups, int index)
+{
+	int i;
+	for (i = 0; i < num_ups; ++i)
+		env = env->up;
+	assert (index < env->num_bindings);
+	return env->bindings [index];
 }
 
 static value_t*
