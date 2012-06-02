@@ -28,6 +28,11 @@ typedef struct {
 } closure_t;
 
 typedef struct {
+	value_t val;
+	long x;
+} integer_t;
+
+typedef struct {
 	int num;		/* the protocol number, or -1 for termination */
 	closure_t **vtable;
 } ptable_entry_t;
@@ -42,6 +47,7 @@ struct ptable {
 #define MEMBER_IFn_invoke	0
 
 #define TYPE_Closure	1
+#define TYPE_Integer	2
 
 static closure_t*
 get_protocol (value_t *val, int protocol_num, int fn_index)
@@ -188,6 +194,28 @@ make_closure (function_t fn, environment_t *env)
 	return &closure->val;
 }
 
+static ptable_t*
+integer_ptable (void)
+{
+	/* FIXME: with multiple threads we might end up with more than
+	   one integer ptable. */
+	static ptable_t *integer_ptable = NULL;
+
+	if (integer_ptable == NULL)
+		integer_ptable = alloc_ptable (TYPE_Integer, 0);
+
+	return integer_ptable;
+}
+
+static value_t*
+make_integer (long x)
+{
+	integer_t *integer = GC_malloc (sizeof (integer_t));
+	integer->val.ptable = integer_ptable ();
+	integer->x = x;
+	return &integer->val;
+}
+
 static value_t*
 cljc_user_print (int nargs, environment_t *env, value_t *arg1, value_t *arg2, value_t *arg3, value_t *argrest)
 {
@@ -200,6 +228,11 @@ cljc_user_print (int nargs, environment_t *env, value_t *arg1, value_t *arg2, va
 			case TYPE_Closure: {
 				closure_t *c = (closure_t*)arg1;
 				printf ("#<closure@%p:%p>", c->fn, c->env);
+				break;
+			}
+			case TYPE_Integer: {
+				integer_t *i = (integer_t*)arg1;
+				printf ("%ld", i->x);
 				break;
 			}
 			default:
