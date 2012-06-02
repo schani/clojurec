@@ -927,7 +927,7 @@
                       (comma-sep args)
                       ")"))))
 
-(defmethod emit :js
+(defmethod emit :c
   [{:keys [env code segs args]}]
   (emit-wrap env
              (if code
@@ -937,7 +937,7 @@
 
 (declare analyze analyze-symbol analyze-seq)
 
-(def specials '#{if def fn* do let* loop* letfn* throw try* recur new set! ns defprotocol* deftype* defrecord* . js* & quote})
+(def specials '#{if def fn* do let* loop* letfn* throw try* recur new set! ns defprotocol* deftype* defrecord* . c* & quote})
 
 (def ^:dynamic *recur-frames* nil)
 (def ^:dynamic *loop-lets* nil)
@@ -1480,7 +1480,7 @@
                        :children (into [targetexpr] argexprs)
                        :tag (-> form meta :tag)})))))
 
-(defmethod parse 'js*
+(defmethod parse 'c*
   [op env [_ jsform & args :as form] _]
   (assert (string? jsform))
   (if args
@@ -1493,7 +1493,7 @@
                        (cons (subs s 0 idx) (seg (subs s (inc end))))))))
            enve (assoc env :context :expr)
            argexprs (vec (map #(analyze enve %) args))]
-       {:env env :op :js :segs (seg jsform) :args argexprs
+       {:env env :op :c :segs (seg jsform) :args argexprs
         :tag (-> form meta :tag) :form form :children argexprs}))
     (let [interp (fn interp [^String s]
                    (let [idx (.indexOf s "~{")]
@@ -1502,7 +1502,7 @@
                        (let [end (.indexOf s "}" idx)
                              inner (:name (resolve-existing-var env (symbol (subs s (+ 2 idx) end))))]
                          (cons (subs s 0 idx) (cons inner (interp (subs s (inc end)))))))))]
-      {:env env :op :js :form form :code (apply str (interp jsform))
+      {:env env :op :c :form form :code (apply str (interp jsform))
        :tag (-> form meta :tag)})))
 
 (defn parse-invoke
