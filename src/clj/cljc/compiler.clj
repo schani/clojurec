@@ -755,6 +755,16 @@
 
 (defmethod emit :invoke
   [{:keys [f args env] :as expr}]
+  (let [arity (count args)]
+    (assert (< arity 3) "arity >= 3 not yet supported")
+    (emit-wrap env
+               (emits "invoke")
+               (emits (if (< arity 3) arity "n"))
+               (emits " (" (comma-sep (cons f args)) ")"))))
+
+(comment
+(defmethod emit :invoke
+  [{:keys [f args env] :as expr}]
   (let [info (:info f)
         fn? (and *cljs-static-fns*
                  (not (:dynamic info))
@@ -814,6 +824,7 @@
        
        :else
        (emits f ".call(" (comma-sep (cons "null" args)) ")")))))
+)
 
 (defmethod emit :new
   [{:keys [ctor args env]}]

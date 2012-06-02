@@ -16,7 +16,7 @@
                    (concat @cljc/declarations
                            ["int main (void) {\n"
                             "environment_t *env = NULL;\n"
-                            "GC_INIT ();\n"
+                            "cljc_init ();\n"
                             main-code
                             "return 0;\n}\n"]))
           user-dir (java.lang.System/getProperty "user.dir")
