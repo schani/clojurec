@@ -1,0 +1,14 @@
+/target
+/lib
+/classes
+/checkouts
+pom.xml
+*.jar
+*.class
+.lein-deps-sum
+.lein-failures
+.lein-plugins
+run/cljc
+run/cljc.c
+run/gc-7.2
+run/libgc
