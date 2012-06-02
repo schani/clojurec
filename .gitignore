@@ -12,3 +12,4 @@ run/cljc
 run/cljc.c
 run/gc-7.2
 run/libgc
+run/cljc.dSYM
