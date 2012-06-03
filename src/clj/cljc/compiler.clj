@@ -271,7 +271,7 @@
 (defmethod emit-constant Double [x] (emits x))
 (defmethod emit-constant String [x]
   (emits (wrap-in-double-quotes (escape-string x))))
-(defmethod emit-constant Boolean [x] (emits (if x "true" "false")))
+(defmethod emit-constant Boolean [x] (emits (if x "value_true" "value_false")))
 (defmethod emit-constant Character [x]
   (emits (wrap-in-double-quotes (escape-char x))))
 
@@ -455,17 +455,16 @@
                      (and (number? form) (zero? form)))))))))
 
 (defmethod emit :if
-  [{:keys [test then else env unchecked]}]
-  (let [context (:context env)
-        checked (not (or unchecked (safe-test? test)))]
+  [{:keys [test then else env]}]
+  (let [context (:context env)]
     (if (= :expr context)
-      (emits "(" (when checked "cljs.core.truth_") "(" test ")?" then ":" else ")")
+      (emits "(truth (" test ") ? " then " : " else ")")
       (do
-        (if checked
-          (emitln "if(cljs.core.truth_(" test "))")
-          (emitln "if(" test ")"))
-        (emitln "{" then "} else")
-        (emitln "{" else "}")))))
+        (emitln "if (truth (" test ")) {")
+        (emitln then)
+        (emitln "} else {")
+        (emitln else)
+        (emitln "}")))))
 
 (defmethod emit :throw
   [{:keys [throw env]}]

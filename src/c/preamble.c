@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include <gc.h>
 
 #define assert_not_reached()	(assert (0))
@@ -48,6 +49,7 @@ struct ptable {
 
 #define TYPE_Closure	1
 #define TYPE_Integer	2
+#define TYPE_Boolean	3
 
 static closure_t*
 get_protocol (value_t *val, int protocol_num, int fn_index)
@@ -185,36 +187,56 @@ closure_ptable (void)
 }
 
 static value_t*
+alloc_value (ptable_t *ptable, size_t size)
+{
+	value_t *v = GC_malloc (size);
+	v->ptable = ptable;
+	return v;
+}
+
+static value_t*
 make_closure (function_t fn, environment_t *env)
 {
-	closure_t *closure = GC_malloc (sizeof (closure_t));
-	closure->val.ptable = closure_ptable ();
+	closure_t *closure = (closure_t*) alloc_value (closure_ptable (), sizeof (closure_t));
 	closure->fn = fn;
 	closure->env = env;
 	return &closure->val;
 }
 
 static ptable_t*
-integer_ptable (void)
+make_empty_ptable_once (int type, ptable_t **ptablep)
 {
 	/* FIXME: with multiple threads we might end up with more than
-	   one integer ptable. */
+	   one ptable. */
+	if (*ptablep == NULL)
+		*ptablep = alloc_ptable (type, 0);
+	return *ptablep;
+}
+
+static ptable_t*
+integer_ptable (void)
+{
 	static ptable_t *integer_ptable = NULL;
-
-	if (integer_ptable == NULL)
-		integer_ptable = alloc_ptable (TYPE_Integer, 0);
-
-	return integer_ptable;
+	return make_empty_ptable_once (TYPE_Integer, &integer_ptable);
 }
 
 static value_t*
 make_integer (long x)
 {
-	integer_t *integer = GC_malloc (sizeof (integer_t));
-	integer->val.ptable = integer_ptable ();
+	integer_t *integer = (integer_t*) alloc_value (integer_ptable (), sizeof (integer_t));
 	integer->x = x;
 	return &integer->val;
 }
+
+static ptable_t*
+boolean_ptable (void)
+{
+	static ptable_t *boolean_ptable = NULL;
+	return make_empty_ptable_once (TYPE_Boolean, &boolean_ptable);
+}
+
+static value_t *value_true = NULL;
+static value_t *value_false = NULL;
 
 static value_t*
 cljc_user_print (int nargs, environment_t *env, value_t *arg1, value_t *arg2, value_t *arg3, value_t *argrest)
@@ -235,12 +257,30 @@ cljc_user_print (int nargs, environment_t *env, value_t *arg1, value_t *arg2, va
 				printf ("%ld", i->x);
 				break;
 			}
+			case TYPE_Boolean:
+				if (arg1 == value_true) {
+					printf ("true");
+				} else {
+					assert (arg1 == value_false);
+					printf ("false");
+				}
+				break;
 			default:
 				assert_not_reached ();
 		}
 	}
 	printf ("\n");
 	return VALUE_NIL;
+}
+
+static bool
+truth (value_t *v)
+{
+	if (v == VALUE_NIL)
+		return false;
+	if (v == value_false)
+		return false;
+	return true;
 }
 
 static value_t *VAR_NAME (cljc_DOT_user_DOT_print) = VALUE_NIL;
@@ -251,4 +291,6 @@ cljc_init (void)
 	GC_INIT ();
 
 	VAR_NAME (cljc_DOT_user_DOT_print) = make_closure (cljc_user_print, NULL);
+	value_true = alloc_value (boolean_ptable (), sizeof (value_t));
+	value_false = alloc_value (boolean_ptable (), sizeof (value_t));
 }
