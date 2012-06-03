@@ -239,6 +239,14 @@ static value_t *value_true = NULL;
 static value_t *value_false = NULL;
 
 static value_t*
+make_boolean (bool x)
+{
+	if (x)
+		return value_true;
+	return value_false;
+}
+
+static value_t*
 cljc_user_print (int nargs, environment_t *env, value_t *arg1, value_t *arg2, value_t *arg3, value_t *argrest)
 {
 	assert (nargs == 1);
