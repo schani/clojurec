@@ -762,16 +762,19 @@
 (defmethod emit :let
   [{:keys [bindings statements ret env loop]}]
   (let [context (:context env)]
-    (when (= :expr context) (emits "(function (){"))
-    (doseq [{:keys [name init]} bindings]
-      (emitln "var " name " = " init ";"))
-    (when loop (emitln "while(true){"))
-    (emit-block (if (= :expr context) :return context) statements ret)
-    (when loop
-      (emitln "break;")
-      (emitln "}"))
-    ;(emits "}")
-    (when (= :expr context) (emits "})()"))))
+    (if (= :expr context)
+      (let [fn-name (munge (gensym :let-fn))]
+	(emits "(" fn-name " (env))")
+	(emit-declaration
+	 (emitln "value_t* " fn-name " (environment_t *env) {")
+	 (with-new-env bindings
+	   (emit-block :return statements ret))
+	 (emitln "}")))
+      (do
+	(emitln "{")
+	(with-new-env bindings
+	  (emit-block context statements ret))
+	(emitln "}")))))
 
 (defmethod emit :recur
   [{:keys [frame exprs env]}]
