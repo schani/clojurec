@@ -359,11 +359,14 @@
         result
         (recur (rest coll) (inc i))))))
 
+(defn local-bound? [env name]
+  (contains? (into #{} (map #(:name (val %)) (:locals env))) name))
+
 (defmethod emit :var
   [{:keys [info env] :as arg}]
   (let [name (:name info)]
     (emit-wrap env
-               (if ((:locals env) name)
+               (if (local-bound? env name)
                  (let [[num-ups index] (some-indexed (fn [up level]
                                                        (some-indexed (fn [i n]
                                                                        (if (= name n)
