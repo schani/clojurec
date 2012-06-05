@@ -548,22 +548,35 @@
         (emitln "return " delegate-name "(" (string/join ", " params) ");")))
     (emits "})")))
 
+(defn emit-in-new-env [bindings emitter]
+  (if (seq bindings)
+    (binding [*env-stack* (cons (map :name bindings) *env-stack*)]
+      (emitln "environment_t *new_env = alloc_env (env, " (count bindings) ");")
+      (emitln "{")
+      (emitln "environment_t *env = new_env;")
+      (loop [index 0
+             bindings bindings]
+        (when (seq bindings)
+	  (emitln "env_set (new_env, " index ", " (:init (first bindings)) ");")
+	  (recur (inc index) (rest bindings))))
+      (emitter)
+      (emitln "}"))
+    (emitter)))
+
+(defmacro with-new-env [bindings & body]
+  `(emit-in-new-env ~bindings
+		    (fn []
+		      ~@body)))
+
 (defn emit-fn-method
   [{:keys [name params statements ret recurs]}]
-  (when-not (empty? params)
-    (emitln "environment_t *new_env = alloc_env (env, " (count params) ");")
-    (doseq [index (take (count params) (iterate inc 0))]
-      (emitln "env_set (new_env, " index ", arg" index ");"))
-    (emitln "env = new_env;"))
-  (when recurs
-    (emitln "while (1) {"))
-  (binding [*env-stack* (if (empty? params)
-                          params
-                          (cons params *env-stack*))]
-    (emit-block :return statements ret))
-  (when recurs
-    (emitln "break;")
-    (emitln "}")))
+  (with-new-env (map-indexed (fn [i p] {:name p :init (str "arg" i)}))
+    (when recurs
+      (emitln "while (1) {"))
+    (emit-block :return statements ret)
+    (when recurs
+      (emitln "break;")
+      (emitln "}"))))
 
 (comment
 (defn emit-fn-method
