@@ -42,3 +42,9 @@
 
 (defmacro nil? [x]
   `(identical? ~x nil))
+
+(defmacro has-type? [val t]
+  (bool-expr `(let [x# ~val]
+		(if (nil? x#)
+		  ~'false
+		  (~'c* ~(core/str "(make_boolean (~{}->ptable->type == TYPE_" (core/str t) "))") x#)))))
