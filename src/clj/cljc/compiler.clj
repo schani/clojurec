@@ -570,7 +570,7 @@
 
 (defn emit-fn-method
   [{:keys [name params statements ret recurs]}]
-  (with-new-env (map-indexed (fn [i p] {:name p :init (str "arg" i)}))
+  (with-new-env (map-indexed (fn [i p] {:name p :init (str "arg" i)}) params)
     (when recurs
       (emitln "while (1) {"))
     (emit-block :return statements ret)
