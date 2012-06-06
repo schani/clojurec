@@ -30,6 +30,7 @@
 	run-dir (io/file user-dir "run")
 	preamble (slurp (io/file user-dir "src" "c" "preamble.c"))]
     (spit (io/file run-dir "cljc.c") (str preamble code))
+    (shell/sh "make" "clean" :dir run-dir)
     (let [{:keys [exit out]} (shell/sh "make" :dir run-dir)]
       (if (= exit 0)
 	(let [{:keys [exit out]} (shell/sh "./cljc" :dir run-dir)]
