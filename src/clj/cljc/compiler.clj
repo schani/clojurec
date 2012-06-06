@@ -800,7 +800,7 @@
 (defmethod emit :invoke
   [{:keys [f args env] :as expr}]
   (let [arity (count args)]
-    (assert (< arity 3) "arity >= 3 not yet supported")
+    (assert (< arity 3) (str "arity >= 3 not yet supported in " (:form expr)))
     (emit-wrap env
                (emits "invoke")
                (emits (if (< arity 3) arity "n"))
