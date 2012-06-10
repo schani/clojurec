@@ -19,4 +19,8 @@
 			  (print (. x -invoke)))))
 	   [1]))))
 
+(deftest types
+  (testing "deftype"
+    (is (= (run-expr '(deftype* Cons [first rest])) []))))
+
 ;;(run-tests *ns*)

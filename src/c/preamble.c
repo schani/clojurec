@@ -24,6 +24,13 @@ typedef value_t* (*function_t) (int nargs, environment_t *env, value_t *arg1, va
 
 typedef struct {
 	value_t val;
+	value_t *fields [0];
+} deftype_t;
+
+#define DEFTYPE_SET_FIELD(dt,i,val)	(((deftype_t*)(dt))->fields [(i)] = (val))
+
+typedef struct {
+	value_t val;
 	function_t fn;
 	environment_t *env;
 } closure_t;
@@ -55,6 +62,7 @@ struct ptable {
 #define TYPE_Closure	1
 #define TYPE_Integer	2
 #define TYPE_Boolean	3
+#define TYPE_Deftype	4
 
 static closure_t*
 get_protocol (value_t *val, int protocol_num, int fn_index)
@@ -317,6 +325,8 @@ truth (value_t *v)
 	return true;
 }
 
+static ptable_t *empty_deftype_ptable = NULL;
+
 static value_t *VAR_NAME (cljc_DOT_user_DOT_print) = VALUE_NIL;
 
 static void
@@ -324,6 +334,7 @@ cljc_init (void)
 {
 	GC_INIT ();
 
+	make_empty_ptable_once (TYPE_Deftype, &empty_deftype_ptable);
 	VAR_NAME (cljc_DOT_user_DOT_print) = make_closure (cljc_user_print, NULL);
 	value_true = alloc_value (boolean_ptable (), sizeof (value_t));
 	value_false = alloc_value (boolean_ptable (), sizeof (value_t));

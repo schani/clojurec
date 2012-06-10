@@ -894,18 +894,20 @@
   (emitln "/* protocol " p " */"))
 
 (defmethod emit :deftype*
-  [{:keys [t fields pmasks]}]
+  [{:keys [t fields pmasks form]}]
   (let [fields (map munge fields)]
-    (emitln "")
-    (emitln "/**")
-    (emitln "* @constructor")
-    (emitln "*/")
-    (emitln t " = (function (" (comma-sep (map str fields)) "){")
-    (doseq [fld fields]
-      (emitln "this." fld " = " fld ";"))
-    (doseq [[pno pmask] pmasks]
-      (emitln "this.cljs$lang$protocol_mask$partition" pno "$ = " pmask ";"))
-    (emitln "})")))
+    (assert (< (count fields) 4) (str "types with >= 4 fields not supported yet in " form))
+    (emit-declaration
+     (emitln "")
+     (emitln "/**")
+     (emitln "* @constructor")
+     (emitln "*/")
+     (emitln "static value_t* FN_NAME (" t ") (" (comma-sep (map #(str "value_t *VAR_NAME (" % ")") fields)) ") {")
+     (emitln "value_t *val = alloc_value (empty_deftype_ptable, sizeof (deftype_t) + sizeof (value_t*) * " (count fields) ");")
+     (doseq [[i fld] (map-indexed vector fields)]
+       (emitln "DEFTYPE_SET_FIELD (val, " i ", VAR_NAME (" fld "));"))
+     (emitln "return val;")
+     (emitln "}"))))
 
 (defmethod emit :defrecord*
   [{:keys [t fields pmasks]}]
