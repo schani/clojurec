@@ -41,6 +41,7 @@
 
 (defonce namespaces (atom '{cljc.core {:name cljc.core}
                             cljc.user {:name cljc.user}}))
+(defonce num-protocols (atom 0))
 (defonce protocols (atom '{}))
 (defonce declarations (atom []))
 
@@ -48,6 +49,7 @@
   (reset! namespaces
     '{cljc.core {:name cljc.core}
       cljc.user {:name cljc.user}})
+  (reset! num-protocols 0)
   (reset! protocols '{})
   (reset! declarations []))
 
@@ -1394,15 +1396,21 @@
 
 (defmethod parse 'defprotocol*
   [_ env [_ psym & methods :as form] _]
-  (let [p (munge (:name (resolve-var (dissoc env :locals) psym)))]
+  (let [p (munge (:name (resolve-var (dissoc env :locals) psym)))
+	ns-name (-> env :ns :name)
+	index (dec (swap! num-protocols inc))]
     (swap! protocols
            (fn [protocols]
-             (update-in protocols [(-> env :ns :name) psym]
+             (update-in protocols [ns-name psym]
                         (fn [m]
                           {:name p
-			   :methods methods
-                           :index (count protocols)}))))
-    {:env env :op :defprotocol* :as form :p p :methods methods}))
+			   :methods methods}))))
+    {:env env
+     :op :defprotocol*
+     :as form
+     :p p
+     :index index
+     :methods methods}))
 
 (defmethod parse 'deftype*
   [_ env [_ tsym fields pmasks :as form] _]
