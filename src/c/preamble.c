@@ -46,9 +46,11 @@ typedef struct {
 	closure_t **vtable;
 } ptable_entry_t;
 
+static ptable_entry_t empty_ptable_entry = { -1, NULL };
+
 struct ptable {
 	int type;
-	ptable_entry_t entries [0];
+	ptable_entry_t *entries;
 };
 
 #define FN_NAME(n)	FN_ ## n
@@ -132,11 +134,11 @@ invoken (value_t *f, int nargs, value_t *a1, value_t *a2, value_t *ar)
 }
 
 static ptable_t*
-alloc_ptable (int type, int num_entries)
+alloc_ptable (int type)
 {
-	ptable_t *ptable = GC_malloc (sizeof (ptable_t) + num_entries * sizeof (ptable_entry_t) + sizeof (int));
+	ptable_t *ptable = GC_malloc (sizeof (ptable_t));
 	ptable->type = type;
-	ptable->entries [num_entries].num = -1;
+	ptable->entries = &empty_ptable_entry;
 	return ptable;
 }
 
@@ -147,10 +149,18 @@ alloc_vtable (int num_fns)
 }
 
 static void
-set_ptable_entry (ptable_t *ptable, int index, int protocol_num, closure_t **vtable)
+extend_ptable (ptable_t *ptable, int protocol_num, closure_t **vtable)
 {
-	ptable->entries [index].num = protocol_num;
-	ptable->entries [index].vtable = vtable;
+	int len = 0;
+	ptable_entry_t *entry;
+	for (entry = ptable->entries; entry->num >= 0; ++entry)
+		++len;
+	entry = GC_malloc (sizeof (ptable_entry_t) * (len + 2));
+	memcpy (entry, ptable->entries, sizeof (ptable_entry_t) * len);
+	entry [len].num = protocol_num;
+	entry [len].vtable = vtable;
+	entry [len + 1].num = -1;
+	ptable->entries = entry;
 }
 
 static void
@@ -212,8 +222,8 @@ closure_ptable (void)
 		closure_t **vtable = alloc_vtable (1);
 		set_vtable_entry (vtable, MEMBER_invoke, invoke);
 
-		ptable_t *ptable = alloc_ptable (TYPE_Closure, 1);
-		set_ptable_entry (ptable, 0, PROTOCOL_cljc_DOT_core_DOT_IFn, vtable);
+		ptable_t *ptable = alloc_ptable (TYPE_Closure);
+		extend_ptable (ptable, PROTOCOL_cljc_DOT_core_DOT_IFn, vtable);
 
 		closure_ptable = ptable;
 	}
@@ -244,7 +254,7 @@ make_empty_ptable_once (int type, ptable_t **ptablep)
 	/* FIXME: with multiple threads we might end up with more than
 	   one ptable. */
 	if (*ptablep == NULL)
-		*ptablep = alloc_ptable (type, 0);
+		*ptablep = alloc_ptable (type);
 	return *ptablep;
 }
 
