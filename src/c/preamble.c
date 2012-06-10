@@ -27,6 +27,7 @@ typedef struct {
 	value_t *fields [0];
 } deftype_t;
 
+#define DEFTYPE_GET_FIELD(dt,i)		(((deftype_t*)(dt))->fields [(i)])
 #define DEFTYPE_SET_FIELD(dt,i,val)	(((deftype_t*)(dt))->fields [(i)] = (val))
 
 typedef struct {

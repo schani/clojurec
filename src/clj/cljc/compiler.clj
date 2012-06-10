@@ -895,19 +895,25 @@
 
 (defmethod emit :deftype*
   [{:keys [t fields pmasks form]}]
-  (let [fields (map munge fields)]
-    (assert (< (count fields) 4) (str "types with >= 4 fields not supported yet in " form))
+  (let [fields (map munge fields)
+	num-fields (count fields)]
+    (assert (< num-fields 4) (str "types with >= 4 fields not supported yet in " form))
     (emit-declaration
      (emitln "")
      (emitln "/**")
      (emitln "* @constructor")
      (emitln "*/")
-     (emitln "static value_t* FN_NAME (" t ") (" (comma-sep (map #(str "value_t *VAR_NAME (" % ")") fields)) ") {")
-     (emitln "value_t *val = alloc_value (empty_deftype_ptable, sizeof (deftype_t) + sizeof (value_t*) * " (count fields) ");")
+     (emits "static value_t* FN_NAME (" t ") (int nargs, environment_t *env")
+     (when-not (zero? num-fields)
+       (emits ", " (comma-sep (map #(str "value_t *VAR_NAME (" % ")") fields))))
+     (emitln ") {")
+     (emitln "value_t *val = alloc_value (empty_deftype_ptable, sizeof (deftype_t) + sizeof (value_t*) * " num-fields ");")
      (doseq [[i fld] (map-indexed vector fields)]
        (emitln "DEFTYPE_SET_FIELD (val, " i ", VAR_NAME (" fld "));"))
      (emitln "return val;")
-     (emitln "}"))))
+     (emitln "}")
+     (emitln "static value_t* VAR_NAME (" t ") = VALUE_NIL;"))
+    (emitln "VAR_NAME (" t ") = make_closure (FN_NAME (" t "), NULL);")))
 
 (defmethod emit :defrecord*
   [{:keys [t fields pmasks]}]

@@ -21,6 +21,14 @@
 
 (deftest types
   (testing "deftype"
-    (is (= (run-expr '(deftype* Cons [first rest])) []))))
+    (is (= (run-expr '(deftype* Cons [first rest])) []))
+    (is (= (run-expr '(do
+			(deftype* Cons [first rest])
+			(def f (fn [c] (c* "DEFTYPE_GET_FIELD (~{}, 0)" c)))
+			(def r (fn [c] (c* "DEFTYPE_GET_FIELD (~{}, 1)" c)))
+			(let [c (Cons 1 2)]
+			  (print (f c))
+			  (print (r c)))))
+	   [1 2]))))
 
 ;;(run-tests *ns*)
