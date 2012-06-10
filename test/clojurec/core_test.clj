@@ -7,6 +7,7 @@
     (is (= (run-expr '(print (has-type? 1 Integer))) [true]))
     (is (= (run-expr '(def heusler (fn* ([x] x)))) []))
     (is (= (run-expr '(print (let [a 1 a a] a))) [1]))
-    (is (= (run-expr '(print (((fn* ([x] (fn* ([y] x)))) 1) 2))) [1]))))
+    (is (= (run-expr '(print (((fn* ([x] (fn* ([y] x)))) 1) 2))) [1]))
+    (is (= (run-expr '(do (print 1) (print 2))) [1 2]))))
 
 ;;(run-tests *ns*)
