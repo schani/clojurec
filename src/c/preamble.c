@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <string.h>
 #include <gc.h>
 
 #define assert_not_reached()	(assert (0))
