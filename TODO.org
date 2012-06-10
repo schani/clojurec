@@ -1,0 +1,2 @@
+* Compiler
+** TODO Use the namespaces atom for protocols, too
