@@ -12,6 +12,9 @@
 (defn inspect-ast [ast]
   (inspector/inspect-tree ast))
 
+(defn inspect-expr [expr]
+  (inspect-ast (analyze expr)))
+
 (defn compile-ast [ast]
   (let [main-code (with-out-str (cljc/emit ast))]
     (apply str
