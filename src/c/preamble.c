@@ -54,19 +54,27 @@ struct ptable {
 	ptable_entry_t *entries;
 };
 
+typedef struct {
+	value_t val;
+	closure_t **vtable;
+} vtable_value_t;
+
 #define FN_NAME(n)	FN_ ## n
 #define VAR_NAME(n)	VAR_ ## n
 #define PROTOCOL_NAME(n)	PROTOCOL_ ## n
 #define MEMBER_NAME(n)		MEMBER_ ## n
+#define PTABLE_NAME(n)		PTABLE_ ## n
+#define TYPE_NAME(n)		TYPE_ ## n
 
 #define PROTOCOL_cljc_DOT_core_DOT_IFn	1
+#define FIRST_PROTOCOL			2
 
 #define MEMBER_invoke	0
 
 #define TYPE_Closure	1
 #define TYPE_Integer	2
 #define TYPE_Boolean	3
-#define TYPE_Deftype	4
+#define FIRST_TYPE	4
 
 static closure_t*
 get_protocol (value_t *val, int protocol_num, int fn_index)
@@ -281,6 +289,14 @@ boolean_ptable (void)
 	return make_empty_ptable_once (TYPE_Boolean, &boolean_ptable);
 }
 
+static value_t*
+make_vtable_value (closure_t **vtable)
+{
+	vtable_value_t *val = (vtable_value_t*)alloc_value (NULL, sizeof (vtable_value_t));
+	val->vtable = vtable;
+	return &val->val;
+}
+
 static value_t *value_true = NULL;
 static value_t *value_false = NULL;
 
@@ -337,8 +353,6 @@ truth (value_t *v)
 	return true;
 }
 
-static ptable_t *empty_deftype_ptable = NULL;
-
 static value_t *VAR_NAME (cljc_DOT_user_DOT_print) = VALUE_NIL;
 
 static void
@@ -346,7 +360,6 @@ cljc_init (void)
 {
 	GC_INIT ();
 
-	make_empty_ptable_once (TYPE_Deftype, &empty_deftype_ptable);
 	VAR_NAME (cljc_DOT_user_DOT_print) = make_closure (cljc_user_print, NULL);
 	value_true = alloc_value (boolean_ptable (), sizeof (value_t));
 	value_false = alloc_value (boolean_ptable (), sizeof (value_t));

@@ -42,7 +42,9 @@
 (defonce namespaces (atom '{cljc.core {:name cljc.core}
                             cljc.user {:name cljc.user}}))
 (defonce num-protocols (atom 0))
-(defonce protocols (atom '{}))
+(defonce num-types (atom 0))
+(defonce protocols-init '{cljc.core {cljc.core/IFn {:name cljc_DOT_core_DOT_IFn, :methods ((-invoke [f & args]))}}})
+(defonce protocols (atom protocols-init))
 (defonce declarations (atom []))
 
 (defn reset-namespaces! []
@@ -50,7 +52,8 @@
     '{cljc.core {:name cljc.core}
       cljc.user {:name cljc.user}})
   (reset! num-protocols 0)
-  (reset! protocols '{})
+  (reset! num-types 0)
+  (reset! protocols protocols-init)
   (reset! declarations []))
 
 (def ^:dynamic *cljs-ns* 'cljc.user)
@@ -892,30 +895,34 @@
     (emitln "goog.require('" (munge lib) "');")))
 
 (defmethod emit :defprotocol*
-  [{:keys [p methods]}]
-  (emitln "/* protocol " p " */"))
+  [{:keys [p index methods]}]
+  (emit-declaration
+   (emitln "#define PROTOCOL_" (str p) " (FIRST_PROTOCOL + " index ")")
+   (doseq [[i method] (map-indexed #(vector %1 (clean-symbol (first %2))) methods)]
+     (emitln "#define MEMBER_" (str (str method) " " i)))))
 
 (defmethod emit :deftype*
-  [{:keys [t fields pmasks form]}]
+  [{:keys [t fields pmasks index form]}]
   (let [fields (map munge fields)
 	num-fields (count fields)]
     (assert (< num-fields 4) (str "types with >= 4 fields not supported yet in " form))
     (emit-declaration
-     (emitln "")
-     (emitln "/**")
-     (emitln "* @constructor")
-     (emitln "*/")
+     (emitln "#define TYPE_" (str t) " (FIRST_TYPE + " index ")")
+     (emitln "static ptable_t* PTABLE_NAME (" t ") = NULL;")
      (emits "static value_t* FN_NAME (" t ") (int nargs, environment_t *env")
      (when-not (zero? num-fields)
-       (emits ", " (comma-sep (map #(str "value_t *VAR_NAME (" % ")") fields))))
+       (emits ", " (comma-sep (concat (map #(str "value_t *VAR_NAME (" % ")") fields)
+				      (map #(str "value_t *dummy" %) (range (- 4 num-fields)))))))
      (emitln ") {")
-     (emitln "value_t *val = alloc_value (empty_deftype_ptable, sizeof (deftype_t) + sizeof (value_t*) * " num-fields ");")
+     (emitln "value_t *val = alloc_value (PTABLE_NAME (" t "), sizeof (deftype_t) + sizeof (value_t*) * " num-fields ");")
      (doseq [[i fld] (map-indexed vector fields)]
        (emitln "DEFTYPE_SET_FIELD (val, " i ", VAR_NAME (" fld "));"))
      (emitln "return val;")
      (emitln "}")
      (emitln "static value_t* VAR_NAME (" t ") = VALUE_NIL;"))
-    (emitln "VAR_NAME (" t ") = make_closure (FN_NAME (" t "), NULL);")))
+    (do
+      (emitln "PTABLE_NAME (" t ") = alloc_ptable (TYPE_NAME (" t "));")
+      (emitln "VAR_NAME (" t ") = make_closure (FN_NAME (" t "), NULL);"))))
 
 (defmethod emit :defrecord*
   [{:keys [t fields pmasks]}]
@@ -1414,7 +1421,8 @@
 
 (defmethod parse 'deftype*
   [_ env [_ tsym fields pmasks :as form] _]
-  (let [t (munge (:name (resolve-var (dissoc env :locals) tsym)))]
+  (let [t (munge (:name (resolve-var (dissoc env :locals) tsym)))
+	index (dec (swap! num-types inc))]
     (swap! namespaces update-in [(-> env :ns :name) :defs tsym]
            (fn [m]
              (let [m (assoc (or m {})
@@ -1425,7 +1433,7 @@
                      (assoc :file *cljs-file*)
                      (assoc :line line))
                  m))))
-    {:env env :op :deftype* :as form :t t :fields fields :pmasks pmasks}))
+    {:env env :op :deftype* :as form :t t :fields fields :pmasks pmasks :index index}))
 
 (defmethod parse 'defrecord*
   [_ env [_ tsym fields pmasks :as form] _]

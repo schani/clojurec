@@ -12,11 +12,9 @@
 
 (deftest protocols
   (testing "protocols"
-    (is (= (run-expr '(do
-			(defprotocol* cljc.core/IFn
-			  (-invoke [f & args]))
-			(let [x (fn [] 1)]
-			  (print (. x -invoke)))))
+    (is (= (run-expr '(defprotocol* foo (-bar [x y]))) []))
+    (is (= (run-expr '(let [x (fn [] 1)]
+			(print (. x -invoke))))
 	   [1]))))
 
 (deftest types
@@ -29,6 +27,23 @@
 			(let [c (Cons 1 2)]
 			  (print (f c))
 			  (print (r c)))))
+	   [1 2]))))
+
+(deftest types-protocols
+  (testing "types with protocols"
+    (is (= (run-expr '(do
+			(defprotocol* ISeq
+			  (-first [coll])
+			  (-rest [coll]))
+			(deftype* Cons [first rest])
+			(let [vtable (c* "make_vtable_value (alloc_vtable (2))")]
+			  (c* "set_vtable_entry (((vtable_value_t*)~{})->vtable, 0, (closure_t*)~{})" vtable (fn [c] (c* "DEFTYPE_GET_FIELD (~{}, 0)" c)))
+			  (c* "set_vtable_entry (((vtable_value_t*)~{})->vtable, 1, (closure_t*)~{})" vtable (fn [c] (c* "DEFTYPE_GET_FIELD (~{}, 1)" c)))
+			  (c* "extend_ptable (PTABLE_NAME (cljc_DOT_user_DOT_Cons), PROTOCOL_NAME (cljc_DOT_user_DOT_ISeq), ((vtable_value_t*)~{})->vtable)" vtable)
+			  nil)
+			(let [c (Cons 1 2)]
+			  (print (. c -first))
+			  (print (. c -rest)))))
 	   [1 2]))))
 
 ;;(run-tests *ns*)
