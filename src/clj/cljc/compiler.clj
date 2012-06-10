@@ -936,15 +936,28 @@
     (emitln "}")
     (emitln "})")))
 
-(defmethod emit :dot
-  [{:keys [target field method args env]}]
-  (emit-wrap env
-             (if field
-               (emits target "." field)
-               (emits target "." method "("
-                      (comma-sep args)
-                      ")"))))
+(defn lookup-protocol [method]
+  (some (fn [[ns protocols]]
+	  (some (fn [[p {:keys [name methods]}]]
+		  (when (some #(= method (clean-symbol %)) (map first methods))
+		    name))
+		protocols))
+	@protocols))
 
+(defmethod emit :dot
+  [{:keys [target field method args form env]}]
+  (let [method (or method field)
+	protocol (lookup-protocol method)
+	arity (count args)]
+    (assert protocol (str "No protocol found for method " method " in " form))
+    (assert (< arity 3) (str "arity >= 3 not yet supported in " form))
+    (emit-wrap env
+	       (emits "protcall" (if (< arity 3) arity "n") " (" target ", PROTOCOL_NAME (" (str protocol) "), MEMBER_NAME (" (str method) ")")
+	       (when (> arity 0)
+		 (when (>= arity 3)
+		   (emits ", " arity))
+		 (emits ", " (comma-sep args)))
+	       (emits ")"))))
 (defmethod emit :c
   [{:keys [env code segs args]}]
   (emit-wrap env
@@ -1378,7 +1391,8 @@
            (fn [protocols]
              (update-in protocols [(-> env :ns :name) psym]
                         (fn [m]
-                          {:methods methods
+                          {:name p
+			   :methods methods
                            :index (count protocols)}))))
     {:env env :op :defprotocol* :as form :p p :methods methods}))
 
