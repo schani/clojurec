@@ -643,7 +643,7 @@
 (defmethod emit :fn
   [{:keys [name env methods variadic]}]
   (when-not (= :statement (:context env))
-    (let [name (or name (gensym))
+    (let [name (gensym)
           return (= :return (:context env))]
       (when return
         (emits "return "))
