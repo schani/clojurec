@@ -283,6 +283,14 @@ make_integer (long x)
 	return &integer->val;
 }
 
+static long
+integer_get (value_t *v)
+{
+	integer_t *i = (integer_t*)v;
+	assert (v->ptable->type == TYPE_Integer);
+	return i->x;
+}
+
 static ptable_t*
 boolean_ptable (void)
 {

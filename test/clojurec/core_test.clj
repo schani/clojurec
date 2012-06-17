@@ -47,4 +47,11 @@
 		     (cljc.core/print (. c -rest)))))
 	   [1 2]))))
 
+(deftest numbers
+  (testing "simple numbers"
+    (is (= (run '(cljc.core/print (+ 1 2))) [3]))
+    (is (= (run '(cljc.core/print (< 1 2))) [true]))
+    (is (= (run '(cljc.core/print (< 1 1))) [false]))
+    (is (= (run '(cljc.core/print (< 2 1))) [false]))))
+
 ;;(run-tests *ns*)

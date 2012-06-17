@@ -112,3 +112,14 @@
       `(do
          (deftype* ~t ~fields ~pmasks)
          ~t))))
+
+(defmacro +
+  ([] 0)
+  ([x] x)
+  ([x y] (list 'c* "make_integer ((integer_get (~{}) + integer_get (~{})))" x y))
+  ([x y & more] `(+ (+ ~x ~y) ~@more)))
+
+(defmacro <
+  ([x] true)
+  ([x y] (bool-expr (list 'c* "make_boolean (integer_get (~{}) < integer_get (~{}))" x y)))
+  ([x y & more] `(and (< ~x ~y) (< ~y ~@more))))
