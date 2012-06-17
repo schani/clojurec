@@ -54,4 +54,13 @@
     (is (= (run '(cljc.core/print (< 1 1))) [false]))
     (is (= (run '(cljc.core/print (< 2 1))) [false]))))
 
+(deftest loops
+  (testing "simple loops"
+    (is (= (run '(loop [i 2
+			x 1]
+		   (if (< i 11)
+		     (recur (+ i 1) (* x i))
+		     (cljc.core/print x))))
+	   [3628800]))))
+
 ;;(run-tests *ns*)

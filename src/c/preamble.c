@@ -194,12 +194,19 @@ env_set (environment_t *env, int index, value_t *val)
 	env->bindings [index] = val;
 }
 
-static value_t*
-env_fetch (environment_t *env, int num_ups, int index)
+static environment_t*
+env_up (environment_t *env, int num_ups)
 {
 	int i;
 	for (i = 0; i < num_ups; ++i)
 		env = env->up;
+	return env;
+}
+
+static value_t*
+env_fetch (environment_t *env, int num_ups, int index)
+{
+	env = env_up (env, num_ups);
 	assert (index < env->num_bindings);
 	return env->bindings [index];
 }

@@ -370,18 +370,21 @@
 (defn local-bound? [env name]
   (contains? (into #{} (map #(:name (val %)) (:locals env))) name))
 
+(defn env-stack-lookup [name]
+  (some-indexed (fn [up level]
+		  (some-indexed (fn [i n]
+				  (if (= name n)
+				    [up i]
+				    false))
+				level))
+		*env-stack*))
+
 (defmethod emit :var
   [{:keys [info env] :as arg}]
   (let [name (:name info)]
     (emit-wrap env
                (if (local-bound? env name)
-                 (let [[num-ups index] (some-indexed (fn [up level]
-                                                       (some-indexed (fn [i n]
-                                                                       (if (= name n)
-                                                                         [up i]
-                                                                         false))
-                                                                     level))
-                                                     *env-stack*)]
+                 (let [[num-ups index] (env-stack-lookup name)]
                    (assert (and num-ups index))
                    (emits "env_fetch (env, " num-ups ", " index ")"))
                  (emits "VAR_NAME (" (:name info) ")")))))
@@ -778,12 +781,22 @@
 	(emit-declaration
 	 (emitln "value_t* " fn-name " (environment_t *env) {")
 	 (with-new-env bindings
-	   (emit-block :return statements ret))
+	   (when loop
+	     (emitln "for (;;) {"))
+	   (emit-block :return statements ret)
+	   (when loop
+	     (emitln "break;")
+	     (emitln "}")))
 	 (emitln "}")))
       (do
 	(emitln "{")
 	(with-new-env bindings
-	  (emit-block context statements ret))
+	  (when loop
+	    (emitln "for (;;) {"))
+	  (emit-block context statements ret)
+	  (when loop
+	    (emitln "break;")
+	    (emitln "}")))
 	(emitln "}")))))
 
 (defmethod emit :recur
@@ -792,9 +805,10 @@
         names (:names frame)]
     (emitln "{")
     (dotimes [i (count exprs)]
-      (emitln "var " (temps i) " = " (exprs i) ";"))
+      (emitln "value_t *" (temps i) " = " (exprs i) ";"))
     (dotimes [i (count exprs)]
-      (emitln (names i) " = " (temps i) ";"))
+      (let [[num-ups index] (env-stack-lookup (names i))]
+	(emitln "env_set (env_up (env, " num-ups "), " index ", " (temps i) ");")))
     (emitln "continue;")
     (emitln "}")))
 
