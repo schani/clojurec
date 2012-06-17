@@ -34,19 +34,17 @@
 
 (deftest types-protocols
   (testing "types with protocols"
-    (is (= (run-expr '(do
-			(defprotocol* ISeq
-			  (-first [coll])
-			  (-rest [coll]))
-			(deftype* Cons [first rest])
-			(let [vtable (c* "make_vtable_value (alloc_vtable (2))")]
-			  (c* "set_vtable_entry (((vtable_value_t*)~{})->vtable, 0, (closure_t*)~{})" vtable (fn [c] (c* "DEFTYPE_GET_FIELD (~{}, 0)" c)))
-			  (c* "set_vtable_entry (((vtable_value_t*)~{})->vtable, 1, (closure_t*)~{})" vtable (fn [c] (c* "DEFTYPE_GET_FIELD (~{}, 1)" c)))
-			  (c* "extend_ptable (PTABLE_NAME (cljc_DOT_user_DOT_Cons), PROTOCOL_NAME (cljc_DOT_user_DOT_ISeq), ((vtable_value_t*)~{})->vtable)" vtable)
-			  nil)
-			(let [c (Cons 1 2)]
-			  (print (. c -first))
-			  (print (. c -rest)))))
+    (is (= (run '(do
+		   (defprotocol* ISeq
+		     (-first [coll])
+		     (-rest [coll]))
+		   (deftype Cons [first rest]
+		     ISeq
+		     (-first [coll] first)
+		     (-rest [coll] rest))
+		   (let [c (Cons 1 2)]
+		     (cljc.core/print (. c -first))
+		     (cljc.core/print (. c -rest)))))
 	   [1 2]))))
 
 ;;(run-tests *ns*)

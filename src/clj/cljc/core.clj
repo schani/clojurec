@@ -48,3 +48,67 @@
 		(if (nil? x#)
 		  ~'false
 		  (~'c* ~(core/str "(make_boolean (~{}->ptable->type == TYPE_" (core/str t) "))") x#)))))
+
+(defmacro extend-type [tsym & impls]
+  (let [resolve #(let [ret (cljc.compiler/resolve-existing-var (dissoc &env :locals) %)]
+                   (assert (:name ret) (core/str "Can't resolve: " %))
+                   [(:name ret) (:fields ret)])
+        impl-map (loop [ret {} s impls]
+                   (if (seq s)
+                     (recur (assoc ret (first s) (take-while seq? (next s)))
+                            (drop-while seq? (next s)))
+                     ret))
+        warn-if-not-protocol #(when-not (= 'Object %)
+                                (if cljc.compiler/*cljs-warn-on-undeclared*
+                                  (if-let [var (cljc.compiler/resolve-existing-var (dissoc &env :locals) %)]
+                                    (when-not (:protocol-symbol var)
+                                      (cljc.compiler/warning &env
+                                        (core/str "WARNING: Symbol " % " is not a protocol")))
+                                    (cljc.compiler/warning &env
+							   (core/str "WARNING: Can't resolve protocol symbol " %)))))
+	[t fields] (resolve tsym)
+	assign-impls (fn [[p sigs]]
+		       (let [[psym _] (resolve p)
+			     vtable (gensym "vtable")]
+			 `(let [~vtable (~'c* ~(core/str "make_vtable_value (alloc_vtable (PROTOCOL_VTABLE_SIZE (" psym ")))"))]
+			    ~@(map (fn [[name [args & body]]]
+				     `(~'c* ~(core/str "set_vtable_entry (((vtable_value_t*)~{})->vtable, MEMBER_NAME (" (cljc.compiler/munge name) "), (closure_t*)~{})")
+					  ~vtable
+					  (fn ~name ~args
+					    (let ~(apply vector
+							 (apply concat
+								(map-indexed (fn [i field]
+									       `[~field (~'c* ~(core/str "DEFTYPE_GET_FIELD (~{}, " i ")") ~(first args))])
+									     fields)))
+					      ~@body))))
+				   sigs)
+			    (~'c* ~(core/str "extend_ptable (PTABLE_NAME (" t "), PROTOCOL_NAME (" psym "), ((vtable_value_t*)~{})->vtable)") ~vtable))))]
+    (concat '(do) (map assign-impls impl-map))))
+
+(defmacro deftype [t fields & impls]
+  (let [adorn-params (fn [sig]
+                       (cons (vary-meta (second sig) assoc :cljc.compiler/fields fields)
+                             (nnext sig)))
+        ;;reshape for extend-type
+        dt->et (fn [specs]
+                 (loop [ret [] s specs]
+                   (if (seq s)
+                     (recur (-> ret
+                                (conj (first s))
+                                (into
+                                 (reduce (fn [v [f sigs]]
+                                           (conj v (cons f (map adorn-params sigs))))
+                                         []
+                                         (group-by first (take-while seq? (next s))))))
+                            (drop-while seq? (next s)))
+                     ret)))
+        r (:name (cljc.compiler/resolve-var (dissoc &env :locals) t))
+        [fpps pmasks] nil]
+    (if (seq impls)
+      `(do
+         (deftype* ~t ~fields ~pmasks)
+         (extend-type ~(with-meta t {:skip-protocol-flag fpps}) ~@(dt->et impls))
+         ~t)
+      `(do
+         (deftype* ~t ~fields ~pmasks)
+         ~t))))

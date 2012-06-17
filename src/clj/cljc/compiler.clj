@@ -903,8 +903,9 @@
   [{:keys [p index methods]}]
   (emit-declaration
    (emitln "#define PROTOCOL_" (str p) " (FIRST_PROTOCOL + " index ")")
-   (doseq [[i method] (map-indexed #(vector %1 (clean-symbol (first %2))) methods)]
-     (emitln "#define MEMBER_" (str (str method) " " i)))))
+   (emitln "#define PROTOCOL_VTABLE_SIZE_" (str p) " " (count methods))
+   (doseq [[i method] (map-indexed #(vector %1 (first %2)) methods)]
+     (emitln "#define MEMBER_" (str (munge method) " " i)))))
 
 (defmethod emit :deftype*
   [{:keys [t fields pmasks index form]}]
@@ -961,7 +962,7 @@
 (defn lookup-protocol [method]
   (some (fn [[ns protocols]]
 	  (some (fn [[p {:keys [name methods]}]]
-		  (when (some #(= method (clean-symbol %)) (map first methods))
+		  (when (some #(= method (munge %)) (map first methods))
 		    name))
 		protocols))
 	@protocols))
@@ -974,12 +975,13 @@
     (assert protocol (str "No protocol found for method " method " in " form))
     (assert (< arity 3) (str "arity >= 3 not yet supported in " form))
     (emit-wrap env
-	       (emits "protcall" (if (< arity 3) arity "n") " (" target ", PROTOCOL_NAME (" (str protocol) "), MEMBER_NAME (" (str method) ")")
+	       (emits "protcall" (if (< arity 3) arity "n") " (" target ", PROTOCOL_NAME (" (str protocol) "), MEMBER_NAME (" (str (munge method)) ")")
 	       (when (> arity 0)
 		 (when (>= arity 3)
 		   (emits ", " arity))
 		 (emits ", " (comma-sep args)))
 	       (emits ")"))))
+
 (defmethod emit :c
   [{:keys [env code segs args]}]
   (emit-wrap env
@@ -1432,6 +1434,7 @@
            (fn [m]
              (let [m (assoc (or m {})
                        :name t
+		       :fields fields
                        :num-fields (count fields))]
                (if-let [line (:line env)]
                  (-> m
@@ -1486,7 +1489,7 @@
 ;; (. (...) -p)
 (defmethod build-dot-form [::expr ::property ()]
   [[target prop _]]
-  {:dot-action ::access :target target :field (clean-symbol prop)})
+  {:dot-action ::access :target target :field (munge prop)})
 
 ;; (. o -p <args>)
 (defmethod build-dot-form [::expr ::property ::list]

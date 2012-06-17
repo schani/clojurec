@@ -65,6 +65,7 @@ typedef struct {
 #define MEMBER_NAME(n)		MEMBER_ ## n
 #define PTABLE_NAME(n)		PTABLE_ ## n
 #define TYPE_NAME(n)		TYPE_ ## n
+#define PROTOCOL_VTABLE_SIZE(n)	PROTOCOL_VTABLE_SIZE_ ## n
 
 #define PROTOCOL_cljc_DOT_core_DOT_IFn	1
 #define FIRST_PROTOCOL			2
