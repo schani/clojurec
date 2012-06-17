@@ -7,17 +7,17 @@
 
 (deftest basic
   (testing "very basic stuff"
-    (is (= (run '(print (has-type? 1 Integer))) [true]))
+    (is (= (run '(cljc.core/print (has-type? 1 Integer))) [true]))
     (is (= (run '(def heusler (fn* ([x] x)))) []))
-    (is (= (run '(print (let [a 1 a a] a))) [1]))
-    (is (= (run '(print (((fn* ([x] (fn* ([y] x)))) 1) 2))) [1]))
-    (is (= (run '(do (print 1) (print 2))) [1 2]))))
+    (is (= (run '(cljc.core/print (let [a 1 a a] a))) [1]))
+    (is (= (run '(cljc.core/print (((fn* ([x] (fn* ([y] x)))) 1) 2))) [1]))
+    (is (= (run '(do (cljc.core/print 1) (cljc.core/print 2))) [1 2]))))
 
 (deftest protocols
   (testing "protocols"
     (is (= (run '(defprotocol* foo (-bar [x y]))) []))
     (is (= (run '(let [x (fn [] 1)]
-			(print (. x -invoke))))
+			(cljc.core/print (. x -invoke))))
 	   [1]))))
 
 (deftest types
@@ -28,8 +28,8 @@
 		   (def f (fn [c] (c* "DEFTYPE_GET_FIELD (~{}, 0)" c)))
 		   (def r (fn [c] (c* "DEFTYPE_GET_FIELD (~{}, 1)" c)))
 		   (let [c (Cons 1 2)]
-		     (print (f c))
-		     (print (r c)))))
+		     (cljc.core/print (f c))
+		     (cljc.core/print (r c)))))
 	   [1 2]))))
 
 (deftest types-protocols

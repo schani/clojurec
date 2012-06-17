@@ -309,7 +309,7 @@ make_boolean (bool x)
 }
 
 static value_t*
-cljc_user_print (int nargs, environment_t *env, value_t *arg1, value_t *arg2, value_t *arg3, value_t *argrest)
+cljc_core_print (int nargs, environment_t *env, value_t *arg1, value_t *arg2, value_t *arg3, value_t *argrest)
 {
 	assert (nargs == 1);
 
@@ -353,14 +353,14 @@ truth (value_t *v)
 	return true;
 }
 
-static value_t *VAR_NAME (cljc_DOT_user_DOT_print) = VALUE_NIL;
+static value_t *VAR_NAME (cljc_DOT_core_SLASH_print) = VALUE_NIL;
 
 static void
 cljc_init (void)
 {
 	GC_INIT ();
 
-	VAR_NAME (cljc_DOT_user_DOT_print) = make_closure (cljc_user_print, NULL);
+	VAR_NAME (cljc_DOT_core_SLASH_print) = make_closure (cljc_core_print, NULL);
 	value_true = alloc_value (boolean_ptable (), sizeof (value_t));
 	value_false = alloc_value (boolean_ptable (), sizeof (value_t));
 }

@@ -123,11 +123,12 @@
        (namespace sym)
        (let [ns (namespace sym)
              ns (if (= "clojure.core" ns) "cljc.core" ns)
-             full-ns (resolve-ns-alias env ns)]
+             full-ns (resolve-ns-alias env ns)
+	     full-sym (symbol (str full-ns) (str (name sym)))]
          (confirm-var-exists env full-ns (symbol (name sym)))
          (merge (get-in @namespaces [full-ns :defs (symbol (name sym))])
-           {:name (symbol (str full-ns "." (munge (name sym))))
-            :name-sym (symbol (str full-ns) (str (name sym)))
+           {:name (munge full-sym)
+            :name-sym full-sym
             :ns full-ns}))
 
        (.contains s ".")
@@ -141,26 +142,28 @@
            (do
              (confirm-var-exists env prefix (symbol suffix))
              (merge (get-in @namespaces [prefix :defs (symbol suffix)])
-              {:name (munge sym)
+              {:name (munge (symbol (str prefix) suffix))
                :name-sym (symbol (str prefix) suffix)
                :ns prefix}))))
 
        (get-in @namespaces [(-> env :ns :name) :uses sym])
-       (let [full-ns (get-in @namespaces [(-> env :ns :name) :uses sym])]
+       (let [full-ns (get-in @namespaces [(-> env :ns :name) :uses sym])
+	     full-sym (symbol (str full-ns) (str sym))]
          (merge
           (get-in @namespaces [full-ns :defs sym])
-          {:name (symbol (str full-ns "." (munge (name sym))))
-           :name-sym (symbol (str full-ns) (str sym))
+          {:name (munge full-sym)
+           :name-sym full-sym
            :ns (-> env :ns :name)}))
 
        :else
        (let [full-ns (if (core-name? env sym)
                        'cljc.core
-                       (-> env :ns :name))]
+                       (-> env :ns :name))
+	     full-sym (symbol (str full-ns) (str sym))]
          (confirm-var-exists env full-ns sym)
          (merge (get-in @namespaces [full-ns :defs sym])
-           {:name (munge (symbol (str full-ns "." (munge (name sym)))))
-            :name-sym (symbol (str full-ns) (str sym))
+           {:name (munge full-sym)
+            :name-sym full-sym
             :ns full-ns}))))))
 
 (defn resolve-var [env sym]
@@ -174,7 +177,7 @@
        (namespace sym)
        (let [ns (namespace sym)
              ns (if (= "clojure.core" ns) "cljc.core" ns)]
-         {:name (symbol (str (resolve-ns-alias env ns) "." (munge (name sym))))})
+         {:name (munge (symbol (str (resolve-ns-alias env ns)) (name sym)))})
 
        (.contains s ".")
        (let [idx (.indexOf s ".")
@@ -189,13 +192,13 @@
        (let [full-ns (get-in @namespaces [(-> env :ns :name) :uses sym])]
          (merge
           (get-in @namespaces [full-ns :defs sym])
-          {:name (symbol (str full-ns "." (munge (name sym))))}))
+          {:name (munge (symbol (str full-ns) (name sym)))}))
 
        :else
        (let [s (str (if (core-name? env sym)
                       'cljc.core
                       (-> env :ns :name))
-                    "." (munge (name sym)))]
+                    "/" (munge (name sym)))]
          {:name (munge (symbol s))})))))
 
 (defn confirm-bindings [env names]
