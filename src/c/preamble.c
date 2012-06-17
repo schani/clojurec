@@ -70,7 +70,7 @@ typedef struct {
 #define PROTOCOL_cljc_DOT_core_DOT_IFn	1
 #define FIRST_PROTOCOL			2
 
-#define MEMBER_invoke	0
+#define MEMBER__invoke	0
 
 #define TYPE_Closure	1
 #define TYPE_Integer	2
@@ -122,25 +122,25 @@ protcalln (value_t *target, int protocol_num, int fn_index, int nargs, value_t *
 static value_t*
 invoke0 (value_t *f)
 {
-	return FUNCALL1 (get_protocol (f, PROTOCOL_cljc_DOT_core_DOT_IFn, MEMBER_invoke), f);
+	return FUNCALL1 (get_protocol (f, PROTOCOL_cljc_DOT_core_DOT_IFn, MEMBER__invoke), f);
 }
 
 static value_t*
 invoke1 (value_t *f, value_t *a1)
 {
-	return FUNCALL2 (get_protocol (f, PROTOCOL_cljc_DOT_core_DOT_IFn, MEMBER_invoke), f, a1);
+	return FUNCALL2 (get_protocol (f, PROTOCOL_cljc_DOT_core_DOT_IFn, MEMBER__invoke), f, a1);
 }
 
 static value_t*
 invoke2 (value_t *f, value_t *a1, value_t *a2)
 {
-	return FUNCALL3 (get_protocol (f, PROTOCOL_cljc_DOT_core_DOT_IFn, MEMBER_invoke), f, a1, a2);
+	return FUNCALL3 (get_protocol (f, PROTOCOL_cljc_DOT_core_DOT_IFn, MEMBER__invoke), f, a1, a2);
 }
 
 static value_t*
 invoken (value_t *f, int nargs, value_t *a1, value_t *a2, value_t *ar)
 {
-	return FUNCALLn (get_protocol (f, PROTOCOL_cljc_DOT_core_DOT_IFn, MEMBER_invoke), nargs + 1, f, a1, a2, ar);
+	return FUNCALLn (get_protocol (f, PROTOCOL_cljc_DOT_core_DOT_IFn, MEMBER__invoke), nargs + 1, f, a1, a2, ar);
 }
 
 static ptable_t*
@@ -237,7 +237,7 @@ closure_ptable (void)
 		invoke->env = NULL;
 
 		closure_t **vtable = alloc_vtable (1);
-		set_vtable_entry (vtable, MEMBER_invoke, invoke);
+		set_vtable_entry (vtable, MEMBER__invoke, invoke);
 
 		ptable_t *ptable = alloc_ptable (TYPE_Closure);
 		extend_ptable (ptable, PROTOCOL_cljc_DOT_core_DOT_IFn, vtable);
