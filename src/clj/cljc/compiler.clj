@@ -39,8 +39,7 @@
 
 (def cljs-reserved-file-names #{"deps.cljs"})
 
-(defonce namespaces (atom '{cljc.core {:name cljc.core}
-                            cljc.user {:name cljc.user}}))
+(defonce namespaces (atom '{}))
 (defonce num-protocols (atom 0))
 (defonce num-types (atom 0))
 (defonce protocols-init '{cljc.core {cljc.core/IFn {:name cljc_DOT_core_DOT_IFn, :methods ((-invoke [f & args]))}}})
@@ -48,9 +47,7 @@
 (defonce declarations (atom []))
 
 (defn reset-namespaces! []
-  (reset! namespaces
-    '{cljc.core {:name cljc.core}
-      cljc.user {:name cljc.user}})
+  (reset! namespaces {})
   (reset! num-protocols 0)
   (reset! num-types 0)
   (reset! protocols protocols-init)
