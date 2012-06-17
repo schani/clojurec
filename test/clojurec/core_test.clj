@@ -16,6 +16,7 @@
 (deftest protocols
   (testing "protocols"
     (is (= (run '(defprotocol* foo (-bar [x y]))) []))
+    (is (= (run '(defprotocol foo (-bar [x y]))) []))
     (is (= (run '(let [x (fn [] 1)]
 			(cljc.core/print (. x -invoke))))
 	   [1]))))
@@ -35,7 +36,7 @@
 (deftest types-protocols
   (testing "types with protocols"
     (is (= (run '(do
-		   (defprotocol* ISeq
+		   (defprotocol ISeq
 		     (-first [coll])
 		     (-rest [coll]))
 		   (deftype Cons [first rest]
