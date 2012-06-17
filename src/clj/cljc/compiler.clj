@@ -468,8 +468,6 @@
             (not (or (and (string? form) (= form ""))
                      (and (number? form) (zero? form)))))))))
 
-(declare clean-symbol)
-
 (defmethod emit :if
   [{:keys [test then else env]}]
   (let [context (:context env)]
@@ -1472,43 +1470,22 @@
 
 ;; dot accessor code
 
-(def ^:private property-symbol? #(boolean (and (symbol? %) (re-matches #"^-.*" (name %)))))
-
 (defn- munge-not-reserved [meth]
   (if-not (js-reserved (str meth))
     (munge meth)
     meth))
 
-(defn- clean-symbol
-  [sym]
-  (symbol
-   (if (property-symbol? sym)
-     (-> sym name (.substring 1) munge-not-reserved)
-     (-> sym name munge-not-reserved))))
-
 (defn- classify-dot-form
   [[target member args]]
   [(cond (nil? target) ::error
          :default      ::expr)
-   (cond (property-symbol? member) ::property
-         (symbol? member)          ::symbol
+   (cond (symbol? member)          ::symbol
          (seq? member)             ::list
          :default                  ::error)
    (cond (nil? args) ()
          :default    ::expr)])
 
 (defmulti build-dot-form #(classify-dot-form %))
-
-;; (. o -p)
-;; (. (...) -p)
-(defmethod build-dot-form [::expr ::property ()]
-  [[target prop _]]
-  {:dot-action ::access :target target :field (munge prop)})
-
-;; (. o -p <args>)
-(defmethod build-dot-form [::expr ::property ::list]
-  [[target prop args]]
-  (throw (Error. (str "Cannot provide arguments " args " on property access " prop))))
 
 (defn- build-method-call
   "Builds the intermediate method call map used to reason about the parsed form during
