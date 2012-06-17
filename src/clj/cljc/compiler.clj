@@ -462,6 +462,8 @@
             (not (or (and (string? form) (= form ""))
                      (and (number? form) (zero? form)))))))))
 
+(declare clean-symbol)
+
 (defmethod emit :if
   [{:keys [test then else env]}]
   (let [context (:context env)]
