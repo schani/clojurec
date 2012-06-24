@@ -554,23 +554,52 @@
         (emitln "return " delegate-name "(" (string/join ", " params) ");")))
     (emits "})")))
 
-(defn emit-in-new-env [bindings val-inits rest-val-init emitter]
+(defn emit-in-new-env [bindings variadic val-inits rest-val-init emitter]
   (if (seq bindings)
-    (let [num-vals (count bindings)]
+    (let [num-vals (count bindings)
+	  num-direct-vals (if variadic
+			    (dec num-vals)
+			    num-vals)]
       (binding [*env-stack* (cons bindings *env-stack*)]
 	(emitln "environment_t *new_env = alloc_env (env, " num-vals ");")
 	(emitln "{")
-	(when (> num-vals (count val-inits))
+	(when rest-val-init
 	  (emitln "value_t *rest = " rest-val-init ";"))
 	(emitln "environment_t *env = new_env;")
-	(loop [index 0
+	(loop [indexes (range num-direct-vals)
 	       val-inits val-inits]
-	  (when (seq val-inits)
-	    (emitln "env_set (new_env, " index ", " (first val-inits) ");")
-	    (recur (inc index) (rest val-inits))))
-	(doseq [index (range (count val-inits) num-vals)]
-	  (emitln "env_set (new_env, " index ", ARG_FIRST (rest));")
-	  (emitln "rest = ARG_REST (rest);"))
+	  (when (seq indexes)
+	    (let [index (first indexes)]
+	      (if (seq val-inits)
+		(do
+		  (emitln "env_set (new_env, " index ", " (first val-inits) ");")
+		  (recur (rest indexes) (rest val-inits)))
+		(do
+		  (emitln "env_set (new_env, " index ", ARG_FIRST (rest));")
+		  (emitln "rest = ARG_REST (rest);")
+		  (recur (rest indexes) nil))))))
+	(when variadic
+	  (letfn [(emit-cons-inits [inits tail]
+				   (if (seq inits)
+				     (do
+				       (emits "ARG_CONS (" (first inits) ", ")
+				       (emit-cons-inits (rest inits) tail)
+				       (emits ")"))
+				     (emits tail)))]
+	    (assert rest-val-init)
+	    (emitln "switch (nargs) {")
+	    (loop [val-inits (drop num-direct-vals val-inits)]
+	      (emitln "case " (+ num-direct-vals (count val-inits)) ":")
+	      (emits "env_set (new_env, " num-direct-vals ", ")
+	      (emit-cons-inits val-inits "ARG_NIL")
+	      (emitln "); break;")
+	      (when (seq val-inits)
+		(recur (drop-last val-inits))))
+	    (emitln "default:")
+	    (emitln "env_set (new_env, " num-direct-vals ", ")
+	    (emit-cons-inits (drop num-direct-vals val-inits) "rest")
+	    (emitln "); break;")
+	    (emitln "}")))
 	(emitter)
 	(emitln "}")))
     (emitter)))
@@ -578,16 +607,18 @@
 (defmacro with-new-env [bindings & body]
   `(let [bindings# ~bindings]
      (emit-in-new-env (map :name bindings#)
+		      false
 		      (map :init bindings#)
 		      nil
 		      (fn []
 			~@body))))
 
 (defn emit-fn-method
-  [{:keys [params statements ret recurs]}]
+  [{:keys [params statements ret recurs]} variadic]
   (emit-in-new-env params
-		   (map-indexed (fn [i p] (str "arg" i)) (take 3 params))
-		   (if (> (count params) 3)
+		   variadic
+		   (map #(str "arg" %) (range 3))
+		   (if (or variadic (> (count params) 3))
 		     "argrest")
 		   (fn []
 		     (when recurs
@@ -660,12 +691,10 @@
         (emitln ";"))
       (emit-declaration
        (if (= 1 (count methods))
-         (if variadic
-           (assert false "variadic not yet supported")
-           (do
-             (emitln "static value_t* FN_NAME (" name ") (int nargs, environment_t *env, value_t *arg0, value_t *arg1, value_t *arg2, value_t *argrest) {")
-             (emit-fn-method (first methods))
-             (emitln "}")))
+	 (do
+	   (emitln "static value_t* FN_NAME (" name ") (int nargs, environment_t *env, value_t *arg0, value_t *arg1, value_t *arg2, value_t *argrest) {")
+	   (emit-fn-method (first methods) variadic)
+	   (emitln "}"))
          (assert false "multi-method fns not yet supported"))))))
 
 (comment

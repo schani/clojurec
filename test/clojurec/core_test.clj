@@ -76,15 +76,13 @@
 	   [1 2]))
     (is (= (core-run '(loop [l (cljc.core/Cons 1 (cljc.core/Cons 2 nil))]
 			(when (cljc.core/seq l)
-			  (do
-			    (cljc.core/print (cljc.core/first l))
-			    (recur (cljc.core/rest l))))))
+			  (cljc.core/print (cljc.core/first l))
+			  (recur (cljc.core/rest l)))))
 	   [1 2]))
     (is (= (core-run '(loop [l '(1 2 3)]
 			(when (cljc.core/seq l)
-			  (do
-			    (cljc.core/print (cljc.core/first l))
-			    (recur (cljc.core/rest l))))))
+			  (cljc.core/print (cljc.core/first l))
+			  (recur (cljc.core/rest l)))))
 	   [1 2 3]))))
 
 (deftest functions
@@ -97,6 +95,64 @@
 			  (cljc.core/print d)
 			  (cljc.core/print e))
 			(printer 1 2 3 4 5)))
-	   [1 2 3 4 5]))))
+	   [1 2 3 4 5]))
+    (is (= (core-run '(do
+			(defn print-list [l]
+			  (loop [l l]
+			    (when (cljc.core/seq l)
+			      (cljc.core/print (cljc.core/first l))
+			      (recur (cljc.core/rest l)))))
+			(defn printer0 [& r]
+			  (cljc.core/print 0)
+			  (print-list r))
+			(defn printer1 [a & r]
+			  (cljc.core/print a)
+			  (cljc.core/print 0)
+			  (print-list r))
+			(defn printer2 [a b & r]
+			  (cljc.core/print a)
+			  (cljc.core/print b)
+			  (cljc.core/print 0)
+			  (print-list r))
+			(defn printer3 [a b c & r]
+			  (cljc.core/print a)
+			  (cljc.core/print b)
+			  (cljc.core/print c)
+			  (cljc.core/print 0)
+			  (print-list r))
+			(defn printer4 [a b c d & r]
+			  (cljc.core/print a)
+			  (cljc.core/print b)
+			  (cljc.core/print c)
+			  (cljc.core/print d)
+			  (cljc.core/print 0)
+			  (print-list r))
+			(defn printer5 [a b c d e & r]
+			  (cljc.core/print a)
+			  (cljc.core/print b)
+			  (cljc.core/print c)
+			  (cljc.core/print d)
+			  (cljc.core/print e)
+			  (cljc.core/print 0)
+			  (print-list r))
+			(defn p0 [p] (p) (cljc.core/print -1))
+			(defn p1 [p] (p 1) (cljc.core/print -1))
+			(defn p2 [p] (p 1 2) (cljc.core/print -1))
+			(defn p3 [p] (p 1 2 3) (cljc.core/print -1))
+			(defn p4 [p] (p 1 2 3 4) (cljc.core/print -1))
+			(defn p5 [p] (p 1 2 3 4 5) (cljc.core/print -1))
+			(defn p6 [p] (p 1 2 3 4 5 6) (cljc.core/print -1))
+			(p0 printer0) (p1 printer0) (p2 printer0) (p3 printer0) (p4 printer0) (p5 printer0) (p6 printer0)
+			(p1 printer1) (p2 printer1) (p3 printer1) (p4 printer1) (p5 printer1) (p6 printer1)
+			(p2 printer2) (p3 printer2) (p4 printer2) (p5 printer2) (p6 printer2)
+			(p3 printer3) (p4 printer3) (p5 printer3) (p6 printer3)
+			(p4 printer4) (p5 printer4) (p6 printer4)
+			(p5 printer5) (p6 printer5)))
+	   [0 -1 0 1 -1 0 1 2 -1 0 1 2 3 -1 0 1 2 3 4 -1 0 1 2 3 4 5 -1 0 1 2 3 4 5 6 -1
+	    1 0 -1 1 0 2 -1 1 0 2 3 -1 1 0 2 3 4 -1 1 0 2 3 4 5 -1 1 0 2 3 4 5 6 -1
+	    1 2 0 -1 1 2 0 3 -1 1 2 0 3 4 -1 1 2 0 3 4 5 -1 1 2 0 3 4 5 6 -1
+	    1 2 3 0 -1 1 2 3 0 4 -1 1 2 3 0 4 5 -1 1 2 3 0 4 5 6 -1
+	    1 2 3 4 0 -1 1 2 3 4 0 5 -1 1 2 3 4 0 5 6 -1
+	    1 2 3 4 5 0 -1 1 2 3 4 5 0 6 -1]))))
 
 ;;(run-tests *ns*)
