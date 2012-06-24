@@ -21,6 +21,9 @@
   (-first [coll])
   (-rest [coll]))
 
+(defprotocol INext
+  (-next [coll]))
+
 (defprotocol ISeqable
   (-seq [o]))
 
@@ -30,13 +33,19 @@
   (-first [coll] first)
   (-rest [coll] (if (nil? rest) () rest))
 
+  INext
+  (-next [coll] (if (nil? rest) nil (-seq rest)))
+
   ISeqable
   (-seq [coll] coll))
 
 (deftype EmptyList []
   ISeq
   (-first [coll] nil)
-  (-rest [coll] nil)
+  (-rest [coll] ())
+
+  INext
+  (-next [coll] nil)
 
   ISeqable
   (-seq [coll] nil))
@@ -77,6 +86,15 @@
           ())))
     ()))
 
+(defn ^seq next
+  "Returns a seq of the items after the first. Calls seq on its
+  argument.  If there are no more items, returns nil"
+  [coll]
+  (when-not (nil? coll)
+    (if (satisfies? INext coll)
+      (-next coll)
+      (seq (rest coll)))))
+
 (defn inc
   "Returns a number one greater than num."
   [x] (cljc.core/+ x 1))
@@ -84,3 +102,13 @@
 (defn dec
   "Returns a number one less than num."
   [x] (- x 1))
+
+(defn count
+  "Returns the number of items in the collection. (count nil) returns
+  0.  Also works on strings, arrays, and Maps"
+  [coll]
+  (loop [s (seq coll)
+	 acc 0]
+    (if s
+      (recur (next s) (inc acc))
+      acc)))

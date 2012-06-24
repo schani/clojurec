@@ -87,7 +87,8 @@
 			(when (cljc.core/seq l)
 			  (cljc.core/print (cljc.core/first l))
 			  (recur (cljc.core/rest l)))))
-	   [1 2 3]))))
+	   [1 2 3]))
+    (is (= (core-run '(cljc.core/print (count '(0 0 0)))) [3]))))
 
 (deftest functions
   (testing "functions"
