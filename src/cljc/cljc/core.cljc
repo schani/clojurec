@@ -112,3 +112,11 @@
     (if s
       (recur (next s) (inc acc))
       acc)))
+
+(defn cons
+  "Returns a new seq where x is the first element and seq is the rest."
+  [x coll]
+  (if (or (nil? coll)
+          (satisfies? ISeq coll))
+    (Cons x coll)
+    (Cons x (seq coll))))

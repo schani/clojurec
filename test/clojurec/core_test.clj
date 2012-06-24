@@ -78,7 +78,7 @@
 			(cljc.core/print (. c -first))
 			(cljc.core/print (. c -rest))))
 	   [1 2]))
-    (is (= (core-run '(loop [l (cljc.core/Cons 1 (cljc.core/Cons 2 nil))]
+    (is (= (core-run '(loop [l (cljc.core/cons 1 (cljc.core/cons 2 nil))]
 			(when (cljc.core/seq l)
 			  (cljc.core/print (cljc.core/first l))
 			  (recur (cljc.core/rest l)))))
