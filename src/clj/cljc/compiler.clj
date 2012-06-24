@@ -584,7 +584,7 @@
 			~@body))))
 
 (defn emit-fn-method
-  [{:keys [name params statements ret recurs]}]
+  [{:keys [params statements ret recurs]}]
   (emit-in-new-env params
 		   (map-indexed (fn [i p] (str "arg" i)) (take 3 params))
 		   (if (> (count params) 3)
@@ -664,7 +664,7 @@
            (assert false "variadic not yet supported")
            (do
              (emitln "static value_t* FN_NAME (" name ") (int nargs, environment_t *env, value_t *arg0, value_t *arg1, value_t *arg2, value_t *argrest) {")
-             (emit-fn-method (assoc (first methods) :name name))
+             (emit-fn-method (first methods))
              (emitln "}")))
          (assert false "multi-method fns not yet supported"))))))
 
