@@ -15,6 +15,8 @@
   (-invoke [& args]))
 )
 
+(defprotocol ASeq)
+
 (defprotocol ISeq
   (-first [coll])
   (-rest [coll]))
@@ -23,6 +25,7 @@
   (-seq [o]))
 
 (deftype Cons [first rest]
+  ASeq
   ISeq
   (-first [coll] first)
   (-rest [coll] (if (nil? rest) () rest))
@@ -46,7 +49,9 @@
   Strings."
   [coll]
   (when-not (nil? coll)
-    (-seq coll)))
+    (if (satisfies? ASeq coll)
+      coll
+      (-seq coll))))
 
 (defn first
   "Returns the first item in the collection. Calls seq on its
