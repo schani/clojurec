@@ -57,7 +57,11 @@
     (is (= (run '(cljc.core/print (+ 1 2))) [3]))
     (is (= (run '(cljc.core/print (< 1 2))) [true]))
     (is (= (run '(cljc.core/print (< 1 1))) [false]))
-    (is (= (run '(cljc.core/print (< 2 1))) [false]))))
+    (is (= (run '(cljc.core/print (< 2 1))) [false]))
+    (is (= (core-run '(do
+			(cljc.core/print (cljc.core/dec 1))
+			(cljc.core/print (cljc.core/inc 1))))
+	   [0 2]))))
 
 (deftest loops
   (testing "simple loops"

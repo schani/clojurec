@@ -146,6 +146,11 @@
   ([x y] (list 'c* "make_integer (integer_get (~{}) + integer_get (~{}))" x y))
   ([x y & more] `(+ (+ ~x ~y) ~@more)))
 
+(defmacro -
+  ([x] (list 'c* "make_integer (- integer_get (~{}))" x))
+  ([x y] (list 'c* "make_integer (integer_get (~{}) - integer_get (~{}))" x y))
+  ([x y & more] `(- (- ~x ~y) ~@more)))
+
 (defmacro *
   ([] 1)
   ([x] x)

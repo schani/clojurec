@@ -76,3 +76,11 @@
           (-rest s)
           ())))
     ()))
+
+(defn inc
+  "Returns a number one greater than num."
+  [x] (cljc.core/+ x 1))
+
+(defn dec
+  "Returns a number one less than num."
+  [x] (- x 1))
