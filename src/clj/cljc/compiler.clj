@@ -576,7 +576,7 @@
 		  (recur (rest indexes) (rest val-inits)))
 		(do
 		  (emitln "env_set (new_env, " index ", ARG_FIRST (rest));")
-		  (emitln "rest = ARG_REST (rest);")
+		  (emitln "rest = ARG_NEXT (rest);")
 		  (recur (rest indexes) nil))))))
 	(when variadic
 	  (letfn [(emit-cons-inits [inits tail]

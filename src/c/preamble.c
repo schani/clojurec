@@ -223,12 +223,12 @@ env_fetch (environment_t *env, int num_ups, int index)
 }
 
 static value_t* VAR_NAME (cljc_DOT_core_SLASH_first);
-static value_t* VAR_NAME (cljc_DOT_core_SLASH_rest);
+static value_t* VAR_NAME (cljc_DOT_core_SLASH_next);
 
 #define ARG_NIL		VAR_NAME (cljc_DOT_core_DOT_List_SLASH_EMPTY)
 #define ARG_CONS(a,d)	FUNCALL2 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_Cons), (a), (d))
 #define ARG_FIRST(c)	FUNCALL1 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_first), (c))
-#define ARG_REST(c)	FUNCALL1 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_rest), (c))
+#define ARG_NEXT(c)	FUNCALL1 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_next), (c))
 
 static value_t*
 Closure_IFn_invoke (int nargs, environment_t *env, value_t *arg1, value_t *arg2, value_t *arg3, value_t *argrest)
@@ -241,7 +241,7 @@ Closure_IFn_invoke (int nargs, environment_t *env, value_t *arg1, value_t *arg2,
 	if (argrest == VALUE_NONE)
 		return c->fn (nargs - 1, c->env, arg2, arg3, VALUE_NONE, VALUE_NONE);
 	else
-		return c->fn (nargs - 1, c->env, arg2, arg3, ARG_FIRST (argrest), ARG_REST (argrest));
+		return c->fn (nargs - 1, c->env, arg2, arg3, ARG_FIRST (argrest), ARG_NEXT (argrest));
 }
 
 static ptable_t*
