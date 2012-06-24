@@ -106,6 +106,12 @@
        (def ~psym nil)
        ~@(map method methods))))
 
+(defmacro satisfies?
+  "Returns true if x satisfies the protocol"
+  [psym x]
+  (let [p (:name (cljc.compiler/resolve-var (dissoc &env :locals) psym))]
+    (list 'c* "make_boolean (value_satisfies_protocol (~{}, PROTOCOL_NAME (~{str})))" x (core/str p))))
+
 (defmacro deftype [t fields & impls]
   (let [adorn-params (fn [sig]
                        (cons (vary-meta (second sig) assoc :cljc.compiler/fields fields)

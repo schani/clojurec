@@ -984,13 +984,26 @@
 		 (emits ", " (comma-sep args)))
 	       (emits ")"))))
 
+(defmulti emit-c-arg (fn [type arg] type))
+(defmethod emit-c-arg :expr [_ arg]
+  (emits arg))
+(defmethod emit-c-arg :str [_ arg]
+  (emits (str arg)))
+
 (defmethod emit :c
   [{:keys [env code segs args]}]
   (emit-wrap env
              (if code
                (emits code)
-               (emits (interleave (concat segs (repeat nil))
-                                  (concat args [nil]))))))
+	       (loop [segs segs
+		      args args]
+		 (emits (first segs))
+		 (when (seq args)
+		   (emit-c-arg (second segs) (first args))
+		   (recur (rest (rest segs))
+			  (rest args)))))))
+
+(emit {:op :c :segs ["x" :expr "y"] :args ['x]})
 
 (declare analyze analyze-symbol analyze-seq)
 
@@ -1525,20 +1538,36 @@
                        :children (into [targetexpr] argexprs)
                        :tag (-> form meta :tag)})))))
 
+(defmulti parse-c-expr (fn [type _ _] type))
+(defmethod parse-c-expr :expr [_ env form]
+	   (analyze env form))
+(defmethod parse-c-expr :str [_ _ form]
+	   form)
+
 (defmethod parse 'c*
   [op env [_ jsform & args :as form] _]
   (assert (string? jsform))
   (if args
     (disallowing-recur
-     (let [seg (fn seg [^String s]
-                 (let [idx (.indexOf s "~{")]
-                   (if (= -1 idx)
-                     (list s)
-                     (let [end (.indexOf s "}" idx)]
-                       (cons (subs s 0 idx) (seg (subs s (inc end))))))))
-           enve (assoc env :context :expr)
-           argexprs (vec (map #(analyze enve %) args))]
-       {:env env :op :c :segs (seg jsform) :args argexprs
+     (let [enve (assoc env :context :expr)
+	   [segs argexprs]
+	   (loop [^String s jsform
+		  args args
+		  segs []
+		  argexprs []]
+	     (let [idx (.indexOf s "~{")]
+	       (if (= -1 idx)
+		 [(conj segs s) argexprs]
+		 (let [end (.indexOf s "}" idx)
+		       type-str (subs s (+ 2 idx) end)
+		       type (if (zero? (count type-str)) :expr (keyword type-str))
+		       prefix (subs s 0 idx)
+		       suffix (subs s (inc end))]
+		   (recur suffix
+			  (rest args)
+			  (conj segs prefix type)
+			  (conj argexprs (parse-c-expr type enve (first args))))))))]
+       {:env env :op :c :segs segs :args argexprs
         :tag (-> form meta :tag) :form form :children argexprs}))
     (let [interp (fn interp [^String s]
                    (let [idx (.indexOf s "~{")]

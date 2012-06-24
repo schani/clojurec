@@ -89,6 +89,17 @@ get_protocol (value_t *val, int protocol_num, int fn_index)
 	return (closure_t*)VALUE_NIL;
 }
 
+static bool
+value_satisfies_protocol (value_t *val, int protocol_num)
+{
+	ptable_t *ptable = val->ptable;
+	int i;
+	for (i = 0; ptable->entries [i].num >= 0; ++i)
+		if (ptable->entries [i].num == protocol_num)
+			return true;
+	return false;
+}
+
 #define FUNCALL0(c)			((c)->fn (0, (c)->env, VALUE_NONE, VALUE_NONE, VALUE_NONE, VALUE_NONE))
 #define FUNCALL1(c,a1)			((c)->fn (1, (c)->env, (a1), VALUE_NONE, VALUE_NONE, VALUE_NONE))
 #define FUNCALL2(c,a1,a2)		((c)->fn (2, (c)->env, (a1), (a2), VALUE_NONE, VALUE_NONE))

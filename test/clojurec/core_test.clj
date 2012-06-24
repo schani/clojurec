@@ -77,8 +77,8 @@
     (is (= (core-run '(loop [l '(1 2 3)]
 			(when (cljc.core/seq l)
 			  (do
-			    (cljc.core/print (. l -first))
-			    (recur (. l -rest))))))
+			    (cljc.core/print (cljc.core/first l))
+			    (recur (cljc.core/rest l))))))
 	   [1 2 3]))))
 
 ;;(run-tests *ns*)
