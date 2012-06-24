@@ -902,11 +902,7 @@
 
 (defmethod emit :ns
   [{:keys [name requires uses requires-macros env]}]
-  (emitln "goog.provide('" (munge name) "');")
-  (when-not (= name 'cljc.core)
-    (emitln "goog.require('cljs.core');"))
-  (doseq [lib (into (vals requires) (distinct (vals uses)))]
-    (emitln "goog.require('" (munge lib) "');")))
+  nil)
 
 (defmethod emit :defprotocol*
   [{:keys [p index methods]}]
@@ -1702,11 +1698,13 @@
         (let [env {:ns (@namespaces *cljs-ns*) :context :statement :locals {}}
               pbr (clojure.lang.LineNumberingPushbackReader. r)
               eof (Object.)]
-          (loop [r (read pbr false eof false)]
+          (loop [asts []
+		 r (read pbr false eof false)]
             (let [env (assoc env :ns (@namespaces *cljs-ns*))]
-              (when-not (identical? eof r)
-                (analyze env r)
-                (recur (read pbr false eof false))))))))))
+              (if (identical? eof r)
+		asts
+                (recur (conj asts (analyze env r))
+		       (read pbr false eof false))))))))))
 
 (defn forms-seq
   "Seq of forms in a Clojure or ClojureScript file."

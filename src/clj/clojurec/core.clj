@@ -4,22 +4,27 @@
 	    [clojure.java.shell :as shell]
             [cljc.compiler :as cljc]))
 
-(defn analyze [ns-name expr]
+(defn analyze [ns-name with-core expr]
   (cljc/reset-namespaces!)
   (let [ns (if-let [ns (@cljc/namespaces ns-name)]
 	     ns
 	     {:name ns-name})
 	env {:ns ns :context :statement :locals {}}]
-    (cljc/analyze env expr)))
+    (if with-core
+      (conj (cljc/analyze-file "cljc/core.cljc")
+	    (cljc/analyze env expr))
+      [(cljc/analyze env expr)])))
 
 (defn inspect-ast [ast]
   (inspector/inspect-tree ast))
 
-(defn inspect-expr [ns-name expr]
-  (inspect-ast (analyze ns-name expr)))
+(defn inspect-expr [ns-name with-core expr]
+  (inspect-ast (last (analyze ns-name with-core expr))))
 
-(defn compile-ast [ast]
-  (let [main-code (with-out-str (cljc/emit ast))]
+(defn compile-asts [asts]
+  (let [main-code (with-out-str
+		    (doseq [ast asts]
+		      (cljc/emit ast)))]
     (apply str
 	   (concat @cljc/declarations
 		   ["int main (void) {\n"
@@ -28,8 +33,8 @@
 		    main-code
 		    "return 0;\n}\n"]))))
 
-(defn compile-expr [ns-name expr]
-  (compile-ast (analyze ns-name expr)))
+(defn compile-expr [ns-name with-core expr]
+  (compile-asts (analyze ns-name with-core expr)))
 
 (defn run-code [code]
   (let [user-dir (java.lang.System/getProperty "user.dir")
@@ -45,13 +50,13 @@
 	    :run-error))
 	:compile-error))))
 
-(defn run-expr [ns-name expr]
-  (run-code (compile-expr ns-name expr)))
+(defn run-expr [ns-name with-core expr]
+  (run-code (compile-expr ns-name with-core expr)))
 
-(defn inspect-and-run-expr [ns-name expr]
-  (let [ast (analyze ns-name expr)]
-    (inspect-ast ast)
-    (run-code (compile-ast ast))))
+(defn inspect-and-run-expr [ns-name with-core expr]
+  (let [asts (analyze ns-name with-core expr)]
+    (inspect-ast (last asts))
+    (run-code (compile-asts asts))))
 
 ;;(inspect-and-run-expr '(print 1))
 

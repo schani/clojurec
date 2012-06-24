@@ -3,10 +3,14 @@
         clojurec.core))
 
 (defn- run [x]
-  (run-expr 'clojurec.core-test x))
+  (run-expr 'clojurec.core-test false x))
+
+(defn- core-run [x]
+  (run-expr 'clojurec.core-test true x))
 
 (deftest basic
   (testing "very basic stuff"
+    (is (= (run '(cljc.core/print nil)) [nil]))
     (is (= (run '(cljc.core/print (has-type? 1 Integer))) [true]))
     (is (= (run '(def heusler (fn* ([x] x)))) []))
     (is (= (run '(cljc.core/print (let [a 1 a a] a))) [1]))

@@ -2,21 +2,34 @@
 
 (ns cljc.core)
 
-(defprotocol* IFn
+(comment
+(defprotocol IFn
   (-invoke [& args]))
+)
 
-(defprotocol* ISeq
+(defprotocol ISeq
   (-first [coll])
   (-rest [coll]))
 
-(deftype* Cons [first rest]
+(defprotocol ISeqable
+  (-seq [o]))
+
+(comment
+(deftype Cons [first rest]
   ISeq
   (-first [coll] first)
-  (-rest [coll] (if (nil? rest) () rest)))
+  (-rest [coll] (if (nil? rest) () rest))
 
-(deftype* EmptyList
+  ISeqable
+  (-seq [coll] coll))
+
+(deftype EmptyList
   ISeq
   (-first [coll] nil)
-  (-rest [coll] nil))
+  (-rest [coll] nil)
 
-(def cljc.core.List/EMPTY (EmptyList.))
+  ISeqable
+  (-seq [coll] nil))
+)
+
+;;(def cljc.core.List/EMPTY (EmptyList.))
