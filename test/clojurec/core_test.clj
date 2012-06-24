@@ -74,11 +74,29 @@
 			(cljc.core/print (. c -first))
 			(cljc.core/print (. c -rest))))
 	   [1 2]))
+    (is (= (core-run '(loop [l (cljc.core/Cons 1 (cljc.core/Cons 2 nil))]
+			(when (cljc.core/seq l)
+			  (do
+			    (cljc.core/print (cljc.core/first l))
+			    (recur (cljc.core/rest l))))))
+	   [1 2]))
     (is (= (core-run '(loop [l '(1 2 3)]
 			(when (cljc.core/seq l)
 			  (do
 			    (cljc.core/print (cljc.core/first l))
 			    (recur (cljc.core/rest l))))))
 	   [1 2 3]))))
+
+(deftest functions
+  (testing "functions"
+    (is (= (core-run '(do
+			(defn printer [a b c d e]
+			  (cljc.core/print a)
+			  (cljc.core/print b)
+			  (cljc.core/print c)
+			  (cljc.core/print d)
+			  (cljc.core/print e))
+			(printer 1 2 3 4 5)))
+	   [1 2 3 4 5]))))
 
 ;;(run-tests *ns*)

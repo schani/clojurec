@@ -554,35 +554,48 @@
         (emitln "return " delegate-name "(" (string/join ", " params) ");")))
     (emits "})")))
 
-(defn emit-in-new-env [bindings emitter]
+(defn emit-in-new-env [bindings val-inits rest-val-init emitter]
   (if (seq bindings)
-    (binding [*env-stack* (cons (map :name bindings) *env-stack*)]
-      (emitln "environment_t *new_env = alloc_env (env, " (count bindings) ");")
-      (emitln "{")
-      (emitln "environment_t *env = new_env;")
-      (loop [index 0
-             bindings bindings]
-        (when (seq bindings)
-	  (emitln "env_set (new_env, " index ", " (:init (first bindings)) ");")
-	  (recur (inc index) (rest bindings))))
-      (emitter)
-      (emitln "}"))
+    (let [num-vals (count bindings)]
+      (binding [*env-stack* (cons bindings *env-stack*)]
+	(emitln "environment_t *new_env = alloc_env (env, " num-vals ");")
+	(emitln "{")
+	(when (> num-vals (count val-inits))
+	  (emitln "value_t *rest = " rest-val-init ";"))
+	(emitln "environment_t *env = new_env;")
+	(loop [index 0
+	       val-inits val-inits]
+	  (when (seq val-inits)
+	    (emitln "env_set (new_env, " index ", " (first val-inits) ");")
+	    (recur (inc index) (rest val-inits))))
+	(doseq [index (range (count val-inits) num-vals)]
+	  (emitln "env_set (new_env, " index ", ARG_FIRST (rest));")
+	  (emitln "rest = ARG_REST (rest);"))
+	(emitter)
+	(emitln "}")))
     (emitter)))
 
 (defmacro with-new-env [bindings & body]
-  `(emit-in-new-env ~bindings
-		    (fn []
-		      ~@body)))
+  `(let [bindings# ~bindings]
+     (emit-in-new-env (map :name bindings#)
+		      (map :init bindings#)
+		      nil
+		      (fn []
+			~@body))))
 
 (defn emit-fn-method
   [{:keys [name params statements ret recurs]}]
-  (with-new-env (map-indexed (fn [i p] {:name p :init (str "arg" i)}) params)
-    (when recurs
-      (emitln "while (1) {"))
-    (emit-block :return statements ret)
-    (when recurs
-      (emitln "break;")
-      (emitln "}"))))
+  (emit-in-new-env params
+		   (map-indexed (fn [i p] (str "arg" i)) (take 3 params))
+		   (if (> (count params) 3)
+		     "argrest")
+		   (fn []
+		     (when recurs
+		       (emitln "while (1) {"))
+		     (emit-block :return statements ret)
+		     (when recurs
+		       (emitln "break;")
+		       (emitln "}")))))
 
 (comment
 (defn emit-fn-method
@@ -814,14 +827,34 @@
     (emit-block (if (= :expr context) :return context) statements ret)
     (when (= :expr context) (emits "})()"))))
 
+(defn- emit-arglist [args num-register-args]
+  (let [arity (count args)
+	register-args (take 2 args)
+	rest-args (drop 2 args)]
+    (when-not (empty? rest-args)
+      (emits ", " arity))
+    (when-not (empty? register-args)
+      (emits ", " (comma-sep register-args)))
+    (when-not (empty? rest-args)
+      (emits ", ")
+      (letfn [(emit-rest [as]
+		 (if (seq as)
+		   (do
+		     (emits "ARG_CONS (" (first as) ", ")
+		     (emit-rest (rest as))
+		     (emits ")"))
+		   (emits "ARG_NIL")))]
+	(emit-rest rest-args)))))
+
 (defmethod emit :invoke
   [{:keys [f args env] :as expr}]
   (let [arity (count args)]
-    (assert (< arity 3) (str "arity >= 3 not yet supported in " (:form expr)))
     (emit-wrap env
                (emits "invoke")
                (emits (if (< arity 3) arity "n"))
-               (emits " (" (comma-sep (cons f args)) ")"))))
+               (emits " (" f)
+	       (emit-arglist args 2)
+	       (emits ")"))))
 
 (comment
 (defmethod emit :invoke
@@ -975,13 +1008,9 @@
 	protocol (lookup-protocol method)
 	arity (count args)]
     (assert protocol (str "No protocol found for method " method " in " form))
-    (assert (< arity 3) (str "arity >= 3 not yet supported in " form))
     (emit-wrap env
 	       (emits "protcall" (if (< arity 3) arity "n") " (" target ", PROTOCOL_NAME (" (str protocol) "), MEMBER_NAME (" (str (munge method)) ")")
-	       (when (> arity 0)
-		 (when (>= arity 3)
-		   (emits ", " arity))
-		 (emits ", " (comma-sep args)))
+	       (emit-arglist args 2)
 	       (emits ")"))))
 
 (defmulti emit-c-arg (fn [type arg] type))
