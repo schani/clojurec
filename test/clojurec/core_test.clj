@@ -68,4 +68,11 @@
 		     (cljc.core/print x))))
 	   [3628800]))))
 
+(deftest core
+  (testing "cljc.core"
+    (is (= (core-run '(let [c (cljc.core/Cons 1 2)]
+			(cljc.core/print (. c -first))
+			(cljc.core/print (. c -rest))))
+	   [1 2]))))
+
 ;;(run-tests *ns*)

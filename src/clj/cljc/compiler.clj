@@ -307,7 +307,7 @@
     (emits body)))
 
 (defmethod emit-constant clojure.lang.PersistentList$EmptyList [x]
-  (emit-meta-constant x "cljs.core.List.EMPTY"))
+  (emit-meta-constant x "VAR_NAME (cljc_DOT_core_DOT_List_SLASH_EMPTY)"))
 
 (defmethod emit-constant clojure.lang.PersistentList [x]
   (emit-meta-constant x
@@ -921,9 +921,8 @@
      (emitln "#define TYPE_" (str t) " (FIRST_TYPE + " index ")")
      (emitln "static ptable_t* PTABLE_NAME (" t ") = NULL;")
      (emits "static value_t* FN_NAME (" t ") (int nargs, environment_t *env")
-     (when-not (zero? num-fields)
-       (emits ", " (comma-sep (concat (map #(str "value_t *VAR_NAME (" % ")") fields)
-				      (map #(str "value_t *dummy" %) (range (- 4 num-fields)))))))
+     (emits ", " (comma-sep (concat (map #(str "value_t *VAR_NAME (" % ")") fields)
+				    (map #(str "value_t *dummy" %) (range (- 4 num-fields))))))
      (emitln ") {")
      (emitln "value_t *val = alloc_value (PTABLE_NAME (" t "), sizeof (deftype_t) + sizeof (value_t*) * " num-fields ");")
      (doseq [[i fld] (map-indexed vector fields)]

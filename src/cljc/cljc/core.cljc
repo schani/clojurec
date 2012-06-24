@@ -1,5 +1,9 @@
 ;;; -*- clojure -*-
 
+(ns cljc.core.List)
+
+(def EMPTY nil)
+
 (ns cljc.core)
 
 (comment
@@ -14,7 +18,6 @@
 (defprotocol ISeqable
   (-seq [o]))
 
-(comment
 (deftype Cons [first rest]
   ISeq
   (-first [coll] first)
@@ -23,13 +26,12 @@
   ISeqable
   (-seq [coll] coll))
 
-(deftype EmptyList
+(deftype EmptyList []
   ISeq
   (-first [coll] nil)
   (-rest [coll] nil)
 
   ISeqable
   (-seq [coll] nil))
-)
 
-;;(def cljc.core.List/EMPTY (EmptyList.))
+(set! cljc.core.List/EMPTY (cljc.core/EmptyList))
