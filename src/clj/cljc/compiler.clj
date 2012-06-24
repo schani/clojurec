@@ -1061,8 +1061,6 @@
 		   (recur (rest (rest segs))
 			  (rest args)))))))
 
-(emit {:op :c :segs ["x" :expr "y"] :args ['x]})
-
 (declare analyze analyze-symbol analyze-seq)
 
 (def specials '#{if def fn* do let* loop* letfn* throw try* recur new set! ns defprotocol* deftype* defrecord* . c* & quote})
