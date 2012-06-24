@@ -35,3 +35,11 @@
   (-seq [coll] nil))
 
 (set! cljc.core.List/EMPTY (cljc.core/EmptyList))
+
+(defn ^seq seq
+  "Returns a seq on the collection. If the collection is
+  empty, returns nil.  (seq nil) returns nil. seq also works on
+  Strings."
+  [coll]
+  (when-not (nil? coll)
+    (-seq coll)))

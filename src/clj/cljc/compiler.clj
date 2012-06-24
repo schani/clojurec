@@ -299,21 +299,19 @@
                   \"))
 
 (defn- emit-meta-constant [x & body]
-  (if (meta x)
-    (do
-      (emits "cljs.core.with_meta(" body ",")
-      (emit-constant (meta x))
-      (emits ")"))
-    (emits body)))
+  ;; FIXME: implement
+  (emits body))
 
 (defmethod emit-constant clojure.lang.PersistentList$EmptyList [x]
   (emit-meta-constant x "VAR_NAME (cljc_DOT_core_DOT_List_SLASH_EMPTY)"))
 
 (defmethod emit-constant clojure.lang.PersistentList [x]
   (emit-meta-constant x
-    (concat ["cljs.core.list("]
-            (comma-sep (map #(fn [] (emit-constant %)) x))
-            [")"])))
+		      (emits "FN_NAME (cljc_DOT_core_SLASH_Cons) (2, NULL, ")
+		      (emit-constant (first x))
+		      (emits ", ")
+		      (emit-constant (rest x))
+		      (emits ", VALUE_NONE, VALUE_NONE)")))
 
 (defmethod emit-constant clojure.lang.Cons [x]
   (emit-meta-constant x

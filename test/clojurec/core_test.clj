@@ -73,6 +73,12 @@
     (is (= (core-run '(let [c (cljc.core/Cons 1 2)]
 			(cljc.core/print (. c -first))
 			(cljc.core/print (. c -rest))))
-	   [1 2]))))
+	   [1 2]))
+    (is (= (core-run '(loop [l '(1 2 3)]
+			(when (cljc.core/seq l)
+			  (do
+			    (cljc.core/print (. l -first))
+			    (recur (. l -rest))))))
+	   [1 2 3]))))
 
 ;;(run-tests *ns*)
