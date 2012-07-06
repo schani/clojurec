@@ -13,6 +13,20 @@
   "Returns true if x is logical false, false otherwise."
   [x] (if x false true))
 
+(defn make-array [size]
+  (c* "make_array (integer_get (~{}))" size))
+
+(defn aget
+  "Returns the value at the index."
+  [array i]
+  (c* "array_get (~{}, integer_get (~{}))" array i))
+
+(defn aset
+  "Sets the value at the index."
+  [array i val]
+  (c* "array_set (~{}, integer_get (~{}), ~{})" array i val)
+  nil)
+
 (comment
 (defprotocol IFn
   (-invoke [& args]))

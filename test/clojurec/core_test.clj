@@ -95,6 +95,24 @@
                           (recur (rest l)))))
            [1 2 3 4]))))
 
+(deftest arrays
+  (testing "arrays"
+    (is (= (core-run '(print (make-array 3))) [[nil nil nil]]))
+    (is (= (core-run '(let [a (make-array 3)]
+                        (aset a 0 1)
+                        (aset a 1 2)
+                        (aset a 2 3)
+                        (print a)))
+           [[1 2 3]]))
+    (is (= (core-run '(let [a (make-array 3)]
+                        (aset a 0 1)
+                        (aset a 1 2)
+                        (aset a 2 3)
+                        (print (aget a 0))
+                        (print (aget a 1))
+                        (print (aget a 2))))
+           [1 2 3]))))
+
 (deftest functions
   (testing "functions"
     (is (= (core-run '(do

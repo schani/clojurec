@@ -43,6 +43,12 @@ typedef struct {
 } integer_t;
 
 typedef struct {
+	value_t val;
+	long len;
+	value_t *elems [0];
+} array_t;
+
+typedef struct {
 	int num;		/* the protocol number, or -1 for termination */
 	closure_t **vtable;
 } ptable_entry_t;
@@ -75,7 +81,8 @@ typedef struct {
 #define TYPE_Closure	1
 #define TYPE_Integer	2
 #define TYPE_Boolean	3
-#define FIRST_TYPE	4
+#define TYPE_Array	4
+#define FIRST_TYPE	5
 
 static closure_t*
 get_protocol (value_t *val, int protocol_num, int fn_index)
@@ -330,6 +337,47 @@ boolean_ptable (void)
 	return make_empty_ptable_once (TYPE_Boolean, &boolean_ptable);
 }
 
+static ptable_t*
+array_ptable (void)
+{
+	static ptable_t *array_ptable = NULL;
+	return make_empty_ptable_once (TYPE_Array, &array_ptable);
+}
+
+static value_t*
+make_array (long len)
+{
+	array_t *array = (array_t*) alloc_value (array_ptable (),  sizeof (array_t) + len * sizeof (value_t*));
+	array->len = len;
+	return &array->val;
+}
+
+static long
+array_length (value_t *v)
+{
+	array_t *a = (array_t*)v;
+	assert (v->ptable->type == TYPE_Array);
+	return a->len;
+}
+
+static value_t*
+array_get (value_t *v, long index)
+{
+	array_t *a = (array_t*)v;
+	assert (v->ptable->type == TYPE_Array);
+	assert (index >= 0 && index < a->len);
+	return a->elems [index];
+}
+
+static void
+array_set (value_t *v, long index, value_t *x)
+{
+	array_t *a = (array_t*)v;
+	assert (v->ptable->type == TYPE_Array);
+	assert (index >= 0 && index < a->len);
+	a->elems [index] = x;
+}
+
 static value_t*
 make_vtable_value (closure_t **vtable)
 {
@@ -376,6 +424,18 @@ cljc_core_print (int nargs, environment_t *env, value_t *arg1, value_t *arg2, va
 					printf ("false");
 				}
 				break;
+			case TYPE_Array: {
+				array_t *a = (array_t*)arg1;
+				long i;
+				printf ("[");
+				for (i = 0; i < a->len; ++i) {
+					cljc_core_print (1, NULL, a->elems [i], VALUE_NONE, VALUE_NONE, VALUE_NONE);
+					if (i < a->len - 1)
+						printf (" ");
+				}
+				printf ("]");
+				break;
+			}
 			default:
 				assert_not_reached ();
 		}
