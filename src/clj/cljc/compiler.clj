@@ -503,15 +503,15 @@
   [{:keys [name init env]}]
   (if init
     (do
+      (emit-declaration
+       (emitln "static value_t *VAR_NAME (" name ") = VALUE_NIL;"))
       (let [expr (= :expr (:context env))]
         (when expr
           (emits "("))
         (emits "VAR_NAME (" name ") = " init)
         (if expr
             (emits ")")
-          (emitln ";")))
-      (emit-declaration
-       (emitln "static value_t *VAR_NAME (" name ") = VALUE_NIL;")))
+          (emitln ";"))))
     (emitln ";")))
 
 (comment
@@ -1239,15 +1239,10 @@
         meths (if (vector? (first meths)) (list meths) meths)
         mname (when name (munge name))
         locals (:locals env)
-        locals (if name (assoc locals name {:name mname}) locals)
         menv (if (> (count meths) 1) (assoc env :context :expr) env)
         methods (map #(analyze-fn-method menv locals %) meths)
         max-fixed-arity (apply max (map :max-fixed-arity methods))
         variadic (boolean (some :variadic methods))
-        locals (if name (assoc locals name {:name mname :fn-var true
-                                            :variadic variadic
-                                            :max-fixed-arity max-fixed-arity
-                                            :method-params (map :params methods)}))
         methods (if name
                   ;; a second pass with knowledge of our function-ness/arity
                   ;; lets us optimize self calls

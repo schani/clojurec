@@ -93,6 +93,13 @@
 (deftest functions
   (testing "functions"
     (is (= (core-run '(do
+                        (defn fac [x]
+                          (if (< x 2)
+                            x
+                            (* x (fac (- x 1)))))
+                        (print (fac 3))))
+           [6]))
+    (is (= (core-run '(do
 			(defn printer [a b c d e]
 			  (print a)
 			  (print b)
