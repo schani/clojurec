@@ -122,3 +122,9 @@
           (satisfies? ISeq coll))
     (Cons x coll)
     (Cons x (seq coll))))
+
+(defn flatten-tail
+  [coll]
+  (if-let [n (next coll)]
+    (cons (first coll) (flatten-tail n))
+    (first coll)))

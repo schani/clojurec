@@ -88,7 +88,12 @@
 			  (print (first l))
 			  (recur (rest l)))))
 	   [1 2 3]))
-    (is (= (core-run '(print (count '(0 0 0)))) [3]))))
+    (is (= (core-run '(print (count '(0 0 0)))) [3]))
+    (is (= (core-run '(loop [l (flatten-tail '(1 2 (3 4)))]
+                        (when (seq l)
+                          (print (first l))
+                          (recur (rest l)))))
+           [1 2 3 4]))))
 
 (deftest functions
   (testing "functions"
