@@ -104,6 +104,7 @@
                             (* x (fac (- x 1)))))
                         (print (fac 3))))
            [6]))
+    (is (= (core-run '(apply (fn [& r] r) '())) []))
     (is (= (core-run '(do
 			(defn printer [a b c d e]
 			  (print a)
@@ -113,6 +114,11 @@
 			  (print e))
 			(printer 1 2 3 4 5)))
 	   [1 2 3 4 5]))
+    (is (= (core-run '(loop [l (apply (fn [& r] r) 1 2 '(3 4))]
+                        (when (seq l)
+                          (print (first l))
+                          (recur (rest l)))))
+           [1 2 3 4]))
     (is (= (core-run '(do
 			(defn print-list [l]
 			  (loop [l l]
@@ -159,13 +165,32 @@
 			(defn p4 [p] (p 1 2 3 4) (print -1))
 			(defn p5 [p] (p 1 2 3 4 5) (print -1))
 			(defn p6 [p] (p 1 2 3 4 5 6) (print -1))
+			(defn ap0 [p] (apply p '()) (print -1))
+			(defn ap1 [p] (apply p '(1)) (print -1))
+			(defn ap2 [p] (apply p '(1 2)) (print -1))
+			(defn ap3 [p] (apply p '(1 2 3)) (print -1))
+			(defn ap4 [p] (apply p '(1 2 3 4)) (print -1))
+			(defn ap5 [p] (apply p '(1 2 3 4 5)) (print -1))
+			(defn ap6 [p] (apply p '(1 2 3 4 5 6)) (print -1))
 			(p0 printer0) (p1 printer0) (p2 printer0) (p3 printer0) (p4 printer0) (p5 printer0) (p6 printer0)
 			(p1 printer1) (p2 printer1) (p3 printer1) (p4 printer1) (p5 printer1) (p6 printer1)
 			(p2 printer2) (p3 printer2) (p4 printer2) (p5 printer2) (p6 printer2)
 			(p3 printer3) (p4 printer3) (p5 printer3) (p6 printer3)
 			(p4 printer4) (p5 printer4) (p6 printer4)
-			(p5 printer5) (p6 printer5)))
+			(p5 printer5) (p6 printer5)
+                        (ap0 printer0) (ap1 printer0) (ap2 printer0) (ap3 printer0) (ap4 printer0) (ap5 printer0) (ap6 printer0)
+			(ap1 printer1) (ap2 printer1) (ap3 printer1) (ap4 printer1) (ap5 printer1) (ap6 printer1)
+			(ap2 printer2) (ap3 printer2) (ap4 printer2) (ap5 printer2) (ap6 printer2)
+			(ap3 printer3) (ap4 printer3) (ap5 printer3) (ap6 printer3)
+			(ap4 printer4) (ap5 printer4) (ap6 printer4)
+			(ap5 printer5) (ap6 printer5)))
 	   [0 -1 0 1 -1 0 1 2 -1 0 1 2 3 -1 0 1 2 3 4 -1 0 1 2 3 4 5 -1 0 1 2 3 4 5 6 -1
+	    1 0 -1 1 0 2 -1 1 0 2 3 -1 1 0 2 3 4 -1 1 0 2 3 4 5 -1 1 0 2 3 4 5 6 -1
+	    1 2 0 -1 1 2 0 3 -1 1 2 0 3 4 -1 1 2 0 3 4 5 -1 1 2 0 3 4 5 6 -1
+	    1 2 3 0 -1 1 2 3 0 4 -1 1 2 3 0 4 5 -1 1 2 3 0 4 5 6 -1
+	    1 2 3 4 0 -1 1 2 3 4 0 5 -1 1 2 3 4 0 5 6 -1
+	    1 2 3 4 5 0 -1 1 2 3 4 5 0 6 -1
+            0 -1 0 1 -1 0 1 2 -1 0 1 2 3 -1 0 1 2 3 4 -1 0 1 2 3 4 5 -1 0 1 2 3 4 5 6 -1
 	    1 0 -1 1 0 2 -1 1 0 2 3 -1 1 0 2 3 4 -1 1 0 2 3 4 5 -1 1 0 2 3 4 5 6 -1
 	    1 2 0 -1 1 2 0 3 -1 1 2 0 3 4 -1 1 2 0 3 4 5 -1 1 2 0 3 4 5 6 -1
 	    1 2 3 0 -1 1 2 3 0 4 -1 1 2 3 0 4 5 -1 1 2 3 0 4 5 6 -1

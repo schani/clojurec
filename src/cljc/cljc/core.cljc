@@ -7,6 +7,7 @@
 (ns cljc.core)
 
 (declare print)
+(declare apply)
 
 (defn ^boolean not
   "Returns true if x is logical false, false otherwise."

@@ -224,11 +224,15 @@ env_fetch (environment_t *env, int num_ups, int index)
 
 static value_t* VAR_NAME (cljc_DOT_core_SLASH_first);
 static value_t* VAR_NAME (cljc_DOT_core_SLASH_next);
+static value_t* VAR_NAME (cljc_DOT_core_SLASH_count);
+static value_t* VAR_NAME (cljc_DOT_core_SLASH_flatten_tail);
 
 #define ARG_NIL		VAR_NAME (cljc_DOT_core_DOT_List_SLASH_EMPTY)
 #define ARG_CONS(a,d)	FUNCALL2 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_Cons), (a), (d))
 #define ARG_FIRST(c)	FUNCALL1 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_first), (c))
 #define ARG_NEXT(c)	FUNCALL1 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_next), (c))
+#define ARG_COUNT(c)	integer_get (FUNCALL1 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_count), (c)))
+#define ARG_FLATTEN_TAIL(c)	FUNCALL1 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_flatten_tail), (c))
 
 static value_t*
 Closure_IFn_invoke (int nargs, environment_t *env, value_t *arg1, value_t *arg2, value_t *arg3, value_t *argrest)
@@ -380,6 +384,8 @@ cljc_core_print (int nargs, environment_t *env, value_t *arg1, value_t *arg2, va
 	return VALUE_NIL;
 }
 
+static value_t *VAR_NAME (cljc_DOT_core_SLASH_print) = VALUE_NIL;
+
 static bool
 truth (value_t *v)
 {
@@ -390,7 +396,88 @@ truth (value_t *v)
 	return true;
 }
 
-static value_t *VAR_NAME (cljc_DOT_core_SLASH_print) = VALUE_NIL;
+static value_t*
+cljc_core_apply (int nargs, environment_t *env, value_t *f, value_t *arg1, value_t *arg2, value_t *argrest)
+{
+	int ndirect = 0;
+	int nrest;
+
+	assert (nargs > 1);
+
+	switch (nargs) {
+		case 2:
+			ndirect = 0;
+			argrest = arg1;
+			break;
+		case 3:
+			ndirect = 1;
+			argrest = arg2;
+			break;
+		default:
+			ndirect = 2;
+			argrest = ARG_FLATTEN_TAIL (argrest);
+			break;
+	}
+
+	nrest = ARG_COUNT (argrest);
+
+	switch (ndirect) {
+		case 0:
+			switch (nrest) {
+				case 0:
+					arg1 = arg2 = argrest = VALUE_NONE;
+					break;
+				case 1:
+					arg1 = ARG_FIRST (argrest);
+					arg2 = argrest = VALUE_NONE;
+					break;
+				case 2:
+					arg1 = ARG_FIRST (argrest);
+					argrest = ARG_NEXT (argrest);
+					arg2 = ARG_FIRST (argrest);
+					argrest = VALUE_NONE;
+					break;
+				default:
+					arg1 = ARG_FIRST (argrest);
+					argrest = ARG_NEXT (argrest);
+					arg2 = ARG_FIRST (argrest);
+					argrest = ARG_NEXT (argrest);
+					break;
+			}
+			break;
+		case 1:
+			switch (nrest) {
+				case 0:
+					arg2 = argrest = VALUE_NONE;
+					break;
+				case 1:
+					arg2 = ARG_FIRST (argrest);
+					argrest = VALUE_NONE;
+					break;
+				default:
+					arg2 = ARG_FIRST (argrest);
+					argrest = ARG_NEXT (argrest);
+					break;
+			}
+			break;
+		case 2:
+			switch (nrest) {
+				case 0:
+					argrest = VALUE_NONE;
+					break;
+				default:
+					argrest = argrest;
+					break;
+			}
+			break;
+		default:
+			assert (false);
+	}
+
+	return invoken (f, ndirect + nrest, arg1, arg2, argrest);
+}
+
+static value_t *VAR_NAME (cljc_DOT_core_SLASH_apply) = VALUE_NIL;
 
 static void
 cljc_init (void)
@@ -398,6 +485,7 @@ cljc_init (void)
 	GC_INIT ();
 
 	VAR_NAME (cljc_DOT_core_SLASH_print) = make_closure (cljc_core_print, NULL);
+	VAR_NAME (cljc_DOT_core_SLASH_apply) = make_closure (cljc_core_apply, NULL);
 	value_true = alloc_value (boolean_ptable (), sizeof (value_t));
 	value_false = alloc_value (boolean_ptable (), sizeof (value_t));
 }
