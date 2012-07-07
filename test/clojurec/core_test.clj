@@ -119,6 +119,11 @@
                           (print (first l))
                           (recur (rest l)))))
            [1 2 3 4]))
+    (is (= (core-run '(loop [l (concat '(1) '(2 3) '(4 5 6) () '(7))]
+                        (when (seq l)
+                          (print (first l))
+                          (recur (rest l)))))
+           [1 2 3 4 5 6 7]))
     (is (= (core-run '(print (-count nil))) [0]))))
 
 (deftest arrays

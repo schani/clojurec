@@ -140,12 +140,12 @@
   ICounted
   (-count [a] (alength a)))
 
-(defn ^seq seq
+(defn seq
   "Returns a seq on the collection. If the collection is
   empty, returns nil.  (seq nil) returns nil. seq also works on
   Strings."
   [coll]
-  (when-not (nil? coll)
+  (if-not (nil? coll)
     (if (satisfies? ASeq coll)
       coll
       (-seq coll))))
@@ -250,3 +250,21 @@
      (seq-reduce f coll))
   ([f val coll]
      (seq-reduce f val coll)))
+
+(defn concat
+  "Returns a lazy seq representing the concatenation of the elements in the supplied colls."
+  ([] nil)
+  ([x] (list x))
+  ([x y]
+     (let [s (seq x)]
+       (if s
+         (cons (first s) (concat (rest s) y))
+         y)))
+  ([x y & zs]
+     (let [cat (fn cat [xys zs]
+                 (let [xys (seq xys)]
+                   (if xys
+                     (cons (first xys) (cat (rest xys) zs))
+                     (when zs
+                       (cat (first zs) (next zs))))))]
+       (cat (concat x y) zs))))
