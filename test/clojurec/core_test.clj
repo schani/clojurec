@@ -113,7 +113,8 @@
                         (when (seq l)
                           (print (first l))
                           (recur (rest l)))))
-           [1 2 3 4]))))
+           [1 2 3 4]))
+    (is (= (core-run '(print (-count nil))) [0]))))
 
 (deftest arrays
   (testing "arrays"

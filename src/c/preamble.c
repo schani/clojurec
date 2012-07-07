@@ -12,7 +12,6 @@ typedef struct {
 	ptable_t *ptable;
 } value_t;
 
-#define VALUE_NIL	((value_t*)0)
 #define VALUE_NONE	((value_t*)-1)
 
 typedef struct environment {
@@ -78,11 +77,14 @@ typedef struct {
 
 #define MEMBER__invoke	0
 
-#define TYPE_Closure	1
-#define TYPE_Integer	2
-#define TYPE_Boolean	3
-#define TYPE_Array	4
-#define FIRST_TYPE	5
+#define TYPE_Nil	1
+#define TYPE_Closure	2
+#define TYPE_Integer	3
+#define TYPE_Boolean	4
+#define TYPE_Array	5
+#define FIRST_TYPE	6
+
+static value_t *value_nil = NULL;
 
 static closure_t*
 get_protocol (value_t *val, int protocol_num, int fn_index)
@@ -93,7 +95,7 @@ get_protocol (value_t *val, int protocol_num, int fn_index)
 		if (ptable->entries [i].num == protocol_num)
 			return ptable->entries [i].vtable [fn_index];
 	assert_not_reached ();
-	return (closure_t*)VALUE_NIL;
+	return (closure_t*)value_nil;
 }
 
 static bool
@@ -297,6 +299,7 @@ make_closure (function_t fn, environment_t *env)
 	return &closure->val;
 }
 
+static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Nil) = NULL;
 static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Integer) = NULL;
 static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Boolean) = NULL;
 static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Array) = NULL;
@@ -321,7 +324,10 @@ static value_t*
 make_array (long len)
 {
 	array_t *array = (array_t*) alloc_value (PTABLE_NAME (cljc_DOT_core_SLASH_Array),  sizeof (array_t) + len * sizeof (value_t*));
+	long i;
 	array->len = len;
+	for (i = 0; i < len; ++i)
+		array->elems [i] = value_nil;
 	return &array->val;
 }
 
@@ -375,54 +381,53 @@ cljc_core_print (int nargs, environment_t *env, value_t *arg1, value_t *arg2, va
 {
 	assert (nargs == 1);
 
-	if (arg1 == VALUE_NIL) {
-		printf ("nil");
-	} else {
-		switch (arg1->ptable->type) {
-			case TYPE_Closure: {
-				closure_t *c = (closure_t*)arg1;
-				printf ("#<closure@%p:%p>", c->fn, c->env);
-				break;
-			}
-			case TYPE_Integer: {
-				integer_t *i = (integer_t*)arg1;
-				printf ("%ld", i->x);
-				break;
-			}
-			case TYPE_Boolean:
-				if (arg1 == value_true) {
-					printf ("true");
-				} else {
-					assert (arg1 == value_false);
-					printf ("false");
-				}
-				break;
-			case TYPE_Array: {
-				array_t *a = (array_t*)arg1;
-				long i;
-				printf ("[");
-				for (i = 0; i < a->len; ++i) {
-					cljc_core_print (1, NULL, a->elems [i], VALUE_NONE, VALUE_NONE, VALUE_NONE);
-					if (i < a->len - 1)
-						printf (" ");
-				}
-				printf ("]");
-				break;
-			}
-			default:
-				assert_not_reached ();
+	switch (arg1->ptable->type) {
+		case TYPE_Nil:
+			printf ("nil");
+			break;
+		case TYPE_Closure: {
+			closure_t *c = (closure_t*)arg1;
+			printf ("#<closure@%p:%p>", c->fn, c->env);
+			break;
 		}
+		case TYPE_Integer: {
+			integer_t *i = (integer_t*)arg1;
+			printf ("%ld", i->x);
+			break;
+		}
+		case TYPE_Boolean:
+			if (arg1 == value_true) {
+				printf ("true");
+			} else {
+				assert (arg1 == value_false);
+				printf ("false");
+			}
+			break;
+		case TYPE_Array: {
+			array_t *a = (array_t*)arg1;
+			long i;
+			printf ("[");
+			for (i = 0; i < a->len; ++i) {
+				cljc_core_print (1, NULL, a->elems [i], VALUE_NONE, VALUE_NONE, VALUE_NONE);
+				if (i < a->len - 1)
+					printf (" ");
+			}
+			printf ("]");
+			break;
+		}
+		default:
+			assert_not_reached ();
 	}
 	printf ("\n");
-	return VALUE_NIL;
+	return value_nil;
 }
 
-static value_t *VAR_NAME (cljc_DOT_core_SLASH_print) = VALUE_NIL;
+static value_t *VAR_NAME (cljc_DOT_core_SLASH_print) = VALUE_NONE;
 
 static bool
 truth (value_t *v)
 {
-	if (v == VALUE_NIL)
+	if (v == value_nil)
 		return false;
 	if (v == value_false)
 		return false;
@@ -510,19 +515,23 @@ cljc_core_apply (int nargs, environment_t *env, value_t *f, value_t *arg1, value
 	return invoken (f, ndirect + nrest, arg1, arg2, argrest);
 }
 
-static value_t *VAR_NAME (cljc_DOT_core_SLASH_apply) = VALUE_NIL;
+static value_t *VAR_NAME (cljc_DOT_core_SLASH_apply) = VALUE_NONE;
 
 static void
 cljc_init (void)
 {
 	GC_INIT ();
 
+	PTABLE_NAME (cljc_DOT_core_SLASH_Nil) = alloc_ptable (TYPE_Nil);
 	PTABLE_NAME (cljc_DOT_core_SLASH_Integer) = alloc_ptable (TYPE_Integer);
 	PTABLE_NAME (cljc_DOT_core_SLASH_Boolean) = alloc_ptable (TYPE_Boolean);
 	PTABLE_NAME (cljc_DOT_core_SLASH_Array) = alloc_ptable (TYPE_Array);
 
-	VAR_NAME (cljc_DOT_core_SLASH_print) = make_closure (cljc_core_print, NULL);
-	VAR_NAME (cljc_DOT_core_SLASH_apply) = make_closure (cljc_core_apply, NULL);
+	value_nil = alloc_value (PTABLE_NAME (cljc_DOT_core_SLASH_Nil), sizeof (value_t));
+
 	value_true = alloc_value (PTABLE_NAME (cljc_DOT_core_SLASH_Boolean), sizeof (value_t));
 	value_false = alloc_value (PTABLE_NAME (cljc_DOT_core_SLASH_Boolean), sizeof (value_t));
+
+	VAR_NAME (cljc_DOT_core_SLASH_print) = make_closure (cljc_core_print, NULL);
+	VAR_NAME (cljc_DOT_core_SLASH_apply) = make_closure (cljc_core_apply, NULL);
 }

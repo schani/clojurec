@@ -270,7 +270,7 @@
   nil)
 
 (defmulti emit-constant class)
-(defmethod emit-constant nil [x] (emits "VALUE_NIL"))
+(defmethod emit-constant nil [x] (emits "value_nil"))
 (defmethod emit-constant Long [x] (emits "make_integer (" x "L)"))
 (defmethod emit-constant Integer [x] (emits "make_integer (" x "L)")) ; reader puts Integers in metadata
 (defmethod emit-constant Double [x] (emits x))
@@ -504,7 +504,7 @@
   (if init
     (do
       (emit-declaration
-       (emitln "static value_t *VAR_NAME (" name ") = VALUE_NIL;"))
+       (emitln "static value_t *VAR_NAME (" name ") = VALUE_NONE;"))
       (let [expr (= :expr (:context env))]
         (when expr
           (emits "("))
@@ -989,7 +989,7 @@
        (emitln "DEFTYPE_SET_FIELD (val, " i ", VAR_NAME (" fld "));"))
      (emitln "return val;")
      (emitln "}")
-     (emitln "static value_t* VAR_NAME (" t ") = VALUE_NIL;"))
+     (emitln "static value_t* VAR_NAME (" t ") = VALUE_NONE;"))
     (do
       (emitln "PTABLE_NAME (" t ") = alloc_ptable (TYPE_NAME (" t "));")
       (emitln "VAR_NAME (" t ") = make_closure (FN_NAME (" t "), NULL);"))))

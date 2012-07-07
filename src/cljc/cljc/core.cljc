@@ -75,6 +75,10 @@
 
 (set! cljc.core.List/EMPTY (cljc.core/EmptyList))
 
+(extend-type Nil
+  ICounted
+  (-count [_] 0))
+
 (extend-type Array
   ICounted
   (-count [a] (c* "make_integer (array_length (~{}))" a)))
@@ -134,17 +138,19 @@
   "Returns true if coll implements count in constant time"
   [x] (satisfies? ICounted x))
 
+(defn- accumulating-seq-count [coll]
+  (loop [s (seq coll) acc 0]
+    (if (counted? s) ; assumes nil is counted, which it currently is
+      (+ acc (-count s))
+      (recur (next s) (inc acc)))))
+
 (defn count
   "Returns the number of items in the collection. (count nil) returns
   0.  Also works on strings, arrays, and Maps"
   [coll]
-  (loop [s (seq coll)
-         acc 0]
-    (if s
-      (if (counted? s)
-        (+ acc (-count s))
-        (recur (next s) (inc acc)))
-      acc)))
+  (if (counted? coll)
+    (-count coll)
+    (accumulating-seq-count coll)))
 
 (defn cons
   "Returns a new seq where x is the first element and seq is the rest."
