@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <gc.h>
+#include <glib.h>
 
 #define assert_not_reached()	(assert (0))
 
@@ -48,6 +49,11 @@ typedef struct {
 } array_t;
 
 typedef struct {
+	value_t val;
+	const gchar *utf8;
+} string_t;
+
+typedef struct {
 	int num;		/* the protocol number, or -1 for termination */
 	closure_t **vtable;
 } ptable_entry_t;
@@ -82,7 +88,8 @@ typedef struct {
 #define TYPE_Integer	3
 #define TYPE_Boolean	4
 #define TYPE_Array	5
-#define FIRST_TYPE	6
+#define TYPE_String	6
+#define FIRST_TYPE	7
 
 static value_t *value_nil = NULL;
 
@@ -303,6 +310,7 @@ static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Nil) = NULL;
 static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Integer) = NULL;
 static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Boolean) = NULL;
 static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Array) = NULL;
+static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_String) = NULL;
 
 static value_t*
 make_integer (long x)
@@ -355,6 +363,22 @@ array_set (value_t *v, long index, value_t *x)
 	assert (v->ptable->type == TYPE_Array);
 	assert (index >= 0 && index < a->len);
 	a->elems [index] = x;
+}
+
+static value_t*
+make_string (const gchar *utf8)
+{
+	string_t *s = (string_t*) alloc_value (PTABLE_NAME (cljc_DOT_core_SLASH_String), sizeof (string_t));
+	s->utf8 = utf8;
+	return &s->val;
+}
+
+static const gchar*
+string_get_utf8 (value_t *v)
+{
+	string_t *s = (string_t*)v;
+	assert (v->ptable->type == TYPE_String);
+	return s->utf8;
 }
 
 static value_t*
@@ -526,6 +550,7 @@ cljc_init (void)
 	PTABLE_NAME (cljc_DOT_core_SLASH_Integer) = alloc_ptable (TYPE_Integer);
 	PTABLE_NAME (cljc_DOT_core_SLASH_Boolean) = alloc_ptable (TYPE_Boolean);
 	PTABLE_NAME (cljc_DOT_core_SLASH_Array) = alloc_ptable (TYPE_Array);
+	PTABLE_NAME (cljc_DOT_core_SLASH_String) = alloc_ptable (TYPE_String);
 
 	value_nil = alloc_value (PTABLE_NAME (cljc_DOT_core_SLASH_Nil), sizeof (value_t));
 

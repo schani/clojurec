@@ -275,7 +275,7 @@
 (defmethod emit-constant Integer [x] (emits "make_integer (" x "L)")) ; reader puts Integers in metadata
 (defmethod emit-constant Double [x] (emits x))
 (defmethod emit-constant String [x]
-  (emits (wrap-in-double-quotes (escape-string x))))
+  (emits "make_string (" (wrap-in-double-quotes (escape-string x)) ")"))
 (defmethod emit-constant Boolean [x] (emits (if x "value_true" "value_false")))
 (defmethod emit-constant Character [x]
   (emits (wrap-in-double-quotes (escape-char x))))

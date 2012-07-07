@@ -136,6 +136,11 @@
     (is (= (core-run '(print (-count (make-array 3))))
            [3]))))
 
+(deftest strings
+  (testing "strings"
+    (is (= (run '(c* "puts (string_get_utf8 (~{}))" "abc"))
+           ['abc]))))
+
 (deftest functions
   (testing "functions"
     (is (= (core-run '(do
