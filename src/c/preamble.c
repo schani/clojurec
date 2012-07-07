@@ -238,6 +238,7 @@ env_fetch (environment_t *env, int num_ups, int index)
 	return env->bindings [index];
 }
 
+static value_t* VAR_NAME (cljc_DOT_core_SLASH_Cons);
 static value_t* VAR_NAME (cljc_DOT_core_SLASH_first);
 static value_t* VAR_NAME (cljc_DOT_core_SLASH_next);
 static value_t* VAR_NAME (cljc_DOT_core_SLASH_count);

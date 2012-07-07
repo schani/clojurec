@@ -18,8 +18,10 @@
 
 (defn aget
   "Returns the value at the index."
-  [array i]
-  (c* "array_get (~{}, integer_get (~{}))" array i))
+  ([array i]
+     (c* "array_get (~{}, integer_get (~{}))" array i))
+  ([array i & idxs]
+     (apply aget (aget array i) idxs)))
 
 (defn aset
   "Sets the value at the index."
@@ -93,8 +95,12 @@
   "conj[oin]. Returns a new collection with the xs
   'added'. (conj nil item) returns (item).  The 'addition' may
   happen at different 'places' depending on the concrete type."
-  [coll x]
-  (-conj coll x))
+  ([coll x]
+     (-conj coll x))
+  ([coll x & xs]
+     (if xs
+       (recur (conj coll x) (first xs) (next xs))
+       (conj coll x))))
 
 (defn ^boolean reversible? [coll]
   (satisfies? IReversible coll))
@@ -110,8 +116,13 @@
     (reduce conj () coll)))
 
 (defn list
-  [& items]
-  (reduce conj () (reverse items)))
+  ([] ())
+  ([x] (conj () x))
+  ([x y] (conj (list y) x))
+  ([x y z] (conj (list y z) x))
+  ([x y z & items]
+     (conj (conj (conj (reduce conj () (reverse items))
+                       z) y) x)))
 
 (extend-type Nil
   ICounted
@@ -209,12 +220,16 @@
 
 ; simple reduce based on seqs, used as default
 (defn- seq-reduce
-  [f val coll]
-  (loop [val val, coll (seq coll)]
-    (if coll
-      (let [nval (f val (first coll))]
-        (recur nval (next coll)))
-      val)))
+  ([f coll]
+    (if-let [s (seq coll)]
+      (reduce f (first s) (next s))
+      (f)))
+  ([f val coll]
+     (loop [val val, coll (seq coll)]
+       (if coll
+         (let [nval (f val (first coll))]
+           (recur nval (next coll)))
+         val))))
 
 (defn reduce
   "f should be a function of 2 arguments. If val is not supplied,
@@ -226,5 +241,7 @@
   result of applying f to val and the first item in coll, then
   applying f to that result and the 2nd item, etc. If coll contains no
   items, returns val and f is not called."
-  [f val coll]
-  (seq-reduce f val coll))
+  ([f coll]
+     (seq-reduce f coll))
+  ([f val coll]
+     (seq-reduce f val coll)))
