@@ -1,2 +1,7 @@
 * Compiler
 ** TODO Use the namespaces atom for protocols, too
+** TODO Dot in deftype constructor names
+** TODO Don't pass env to functions, pass the whole closure
+Then we don't have to make a new closure for direct recursive
+functions (this_fn).
+* Runtime

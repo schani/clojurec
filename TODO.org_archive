@@ -1,0 +1,19 @@
+#    -*- mode: org -*-
+
+
+Archived entries from file /Users/schani/Work/clojure/clojurec/TODO.org
+
+
+* DONE Strings
+  CLOSED: [2012-07-07 Sat 22:22]
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2012-07-07 Sat 22:22
+  :ARCHIVE_FILE: ~/Work/clojure/clojurec/TODO.org
+  :ARCHIVE_OLPATH: Runtime
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+** ICU
+http://site.icu-project.org/
+** GLib
+http://developer.gnome.org/glib/2.32/glib-Unicode-Manipulation.html
