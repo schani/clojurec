@@ -124,6 +124,16 @@
                           (print (first l))
                           (recur (rest l)))))
            [1 2 3 4 5 6 7]))
+    (is (= (core-run '(loop [l (interpose 0 '(1 2 3))]
+                        (when (seq l)
+                          (print (first l))
+                          (recur (rest l)))))
+           [1 0 2 0 3]))
+    (is (= (core-run '(loop [l (flatten1 '((1 2 3) (4 5) (6)))]
+                        (when (seq l)
+                          (print (first l))
+                          (recur (rest l)))))
+           [1 2 3 4 5 6]))
     (is (= (core-run '(print (-count nil))) [0]))))
 
 (deftest arrays

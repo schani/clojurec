@@ -268,3 +268,23 @@
                      (when zs
                        (cat (first zs) (next zs))))))]
        (cat (concat x y) zs))))
+
+(defn interpose
+  "Returns a lazy seq of the elements of coll separated by sep"
+  [sep coll]
+  (if (seq coll)
+    (if-let [n (next coll)]
+      (cons (first coll) (cons sep (interpose sep n)))
+      (list (first coll)))
+    ()))
+
+(defn- flatten1
+  "Take a collection of collections, and return a lazy seq
+  of items from the inner collection"
+  [colls]
+  (let [cat (fn cat [coll colls]
+              (if-let [coll (seq coll)]
+                (cons (first coll) (cat (rest coll) colls))
+                (when (seq colls)
+                  (cat (first colls) (rest colls)))))]
+    (cat nil colls)))
