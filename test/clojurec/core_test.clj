@@ -108,6 +108,11 @@
 			  (print (first l))
 			  (recur (rest l)))))
 	   [1 2 3]))
+    (is (= (core-run '(loop [l (reverse '(1 2 3))]
+			(when (seq l)
+			  (print (first l))
+			  (recur (rest l)))))
+	   [3 2 1]))
     (is (= (core-run '(print (count '(0 0 0)))) [3]))
     (is (= (core-run '(loop [l (flatten-tail '(1 2 (3 4)))]
                         (when (seq l)

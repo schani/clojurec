@@ -47,6 +47,12 @@
 (defprotocol ISeqable
   (-seq [o]))
 
+(defprotocol ICollection
+  (-conj [coll o]))
+
+(defprotocol IReversible
+  (-rseq [coll]))
+
 (deftype Cons [first rest]
   ASeq
   ISeq
@@ -57,7 +63,10 @@
   (-next [coll] (if (nil? rest) nil (-seq rest)))
 
   ISeqable
-  (-seq [coll] coll))
+  (-seq [coll] coll)
+
+  ICollection
+  (-conj [coll o] (Cons o coll)))
 
 (deftype EmptyList []
   ISeq
@@ -70,14 +79,46 @@
   ISeqable
   (-seq [coll] nil)
 
+  ICollection
+  (-conj [coll o] (Cons o nil))
+
   ICounted
   (-count [_] 0))
 
 (set! cljc.core.List/EMPTY (cljc.core/EmptyList))
 
+(declare reduce)
+
+(defn conj
+  "conj[oin]. Returns a new collection with the xs
+  'added'. (conj nil item) returns (item).  The 'addition' may
+  happen at different 'places' depending on the concrete type."
+  [coll x]
+  (-conj coll x))
+
+(defn ^boolean reversible? [coll]
+  (satisfies? IReversible coll))
+
+(defn rseq [coll]
+  (-rseq coll))
+
+(defn reverse
+  "Returns a seq of the items in coll in reverse order. Not lazy."
+  [coll]
+  (if (reversible? coll)
+    (rseq coll)
+    (reduce conj () coll)))
+
+(defn list
+  [& items]
+  (reduce conj () (reverse items)))
+
 (extend-type Nil
   ICounted
-  (-count [_] 0))
+  (-count [_] 0)
+
+  ICollection
+  (-conj [coll o] (list o)))
 
 (extend-type Array
   ICounted
@@ -165,3 +206,25 @@
   (if-let [n (next coll)]
     (cons (first coll) (flatten-tail n))
     (first coll)))
+
+; simple reduce based on seqs, used as default
+(defn- seq-reduce
+  [f val coll]
+  (loop [val val, coll (seq coll)]
+    (if coll
+      (let [nval (f val (first coll))]
+        (recur nval (next coll)))
+      val)))
+
+(defn reduce
+  "f should be a function of 2 arguments. If val is not supplied,
+  returns the result of applying f to the first 2 items in coll, then
+  applying f to that result and the 3rd item, etc. If coll contains no
+  items, f must accept no arguments as well, and reduce returns the
+  result of calling f with no arguments.  If coll has only 1 item, it
+  is returned and f is not called.  If val is supplied, returns the
+  result of applying f to val and the first item in coll, then
+  applying f to that result and the 2nd item, etc. If coll contains no
+  items, returns val and f is not called."
+  [f val coll]
+  (seq-reduce f val coll))
