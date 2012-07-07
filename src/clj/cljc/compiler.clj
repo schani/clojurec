@@ -511,8 +511,11 @@
         (emits "VAR_NAME (" name ") = " init)
         (if expr
             (emits ")")
-          (emitln ";"))))
-    (emitln ";")))
+            (emitln ";"))))
+    (do
+      (emit-declaration
+       (emitln "static value_t *VAR_NAME (" name ");"))
+      (emitln ";"))))
 
 (comment
 (defmethod emit :def
