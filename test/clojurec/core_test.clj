@@ -134,6 +134,26 @@
                           (print (first l))
                           (recur (rest l)))))
            [1 2 3 4 5 6]))
+    (is (= (core-run '(loop [l (map inc '(1 2 3))]
+                        (when (seq l)
+                          (print (first l))
+                          (recur (rest l)))))
+           [2 3 4]))
+    (is (= (core-run '(loop [l (map + '(1 2 3) '(8 1 2))]
+                        (when (seq l)
+                          (print (first l))
+                          (recur (rest l)))))
+           [9 3 5]))
+    (is (= (core-run '(loop [l (map + '(1 2 3) '(8 1 2) '(8 3 7))]
+                        (when (seq l)
+                          (print (first l))
+                          (recur (rest l)))))
+           [17 6 12]))
+    (is (= (core-run '(loop [l (map + '(1 2 3) '(8 1 2) '(8 3 7) '(-4 -6 -2))]
+                        (when (seq l)
+                          (print (first l))
+                          (recur (rest l)))))
+           [13 0 10]))
     (is (= (core-run '(print (-count nil))) [0]))))
 
 (deftest arrays
