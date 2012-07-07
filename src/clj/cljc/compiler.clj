@@ -557,7 +557,7 @@
         (emitln "return " delegate-name "(" (string/join ", " params) ");")))
     (emits "})")))
 
-(defn emit-in-new-env [bindings variadic val-inits rest-val-init emitter]
+(defn emit-in-new-env [bindings variadic val-inits num-non-args rest-val-init emitter]
   (if (seq bindings)
     (let [num-vals (count bindings)
 	  num-direct-vals (if variadic
@@ -592,7 +592,7 @@
 	    (assert rest-val-init)
 	    (emitln "switch (nargs) {")
 	    (loop [val-inits (drop num-direct-vals val-inits)]
-	      (emitln "case " (+ num-direct-vals (count val-inits)) ":")
+	      (emitln "case " (- (+ num-direct-vals (count val-inits)) num-non-args) ":")
 	      (emits "env_set (new_env, " num-direct-vals ", ")
 	      (emit-cons-inits val-inits "ARG_NIL")
 	      (emitln "); break;")
@@ -612,15 +612,17 @@
      (emit-in-new-env (map :name bindings#)
 		      false
 		      (map :init bindings#)
+                      0
 		      nil
 		      (fn []
 			~@body))))
 
 (defn emit-fn-method
-  [{:keys [params statements ret recurs]} variadic]
-  (emit-in-new-env params
+  [{:keys [params statements ret recurs]} variadic [fn-name fn-init]]
+  (emit-in-new-env (concat (if fn-name [fn-name] []) params)
 		   variadic
-		   (map #(str "arg" %) (range 3))
+		   (concat (if fn-init [fn-init] []) (map #(str "arg" %) (range 3)))
+                   (if fn-name 1 0)
 		   (if (or variadic (> (count params) 3))
 		     "argrest")
 		   (fn []
@@ -685,21 +687,23 @@
 (defmethod emit :fn
   [{:keys [name env methods variadic]}]
   (when-not (= :statement (:context env))
-    (let [name (gensym)
+    (let [cname (gensym)
           return (= :return (:context env))]
       (when return
         (emits "return "))
-      (emits "make_closure (FN_NAME (" name "), env)")
+      (emits "make_closure (FN_NAME (" cname "), env)")
       (when return
         (emitln ";"))
       (emit-declaration
-       (emitln "static value_t* FN_NAME (" name ") (int nargs, environment_t *env, value_t *arg0, value_t *arg1, value_t *arg2, value_t *argrest) {")
+       (emitln "static value_t* FN_NAME (" cname ") (int nargs, environment_t *env, value_t *arg0, value_t *arg1, value_t *arg2, value_t *argrest) {")
+       (when name
+         (emitln "value_t *this_fn = make_closure (FN_NAME (" cname "), env);"))
        (if (= 1 (count methods))
          (do
            (when-not variadic
              (emitln "assert (nargs == " (count (:params (first methods))) ");")
              (emitln "{"))
-           (emit-fn-method (first methods) variadic)
+           (emit-fn-method (first methods) variadic (when name [name "this_fn"]))
            (when-not variadic
              (emitln "}")))
          (do
@@ -708,7 +712,7 @@
              (if (:variadic meth)
                (emitln "default: {")
                (emitln "case " (count (:params meth)) ": {"))
-             (emit-fn-method meth (:variadic meth))
+             (emit-fn-method meth (:variadic meth) (when name [name "this_fn"]))
              (emitln "}")
              (emitln "break;"))
            (when-not variadic
@@ -1258,10 +1262,15 @@
         meths (if (vector? (first meths)) (list meths) meths)
         mname (when name (munge name))
         locals (:locals env)
+        locals (if name (assoc locals name {:name mname}) locals)
         menv (if (> (count meths) 1) (assoc env :context :expr) env)
         methods (map #(analyze-fn-method menv locals %) meths)
         max-fixed-arity (apply max (map :max-fixed-arity methods))
         variadic (boolean (some :variadic methods))
+        locals (if name (assoc locals name {:name mname :fn-var true
+                                            :variadic variadic
+                                            :max-fixed-arity max-fixed-arity
+                                            :method-params (map :params methods)}))
         methods (if name
                   ;; a second pass with knowledge of our function-ness/arity
                   ;; lets us optimize self calls

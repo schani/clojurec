@@ -148,6 +148,12 @@
 
 (deftest functions
   (testing "functions"
+    (is (= (run '(cljc.core/print ((fn fac [x]
+                                     (if (< x 2)
+                                       x
+                                       (* x (fac (- x 1)))))
+                                   3)))
+           [6]))
     (is (= (core-run '(do
                         (defn fac [x]
                           (if (< x 2)
