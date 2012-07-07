@@ -693,12 +693,28 @@
       (when return
         (emitln ";"))
       (emit-declaration
+       (emitln "static value_t* FN_NAME (" name ") (int nargs, environment_t *env, value_t *arg0, value_t *arg1, value_t *arg2, value_t *argrest) {")
        (if (= 1 (count methods))
-	 (do
-	   (emitln "static value_t* FN_NAME (" name ") (int nargs, environment_t *env, value_t *arg0, value_t *arg1, value_t *arg2, value_t *argrest) {")
-	   (emit-fn-method (first methods) variadic)
-	   (emitln "}"))
-         (assert false "multi-method fns not yet supported"))))))
+         (do
+           (when-not variadic
+             (emitln "assert (nargs == " (count (:params (first methods))) ");")
+             (emitln "{"))
+           (emit-fn-method (first methods) variadic)
+           (when-not variadic
+             (emitln "}")))
+         (do
+           (emitln "switch (nargs) {")
+           (doseq [meth methods]
+             (if (:variadic meth)
+               (emitln "default: {")
+               (emitln "case " (count (:params meth)) ": {"))
+             (emit-fn-method meth (:variadic meth))
+             (emitln "}")
+             (emitln "break;"))
+           (when-not variadic
+             (emitln "default: assert_not_reached ();"))
+           (emitln "}")))
+       (emitln "}")))))
 
 (comment
 (defmethod emit :fn

@@ -171,6 +171,17 @@
                           (recur (rest l)))))
            [1 2 3 4]))
     (is (= (core-run '(do
+                        (defn m
+                          ([] 0)
+                          ([x] x)
+                          ([x y] (+ x y))
+                          ([x & r] (+ x (apply m r))))
+                        (print (m))
+                        (print (m 1))
+                        (print (m 1 2))
+                        (print (m 1 2 3))))
+           [0 1 3 6]))
+    (is (= (core-run '(do
 			(defn print-list [l]
 			  (loop [l l]
 			    (when (seq l)
