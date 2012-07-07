@@ -297,27 +297,14 @@ make_closure (function_t fn, environment_t *env)
 	return &closure->val;
 }
 
-static ptable_t*
-make_empty_ptable_once (int type, ptable_t **ptablep)
-{
-	/* FIXME: with multiple threads we might end up with more than
-	   one ptable. */
-	if (*ptablep == NULL)
-		*ptablep = alloc_ptable (type);
-	return *ptablep;
-}
-
-static ptable_t*
-integer_ptable (void)
-{
-	static ptable_t *integer_ptable = NULL;
-	return make_empty_ptable_once (TYPE_Integer, &integer_ptable);
-}
+static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Integer) = NULL;
+static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Boolean) = NULL;
+static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Array) = NULL;
 
 static value_t*
 make_integer (long x)
 {
-	integer_t *integer = (integer_t*) alloc_value (integer_ptable (), sizeof (integer_t));
+	integer_t *integer = (integer_t*) alloc_value (PTABLE_NAME (cljc_DOT_core_SLASH_Integer), sizeof (integer_t));
 	integer->x = x;
 	return &integer->val;
 }
@@ -330,24 +317,10 @@ integer_get (value_t *v)
 	return i->x;
 }
 
-static ptable_t*
-boolean_ptable (void)
-{
-	static ptable_t *boolean_ptable = NULL;
-	return make_empty_ptable_once (TYPE_Boolean, &boolean_ptable);
-}
-
-static ptable_t*
-array_ptable (void)
-{
-	static ptable_t *array_ptable = NULL;
-	return make_empty_ptable_once (TYPE_Array, &array_ptable);
-}
-
 static value_t*
 make_array (long len)
 {
-	array_t *array = (array_t*) alloc_value (array_ptable (),  sizeof (array_t) + len * sizeof (value_t*));
+	array_t *array = (array_t*) alloc_value (PTABLE_NAME (cljc_DOT_core_SLASH_Array),  sizeof (array_t) + len * sizeof (value_t*));
 	array->len = len;
 	return &array->val;
 }
@@ -544,8 +517,12 @@ cljc_init (void)
 {
 	GC_INIT ();
 
+	PTABLE_NAME (cljc_DOT_core_SLASH_Integer) = alloc_ptable (TYPE_Integer);
+	PTABLE_NAME (cljc_DOT_core_SLASH_Boolean) = alloc_ptable (TYPE_Boolean);
+	PTABLE_NAME (cljc_DOT_core_SLASH_Array) = alloc_ptable (TYPE_Array);
+
 	VAR_NAME (cljc_DOT_core_SLASH_print) = make_closure (cljc_core_print, NULL);
 	VAR_NAME (cljc_DOT_core_SLASH_apply) = make_closure (cljc_core_apply, NULL);
-	value_true = alloc_value (boolean_ptable (), sizeof (value_t));
-	value_false = alloc_value (boolean_ptable (), sizeof (value_t));
+	value_true = alloc_value (PTABLE_NAME (cljc_DOT_core_SLASH_Boolean), sizeof (value_t));
+	value_false = alloc_value (PTABLE_NAME (cljc_DOT_core_SLASH_Boolean), sizeof (value_t));
 }

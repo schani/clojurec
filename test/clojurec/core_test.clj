@@ -131,7 +131,9 @@
                         (print (aget a 0))
                         (print (aget a 1))
                         (print (aget a 2))))
-           [1 2 3]))))
+           [1 2 3]))
+    (is (= (core-run '(print (-count (make-array 3))))
+           [3]))))
 
 (deftest functions
   (testing "functions"
