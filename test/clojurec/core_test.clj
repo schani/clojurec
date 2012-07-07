@@ -50,7 +50,27 @@
 		   (let [c (Cons 1 2)]
 		     (cljc.core/print (. c -first))
 		     (cljc.core/print (. c -rest)))))
-	   [1 2]))))
+	   [1 2]))
+    (is (= (core-run '(deftype Bla []
+                        ICounted
+                        (-count [_] 0)))
+           []))
+    (is (= (core-run '(deftype Bla []
+                        ICounted
+                        (-count ([_] 0))))
+           []))
+    (is (= (core-run '(do
+                        (deftype Bla [])
+                        (extend-type Bla
+                          ICounted
+                          (-count [_] 0))))
+           []))
+    (is (= (core-run '(do
+                        (deftype Bla [])
+                        (extend-type Bla
+                          ICounted
+                          (-count ([_] 0)))))
+           []))))
 
 (deftest numbers
   (testing "simple numbers"

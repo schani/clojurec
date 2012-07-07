@@ -71,17 +71,21 @@
 		       (let [[psym _] (resolve p)
 			     vtable (gensym "vtable")]
 			 `(let [~vtable (~'c* ~(core/str "make_vtable_value (alloc_vtable (PROTOCOL_VTABLE_SIZE (" psym ")))"))]
-			    ~@(map (fn [[name [args & body]]]
-				     `(~'c* ~(core/str "set_vtable_entry (((vtable_value_t*)~{})->vtable, MEMBER_NAME (" (cljc.compiler/munge name) "), (closure_t*)~{})")
-					  ~vtable
-					  (fn ~name ~args
-					    (let ~(apply vector
-							 (apply concat
-								(map-indexed (fn [i field]
-									       `[~field (~'c* ~(core/str "DEFTYPE_GET_FIELD (~{}, " i ")") ~(first args))])
-									     fields)))
-					      ~@body))))
-				   sigs)
+			    ~@(map (fn [[name & meths]]
+                                     ;; FIXME: must also work with multiple signatures!
+                                     (let [[args & body] (if (vector? (first meths))
+                                                           meths
+                                                           (first meths))]
+                                       `(~'c* ~(core/str "set_vtable_entry (((vtable_value_t*)~{})->vtable, MEMBER_NAME (" (cljc.compiler/munge name) "), (closure_t*)~{})")
+                                              ~vtable
+                                              (fn ~name ~args
+                                                (let ~(apply vector
+                                                             (apply concat
+                                                                    (map-indexed (fn [i field]
+                                                                                   `[~field (~'c* ~(core/str "DEFTYPE_GET_FIELD (~{}, " i ")") ~(first args))])
+                                                                                 fields)))
+                                                  ~@body)))))
+                                   sigs)
 			    (~'c* ~(core/str "extend_ptable (PTABLE_NAME (" t "), PROTOCOL_NAME (" psym "), ((vtable_value_t*)~{})->vtable)") ~vtable))))]
     (concat '(do) (map assign-impls impl-map))))
 
@@ -113,9 +117,12 @@
     (list 'c* "make_boolean (value_satisfies_protocol (~{}, PROTOCOL_NAME (~{str})))" x (core/str p))))
 
 (defmacro deftype [t fields & impls]
-  (let [adorn-params (fn [sig]
-                       (cons (vary-meta (second sig) assoc :cljc.compiler/fields fields)
-                             (nnext sig)))
+  (let [adorn-params (fn [[_ & meths]]
+                       (let [[args & body] (if (vector? (first meths))
+                                             meths
+                                             (first meths))]
+                         (cons (vary-meta args assoc :cljc.compiler/fields fields)
+                               body)))
         ;;reshape for extend-type
         dt->et (fn [specs]
                  (loop [ret [] s specs]
