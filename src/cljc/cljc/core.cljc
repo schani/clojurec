@@ -29,6 +29,11 @@
   (c* "array_set (~{}, integer_get (~{}), ~{})" array i val)
   nil)
 
+(defn alength
+  "Returns the length of the array. Works on arrays of all types."
+  [array]
+  (c* "make_integer (array_length (~{}))" array))
+
 (comment
 (defprotocol IFn
   (-invoke [& args]))
@@ -133,7 +138,7 @@
 
 (extend-type Array
   ICounted
-  (-count [a] (c* "make_integer (array_length (~{}))" a)))
+  (-count [a] (alength a)))
 
 (defn ^seq seq
   "Returns a seq on the collection. If the collection is
