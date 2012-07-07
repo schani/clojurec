@@ -32,6 +32,9 @@
   (-invoke [& args]))
 )
 
+(defprotocol ICounted
+  (-count [coll] "constant time count"))
+
 (defprotocol ASeq)
 
 (defprotocol ISeq
@@ -65,7 +68,10 @@
   (-next [coll] nil)
 
   ISeqable
-  (-seq [coll] nil))
+  (-seq [coll] nil)
+
+  ICounted
+  (-count [_] 0))
 
 (set! cljc.core.List/EMPTY (cljc.core/EmptyList))
 
@@ -120,14 +126,20 @@
   "Returns a number one less than num."
   [x] (- x 1))
 
+(defn ^boolean counted?
+  "Returns true if coll implements count in constant time"
+  [x] (satisfies? ICounted x))
+
 (defn count
   "Returns the number of items in the collection. (count nil) returns
   0.  Also works on strings, arrays, and Maps"
   [coll]
   (loop [s (seq coll)
-	 acc 0]
+         acc 0]
     (if s
-      (recur (next s) (inc acc))
+      (if (counted? s)
+        (+ acc (-count s))
+        (recur (next s) (inc acc)))
       acc)))
 
 (defn cons
