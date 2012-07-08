@@ -72,19 +72,20 @@
 			     vtable (gensym "vtable")]
 			 `(let [~vtable (~'c* ~(core/str "make_vtable_value (alloc_vtable (PROTOCOL_VTABLE_SIZE (" psym ")))"))]
 			    ~@(map (fn [[name & meths]]
-                                     ;; FIXME: must also work with multiple signatures!
-                                     (let [[args & body] (if (vector? (first meths))
-                                                           meths
-                                                           (first meths))]
+                                     (let [meths (if (vector? (first meths))
+                                                   (list meths)
+                                                   meths)]
                                        `(~'c* ~(core/str "set_vtable_entry (((vtable_value_t*)~{})->vtable, MEMBER_NAME (" (cljc.compiler/munge name) "), (closure_t*)~{})")
                                               ~vtable
-                                              (fn ~name ~args
-                                                (let ~(apply vector
-                                                             (apply concat
-                                                                    (map-indexed (fn [i field]
-                                                                                   `[~field (~'c* ~(core/str "DEFTYPE_GET_FIELD (~{}, " i ")") ~(first args))])
-                                                                                 fields)))
-                                                  ~@body)))))
+                                              (fn ~name ~@(map (fn [[args & body]]
+                                                                 `(~args
+                                                                   (let ~(apply vector
+                                                                                (apply concat
+                                                                                       (map-indexed (fn [i field]
+                                                                                                      `[~field (~'c* ~(core/str "DEFTYPE_GET_FIELD (~{}, " i ")") ~(first args))])
+                                                                                                    fields)))
+                                                                     ~@body)))
+                                                               meths)))))
                                    sigs)
 			    (~'c* ~(core/str "extend_ptable (PTABLE_NAME (" t "), PROTOCOL_NAME (" psym "), ((vtable_value_t*)~{})->vtable)") ~vtable))))]
     (concat '(do) (map assign-impls impl-map))))
@@ -118,11 +119,13 @@
 
 (defmacro deftype [t fields & impls]
   (let [adorn-params (fn [[_ & meths]]
-                       (let [[args & body] (if (vector? (first meths))
-                                             meths
-                                             (first meths))]
-                         (cons (vary-meta args assoc :cljc.compiler/fields fields)
-                               body)))
+                       (let [meths (if (vector? (first meths))
+                                     (list meths)
+                                     meths)]
+                         (map (fn [[args & body]]
+                                (cons (vary-meta args assoc :cljc.compiler/fields fields)
+                                      body))
+                              meths)))
         ;;reshape for extend-type
         dt->et (fn [specs]
                  (loop [ret [] s specs]
@@ -131,7 +134,7 @@
                                 (conj (first s))
                                 (into
                                  (reduce (fn [v [f sigs]]
-                                           (conj v (cons f (map adorn-params sigs))))
+                                           (conj v (cons f (mapcat adorn-params sigs))))
                                          []
                                          (group-by first (take-while seq? (next s))))))
                             (drop-while seq? (next s)))

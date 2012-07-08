@@ -60,6 +60,9 @@
 (defprotocol INext
   (-next [coll]))
 
+(defprotocol ILookup
+  (-lookup [o k] [o k not-found]))
+
 (defprotocol IEquiv
   (-equiv [o other]))
 
@@ -74,6 +77,9 @@
 
 (defprotocol IReversible
   (-rseq [coll]))
+
+(defprotocol ISet
+  (-disjoin [coll v]))
 
 (defprotocol IPrintable
   (-pr-seq [o opts]))
@@ -196,6 +202,14 @@
 
   ICollection
   (-conj [coll o] (list o))
+
+  ILookup
+  (-lookup
+    ([o k] nil)
+    ([o k not-found] not-found))
+
+  ISet
+  (-disjoin [_ v] nil)
 
   IPrintable
   (-pr-seq [o opts] (list "nil")))
@@ -356,8 +370,43 @@
   "Returns a number one less than num."
   [x] (- x 1))
 
+(defn ^boolean ==
+  "Returns non-nil if nums all have the equivalent
+  value, otherwise false. Behavior on non nums is
+  undefined."
+  ([x] true)
+  ([x y] (-equiv x y))
+  ([x y & more]
+   (if (== x y)
+     (if (next more)
+       (recur y (first more) (next more))
+       (== y (first more)))
+     false)))
+
+;;;;;;;;;;;;;;;; preds ;;;;;;;;;;;;;;;;;;
+
+(def ^:private lookup-sentinel (c* "alloc_value (PTABLE_NAME (cljc_DOT_core_SLASH_Nil), sizeof (value_t))"))
+
 (defn ^boolean boolean [x]
   (if x true false))
+
+(defn ^boolean contains?
+  "Returns true if key is present in the given collection, otherwise
+  returns false.  Note that for numerically indexed collections like
+  vectors and arrays, this tests if the numeric key is within the
+  range of indexes. 'contains?' operates constant or logarithmic time;
+  it will not perform a linear search for a value.  See also 'some'."
+  [coll v]
+  (if (identical? (-lookup coll v lookup-sentinel) lookup-sentinel)
+    false
+    true))
+
+(defn ^boolean set?
+  "Returns true if x satisfies ISet"
+  [x]
+  (if (nil? x)
+    false
+    (satisfies? ISet x)))
 
 (defn ^boolean sequential?
   "Returns true if coll satisfies ISequential"
@@ -388,6 +437,25 @@
           (satisfies? ISeq coll))
     (Cons x coll)
     (Cons x (seq coll))))
+
+(defn get
+  "Returns the value mapped to key, not-found or nil if key not present."
+  ([o k]
+     (-lookup o k))
+  ([o k not-found]
+     (-lookup o k not-found)))
+
+(defn disj
+  "disj[oin]. Returns a new set of the same (hashed/sorted) type, that
+  does not contain key(s)."
+  ([coll] coll)
+  ([coll k]
+     (-disjoin coll k))
+  ([coll k & ks]
+     (let [ret (disj coll k)]
+       (if ks
+         (recur ret (first ks) (next ks))
+         ret))))
 
 (defn- equiv-sequential
   "Assumes x is sequential. Returns true if x equals y, otherwise
@@ -509,6 +577,68 @@
                 (when (seq colls)
                   (cat (first colls) (rest colls)))))]
     (cat nil colls)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Sets ;;;;;;;;;;;;;;;;
+
+(defn- member? [coll o]
+  (not (every? #(not (= % o)) coll)))
+
+(defn- reverse-rember [coll o]
+  (loop [rev ()
+         coll (seq coll)]
+    (if coll
+      (let [f (first coll)]
+        (if (= o f)
+          (recur rev (next coll))
+          (recur (cons f rev) (next coll))))
+      rev)))
+
+(deftype ListSet [elems]
+  ICollection
+  (-conj [coll o]
+    (if (member? elems o)
+      coll
+      (ListSet (conj elems o))))
+
+  IEquiv
+  (-equiv [coll other]
+    (and
+     (set? other)
+     (== (count coll) (count other))
+     (every? #(contains? coll %)
+             other)))
+
+  ISeqable
+  (-seq [_] elems)
+
+  ICounted
+  (-count [coll] (count (seq coll)))
+
+  ILookup
+  (-lookup [coll v]
+    (-lookup coll v nil))
+  (-lookup [coll v not-found]
+    (if (member? elems v)
+      v
+      not-found))
+
+  ISet
+  (-disjoin [coll v]
+    (if (member? elems v)
+      (ListSet (reverse-rember elems v))
+      coll))
+
+  IPrintable
+  (-pr-seq [coll opts] (pr-sequential pr-seq "#{" " " "}" opts elems)))
+
+(defn set
+  "Returns a set of the distinct elements of coll."
+  [coll]
+  (loop [in (seq coll)
+         out (ListSet ())]
+    (if (seq in)
+      (recur (next in) (conj out (first in)))
+      out)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Printing ;;;;;;;;;;;;;;;;
 

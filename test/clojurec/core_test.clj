@@ -196,7 +196,9 @@
     (is (= (core-run '(pr '(1 2 3)))
            ['(1 2 3)]))
     (is (= (core-run '(pr (make-array 2)))
-           [[nil nil]]))))
+           [[nil nil]]))
+    (is (= (core-run '(pr (set (list 1 2 3))))
+           [#{1 2 3}]))))
 
 (deftest equality
   (testing "equality"
@@ -223,6 +225,19 @@
     (is (= (core-run '(pr (= '(1 2 3) '(1 2 3))
                           (= '(nil nil nil) (seq (make-array 3)))))
            [true true]))))
+
+(deftest sets
+  (testing "sets"
+    (is (= (core-run '(pr (contains? nil 123)))
+           [false]))
+    (is (= (core-run '(pr (conj (conj (conj (conj (set ()) 1) 2) 3) 1)))
+           [#{1 2 3}]))
+    (is (= (core-run '(pr (disj (set '(1 2 2 3)) 2)))
+           [#{1 3}]))
+    (is (= (core-run '(pr (get (set '(1 2 3)) 1)
+                          (get (set '(1 2 3)) 4)
+                          (get (set '(1 2 3)) 4 5)))
+           [1 nil 5]))))
 
 (deftest functions
   (testing "functions"
