@@ -487,6 +487,11 @@
     false
     true))
 
+(defn ^boolean empty?
+  "Returns true if coll has no items - same as (not (seq coll)).
+  Please use the idiom (seq x) rather than (not (empty? x))"
+  [coll] (not (seq coll)))
+
 (defn ^boolean set?
   "Returns true if x satisfies ISet"
   [x]
@@ -565,6 +570,16 @@
    true false))
 
 (defn identity [x] x)
+
+(defn filter
+  "Returns a lazy sequence of the items in coll for which
+  (pred item) returns true. pred must be free of side-effects."
+  ([pred coll]
+     (when-let [s (seq coll)]
+       (let [f (first s) r (rest s)]
+         (if (pred f)
+           (cons f (filter pred r))
+           (filter pred r))))))
 
 (defn flatten-tail
   [coll]
