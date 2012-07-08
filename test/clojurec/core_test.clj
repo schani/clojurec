@@ -155,7 +155,9 @@
                           (print (first l))
                           (recur (rest l)))))
            [13 0 10]))
-    (is (= (core-run '(print (-count nil))) [0]))))
+    (is (= (core-run '(print (-count nil))) [0]))
+    (is (= (core-run '(pr (filter #(> % 3) (list 1 2 3 4 5))))
+           ['(4 5)]))))
 
 (deftest arrays
   (testing "arrays"

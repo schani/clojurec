@@ -575,11 +575,14 @@
   "Returns a lazy sequence of the items in coll for which
   (pred item) returns true. pred must be free of side-effects."
   ([pred coll]
-     (when-let [s (seq coll)]
-       (let [f (first s) r (rest s)]
-         (if (pred f)
-           (cons f (filter pred r))
-           (filter pred r))))))
+     (loop [rev ()
+            coll (seq coll)]
+       (if coll
+         (let [f (first coll) r (next coll)]
+           (if (pred f)
+             (recur (cons f rev) r)
+             (recur rev r)))
+         (reverse rev)))))
 
 (defn flatten-tail
   [coll]
