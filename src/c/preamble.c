@@ -590,6 +590,24 @@ cljc_core_apply (int nargs, environment_t *env, value_t *f, value_t *arg1, value
 
 static value_t *VAR_NAME (cljc_DOT_core_SLASH_apply) = VALUE_NONE;
 
+static gchar*
+slurp_file (const char *filename)
+{
+	gchar *contents;
+	if (!g_file_get_contents (filename, &contents, NULL, NULL))
+		assert_not_reached ();
+	return contents;
+}
+
+static long
+strchr_offset (const gchar *str, gunichar c)
+{
+	gchar *p = g_utf8_strchr (str, -1, c);
+	if (p == NULL)
+		return -1;
+	return p - str;
+}
+
 static void
 cljc_init (void)
 {

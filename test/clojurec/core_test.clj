@@ -1,4 +1,5 @@
 (ns clojurec.core-test
+  (:require [clojure.java.io :as io])
   (:use clojure.test
         clojurec.core))
 
@@ -363,6 +364,14 @@
 	    1 2 3 0 -1 1 2 3 0 4 -1 1 2 3 0 4 5 -1 1 2 3 0 4 5 6 -1
 	    1 2 3 4 0 -1 1 2 3 4 0 5 -1 1 2 3 4 0 5 6 -1
 	    1 2 3 4 5 0 -1 1 2 3 4 5 0 6 -1]))))
+
+(deftest io
+  (testing "I/O"
+    (let [filename (.getAbsolutePath (io/file (java.lang.System/getProperty "user.dir") "test" "words.txt"))]
+      (is (= (core-run `(pr (slurp ~filename)))
+             ['foo 'bar 'quux]))
+      (is (= (core-run `(pr (~'split-string-seq (slurp ~filename) \newline)))
+             ['(foo bar quux)])))))
 
 (deftest programs
   (testing "somewhat useful programs"
