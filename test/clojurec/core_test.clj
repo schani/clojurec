@@ -198,6 +198,32 @@
     (is (= (core-run '(pr (make-array 2)))
            [[nil nil]]))))
 
+(deftest equality
+  (testing "equality"
+    (is (= (core-run '(pr (= true true)
+                          (= false false)
+                          (= true false)
+                          (= false true)
+                          (= false nil)
+                          (= false 0)))
+           [true true false false false false]))
+    (is (= (core-run '(pr (= 1 1)
+                          (= 1 2)
+                          (= 0 false)
+                          (= 0 nil)))
+           [true false false false]))
+    (is (= (core-run '(pr (= () ())
+                          (= nil nil)
+                          (= () nil)
+                          (= nil ())))
+           [true true false false]))
+    (is (= (core-run '(pr (= "abc" "abc")
+                          (= "abc" "def")))
+           [true false]))
+    (is (= (core-run '(pr (= '(1 2 3) '(1 2 3))
+                          (= '(nil nil nil) (seq (make-array 3)))))
+           [true true]))))
+
 (deftest functions
   (testing "functions"
     (is (= (run '(cljc.core/print ((fn fac [x]

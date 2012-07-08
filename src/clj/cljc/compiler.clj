@@ -24,7 +24,7 @@
 (require 'cljc.core)
 
 (def js-reserved
-  #{"abstract" "boolean" "break" "byte" "case"
+  #{"abstract" "break" "byte" "case"
     "catch" "char" "class" "const" "continue"
     "debugger" "default" "delete" "do" "double"
     "else" "enum" "export" "extends" "final"

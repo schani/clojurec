@@ -60,8 +60,14 @@
 (defprotocol INext
   (-next [coll]))
 
+(defprotocol IEquiv
+  (-equiv [o other]))
+
 (defprotocol ISeqable
   (-seq [o]))
+
+(defprotocol ISequential
+  "Marker interface indicating a persistent collection of sequential items")
 
 (defprotocol ICollection
   (-conj [coll o]))
@@ -72,7 +78,7 @@
 (defprotocol IPrintable
   (-pr-seq [o opts]))
 
-(declare pr-sequential pr-seq list cons inc)
+(declare pr-sequential pr-seq list cons inc equiv-sequential)
 
 (deftype Cons [first rest]
   ASeq
@@ -82,6 +88,10 @@
 
   INext
   (-next [coll] (if (nil? rest) nil (-seq rest)))
+
+  ISequential
+  IEquiv
+  (-equiv [coll other] (equiv-sequential coll other))
 
   ISeqable
   (-seq [coll] coll)
@@ -106,6 +116,10 @@
   ICollection
   (-conj [coll o] (Cons o nil))
 
+  ISequential
+  IEquiv
+  (-equiv [coll other] (equiv-sequential coll other))
+
   ICounted
   (-count [_] 0)
 
@@ -119,6 +133,24 @@
   "Tests if 2 arguments are the same object"
   [x y]
   (cljc.core/identical? x y))
+
+(declare first next)
+
+(defn ^boolean =
+  "Equality. Returns true if x equals y, false if not. Compares
+  numbers and collections in a type-independent manner.  Clojure's immutable data
+  structures define -equiv (and thus =) as a value, not an identity,
+  comparison."
+  ([x] true)
+  ([x y] (or (identical? x y)
+             (and (satisfies? IEquiv x)
+                  (-equiv x y))))
+  ([x y & more]
+     (if (= x y)
+       (if (next more)
+         (recur y (first more) (next more))
+         (= y (first more)))
+       false)))
 
 (declare reduce)
 
@@ -156,6 +188,9 @@
                        z) y) x)))
 
 (extend-type Nil
+  IEquiv
+  (-equiv [_ o] (nil? o))
+
   ICounted
   (-count [_] 0)
 
@@ -166,6 +201,11 @@
   (-pr-seq [o opts] (list "nil")))
 
 (extend-type Integer
+  IEquiv
+  (-equiv [i o]
+    (and (has-type? o Integer)
+         (c* "make_boolean (integer_get (~{}) == integer_get (~{}))" i o)))
+
   IPrintable
   (-pr-seq [i opts] (list (c* "make_string_copy_free (g_strdup_printf (\"%ld\", integer_get (~{})))" i))))
 
@@ -191,6 +231,10 @@
 
   ICounted
   (-count [_] (- (-count a) i))
+
+  ISequential
+  IEquiv
+  (-equiv [coll other] (equiv-sequential coll other))
 
   ICollection
   (-conj [coll o] (cons o coll)))
@@ -220,11 +264,22 @@
     (pr-sequential pr-seq "[" " " "]" opts a)))
 
 (extend-type Character
+  IEquiv
+  (-equiv [c o]
+    (and (has-type? o Character)
+         (c* "make_boolean (character_get (~{}) == character_get (~{}))" c o)))
+
   IPrintable
   (-pr-seq [c opts]
     (list "\\" (c* "make_string_from_unichar (character_get (~{}))" c))))
 
 (extend-type String
+  IEquiv
+  (-equiv [s o]
+    (and (has-type? o String)
+         ;; FIXME: normalize first
+         (c* "make_boolean (strcmp (string_get_utf8 (~{}), string_get_utf8 (~{})) == 0)" s o)))
+
   IPrintable
   (-pr-seq [s opts]
     (list s)))
@@ -301,6 +356,13 @@
   "Returns a number one less than num."
   [x] (- x 1))
 
+(defn ^boolean boolean [x]
+  (if x true false))
+
+(defn ^boolean sequential?
+  "Returns true if coll satisfies ISequential"
+  [x] (satisfies? ISequential x))
+
 (defn ^boolean counted?
   "Returns true if coll implements count in constant time"
   [x] (satisfies? ICounted x))
@@ -326,6 +388,18 @@
           (satisfies? ISeq coll))
     (Cons x coll)
     (Cons x (seq coll))))
+
+(defn- equiv-sequential
+  "Assumes x is sequential. Returns true if x equals y, otherwise
+  returns false."
+  [x y]
+  (boolean
+   (when (sequential? y)
+     (loop [xs (seq x) ys (seq y)]
+       (cond (nil? xs) (nil? ys)
+             (nil? ys) false
+             (= (first xs) (first ys)) (recur (next xs) (next ys))
+             true false)))))
 
 (defn ^boolean every?
   "Returns true if (pred x) is logical true for every x in coll, else
