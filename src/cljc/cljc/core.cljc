@@ -460,12 +460,14 @@
   "Prints a sequence of objects using string-print, observing all
   the options given in opts"
   [objs opts]
-  (let [first-obj (first objs)]
-    (doseq [obj objs]
-      (when-not (identical? obj first-obj)
+  (loop [objs (seq objs)
+         need-sep false]
+    (when objs
+      (when need-sep
         (string-print " "))
-      (doseq [string (pr-seq obj opts)]
-        (string-print string)))))
+      (doseq [string (pr-seq (first objs) opts)]
+        (string-print string))
+      (recur (next objs) true))))
 
 (defn- pr-opts []
   nil)
