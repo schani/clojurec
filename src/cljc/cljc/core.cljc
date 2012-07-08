@@ -628,6 +628,12 @@
       (ListSet (reverse-rember elems v))
       coll))
 
+  IFn
+  (-invoke [coll k]
+    (-lookup coll k))
+  (-invoke [coll k not-found]
+    (-lookup coll k not-found))
+
   IPrintable
   (-pr-seq [coll opts] (pr-sequential pr-seq "#{" " " "}" opts elems)))
 

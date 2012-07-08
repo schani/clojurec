@@ -237,6 +237,10 @@
     (is (= (core-run '(pr (get (set '(1 2 3)) 1)
                           (get (set '(1 2 3)) 4)
                           (get (set '(1 2 3)) 4 5)))
+           [1 nil 5]))
+    (is (= (core-run '(pr ((set '(1 2 3)) 1)
+                          ((set '(1 2 3)) 4)
+                          ((set '(1 2 3)) 4 5)))
            [1 nil 5]))))
 
 (deftest functions

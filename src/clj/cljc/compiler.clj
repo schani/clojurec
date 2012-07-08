@@ -42,7 +42,7 @@
 (defonce namespaces (atom '{}))
 (defonce num-protocols (atom 0))
 (defonce num-types (atom 0))
-(defonce protocols-init '{cljc.core {cljc.core/IFn {:name cljc_DOT_core_DOT_IFn, :methods ((-invoke [f & args]))}}})
+(defonce protocols-init '{cljc.core {cljc.core/IFn {:name cljc_DOT_core_SLASH_IFn, :methods ((-invoke [f & args]))}}})
 (defonce protocols (atom protocols-init))
 (defonce declarations (atom []))
 
