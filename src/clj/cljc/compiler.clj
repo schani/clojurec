@@ -271,6 +271,7 @@
 
 (defmulti emit-constant class)
 (defmethod emit-constant nil [x] (emits "value_nil"))
+;; FIXME: allocate these only once, not every time!
 (defmethod emit-constant Long [x] (emits "make_integer (" x "L)"))
 (defmethod emit-constant Integer [x] (emits "make_integer (" x "L)")) ; reader puts Integers in metadata
 (defmethod emit-constant Double [x] (emits x))
@@ -303,7 +304,7 @@
   (emits body))
 
 (defmethod emit-constant clojure.lang.PersistentList$EmptyList [x]
-  (emit-meta-constant x "VAR_NAME (cljc_DOT_core_DOT_List_SLASH_EMPTY)"))
+  (emits "VAR_NAME (cljc_DOT_core_DOT_List_SLASH_EMPTY)"))
 
 (defmethod emit-constant clojure.lang.PersistentList [x]
   (emit-meta-constant x
