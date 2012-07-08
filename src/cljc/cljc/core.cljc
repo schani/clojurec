@@ -329,7 +329,7 @@
   (cond
    (nil? (seq coll)) true
    (pred (first coll)) (recur pred (next coll))
-   :else false))
+   true false))
 
 (defn identity [x] x)
 
