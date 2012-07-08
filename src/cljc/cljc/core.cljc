@@ -9,6 +9,15 @@
 (declare print)
 (declare apply)
 
+(def
+  ^{:doc "Each runtime environment provides a diffenent way to print output.
+  Whatever function *print-fn* is bound to will be passed any
+  Strings which should be printed."}
+  *print-fn*
+  (fn [s]
+    (c* "fputs (string_get_utf8 (~{}), stdout)" s)
+    nil))
+
 (defn ^boolean not
   "Returns true if x is logical false, false otherwise."
   [x] (if x false true))
@@ -60,6 +69,11 @@
 (defprotocol IReversible
   (-rseq [coll]))
 
+(defprotocol IPrintable
+  (-pr-seq [o opts]))
+
+(declare pr-sequential pr-seq list cons inc)
+
 (deftype Cons [first rest]
   ASeq
   ISeq
@@ -73,7 +87,10 @@
   (-seq [coll] coll)
 
   ICollection
-  (-conj [coll o] (Cons o coll)))
+  (-conj [coll o] (Cons o coll))
+
+  IPrintable
+  (-pr-seq [coll opts] (pr-sequential pr-seq "(" " " ")" opts coll)))
 
 (deftype EmptyList []
   ISeq
@@ -90,9 +107,18 @@
   (-conj [coll o] (Cons o nil))
 
   ICounted
-  (-count [_] 0))
+  (-count [_] 0)
+
+  IPrintable
+  (-pr-seq [coll opts] (list "()")))
 
 (set! cljc.core.List/EMPTY (cljc.core/EmptyList))
+
+;;;;;;;;;;;;;;;;;;; fundamentals ;;;;;;;;;;;;;;;
+(defn ^boolean identical?
+  "Tests if 2 arguments are the same object"
+  [x y]
+  (cljc.core/identical? x y))
 
 (declare reduce)
 
@@ -134,11 +160,69 @@
   (-count [_] 0)
 
   ICollection
-  (-conj [coll o] (list o)))
+  (-conj [coll o] (list o))
+
+  IPrintable
+  (-pr-seq [o opts] (list "nil")))
+
+(extend-type Integer
+  IPrintable
+  (-pr-seq [i opts] (list (c* "make_string_copy_free (g_strdup_printf (\"%ld\", integer_get (~{})))" i))))
+
+(extend-type Boolean
+  IPrintable
+  (-pr-seq [o opts] (list (if o "true" "false"))))
+
+(deftype IndexedSeq [a i]
+  ISeqable
+  (-seq [this] this)
+
+  ASeq
+  ISeq
+  (-first [_] (aget a i))
+  (-rest [_] (if (< (inc i) (-count a))
+               (IndexedSeq a (inc i))
+               (list)))
+
+  INext
+  (-next [_] (if (< (inc i) (-count a))
+               (IndexedSeq a (inc i))
+               nil))
+
+  ICounted
+  (-count [_] (- (-count a) i))
+
+  ICollection
+  (-conj [coll o] (cons o coll)))
+
+(defn prim-seq
+  ([prim]
+     (prim-seq prim 0))
+  ([prim i]
+     (when-not (zero? (-count prim))
+       (IndexedSeq prim i))))
+
+(defn array-seq
+  ([array]
+     (prim-seq array 0))
+  ([array i]
+     (prim-seq array i)))
 
 (extend-type Array
+  ISeqable
+  (-seq [array] (array-seq array 0))
+
   ICounted
-  (-count [a] (alength a)))
+  (-count [a] (alength a))
+
+  IPrintable
+  (-pr-seq [a opts]
+    (pr-sequential pr-seq "[" " " "]" opts a)))
+
+(extend-type String
+  IPrintable
+  (-pr-seq [s opts]
+    (list s)))
 
 (defn seq
   "Returns a seq on the collection. If the collection is
@@ -346,3 +430,45 @@
                 (when (seq colls)
                   (cat (first colls) (rest colls)))))]
     (cat nil colls)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Printing ;;;;;;;;;;;;;;;;
+
+(defn pr-sequential [print-one begin sep end opts coll]
+  (concat (list begin)
+          (flatten1
+            (interpose (list sep) (map #(print-one % opts) coll)))
+          (list end)))
+
+(defn string-print [x]
+  (*print-fn* x)
+  nil)
+
+(defn str [x]
+  "?")
+
+(defn- pr-seq [obj opts]
+  (if (satisfies? IPrintable obj)
+    (-pr-seq obj opts)
+    (list "#<" (str obj) ">")))
+
+(defn pr-with-opts
+  "Prints a sequence of objects using string-print, observing all
+  the options given in opts"
+  [objs opts]
+  (let [first-obj (first objs)]
+    (doseq [obj objs]
+      (when-not (identical? obj first-obj)
+        (string-print " "))
+      (doseq [string (pr-seq obj opts)]
+        (string-print string)))))
+
+(defn- pr-opts []
+  nil)
+
+(defn pr
+  "Prints the object(s) using string-print.  Prints the
+  object(s), separated by spaces if there is more than one.
+  By default, pr and prn print in a way that objects can be
+  read by the reader"
+  [& objs]
+  (pr-with-opts objs (pr-opts)))

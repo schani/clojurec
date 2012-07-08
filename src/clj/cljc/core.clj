@@ -164,7 +164,56 @@
   ([x y] (list 'c* "make_integer (integer_get (~{}) * integer_get (~{}))" x y))
   ([x y & more] `(* (* ~x ~y) ~@more)))
 
+(defmacro zero?
+  [x]
+  (list 'c* "make_boolean (integer_get (~{}) == 0)" x))
+
 (defmacro <
   ([x] true)
   ([x y] (bool-expr (list 'c* "make_boolean (integer_get (~{}) < integer_get (~{}))" x y)))
   ([x y & more] `(and (< ~x ~y) (< ~y ~@more))))
+
+(defmacro ^{:private true} assert-args [fnname & pairs]
+  `(do (when-not ~(first pairs)
+         (throw (IllegalArgumentException.
+                  ~(core/str fnname " requires " (second pairs)))))
+     ~(let [more (nnext pairs)]
+        (when more
+          (list* `assert-args fnname more)))))
+
+(defmacro doseq
+  "Repeatedly executes body (presumably for side-effects) with
+  bindings and filtering as provided by \"for\".  Does not retain
+  the head of the sequence. Returns nil."
+  [seq-exprs & body]
+  (assert-args doseq
+     (vector? seq-exprs) "a vector for its binding"
+     (even? (count seq-exprs)) "an even number of forms in binding vector")
+  (let [step (fn step [recform exprs]
+               (if-not exprs
+                 [true `(do ~@body)]
+                 (let [k (first exprs)
+                       v (second exprs)
+
+                       seqsym (when-not (keyword? k) (gensym))
+                       recform (if (keyword? k) recform `(recur (first ~seqsym) ~seqsym))
+                       steppair (step recform (nnext exprs))
+                       needrec (steppair 0)
+                       subform (steppair 1)]
+                   (cond
+                     (= k :let) [needrec `(let ~v ~subform)]
+                     (= k :while) [false `(when ~v
+                                            ~subform
+                                            ~@(when needrec [recform]))]
+                     (= k :when) [false `(if ~v
+                                           (do
+                                             ~subform
+                                             ~@(when needrec [recform]))
+                                           ~recform)]
+                     :else [true `(let [~seqsym (seq ~v)]
+                                    (when ~seqsym
+                                      (loop [~k (first ~seqsym) ~seqsym ~seqsym]
+                                       ~subform
+                                       (when-let [~seqsym (next ~seqsym)]
+                                        ~@(when needrec [recform])))))]))))]
+    (nth (step nil (seq seq-exprs)) 1)))

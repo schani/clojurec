@@ -4,6 +4,7 @@
 #include <string.h>
 #include <gc.h>
 #include <glib.h>
+#include <stdlib.h>
 
 #define assert_not_reached()	(assert (0))
 
@@ -371,6 +372,18 @@ make_string (const gchar *utf8)
 {
 	string_t *s = (string_t*) alloc_value (PTABLE_NAME (cljc_DOT_core_SLASH_String), sizeof (string_t));
 	s->utf8 = utf8;
+	return &s->val;
+}
+
+static value_t*
+make_string_copy_free (gchar *utf8)
+{
+	size_t len = strlen (utf8);
+	gchar *copy = GC_malloc (len + 1);
+	string_t *s = (string_t*) alloc_value (PTABLE_NAME (cljc_DOT_core_SLASH_String), sizeof (string_t));
+	strcpy (copy, utf8);
+	free (utf8);
+	s->utf8 = copy;
 	return &s->val;
 }
 

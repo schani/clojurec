@@ -181,6 +181,21 @@
     (is (= (run '(c* "puts (string_get_utf8 (~{}))" "abc"))
            ['abc]))))
 
+(deftest printing
+  (testing "printing"
+    (is (= (core-run '(string-print "abc"))
+           ['abc]))
+    (is (= (core-run '(pr true false))
+           [true false]))
+    (is (= (core-run '(pr -1 0 1))
+           [-1 0 1]))
+    (is (= (core-run '(pr "a" "b"))
+           ['a 'b]))
+    (is (= (core-run '(pr '(1 2 3)))
+           ['(1 2 3)]))
+    (is (= (core-run '(pr (make-array 2)))
+           [[nil nil]]))))
+
 (deftest functions
   (testing "functions"
     (is (= (run '(cljc.core/print ((fn fac [x]
