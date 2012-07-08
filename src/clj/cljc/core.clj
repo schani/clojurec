@@ -176,6 +176,21 @@
   ([x y] (bool-expr (list 'c* "make_boolean (integer_get (~{}) < integer_get (~{}))" x y)))
   ([x y & more] `(and (< ~x ~y) (< ~y ~@more))))
 
+(defmacro >
+  ([x] true)
+  ([x y] (bool-expr (list 'c* "make_boolean (integer_get (~{}) > integer_get (~{}))" x y)))
+  ([x y & more] `(and (> ~x ~y) (> ~y ~@more))))
+
+(defmacro <=
+  ([x] true)
+  ([x y] (bool-expr (list 'c* "make_boolean (integer_get (~{}) <= integer_get (~{}))" x y)))
+  ([x y & more] `(and (<= ~x ~y) (<= ~y ~@more))))
+
+(defmacro >=
+  ([x] true)
+  ([x y] (bool-expr (list 'c* "make_boolean (integer_get (~{}) >= integer_get (~{}))" x y)))
+  ([x y & more] `(and (>= ~x ~y) (>= ~y ~@more))))
+
 (defmacro ^{:private true} assert-args [fnname & pairs]
   `(do (when-not ~(first pairs)
          (throw (IllegalArgumentException.

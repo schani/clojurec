@@ -179,7 +179,9 @@
 (deftest strings
   (testing "strings"
     (is (= (run '(c* "puts (string_get_utf8 (~{}))" "abc"))
-           ['abc]))))
+           ['abc]))
+    (is (= (core-run '(pr (seq "abc")))
+           ['(\a \b \c)]))))
 
 (deftest printing
   (testing "printing"

@@ -51,6 +51,9 @@
 (defprotocol ICounted
   (-count [coll] "constant time count"))
 
+(defprotocol IIndexed
+  (-nth [coll n] [coll n not-found]))
+
 (defprotocol ASeq)
 
 (defprotocol ISeq
@@ -203,6 +206,11 @@
   ICollection
   (-conj [coll o] (list o))
 
+  IIndexed
+  (-nth
+    ([_ n] nil)
+    ([_ n not-found] not-found))
+
   ILookup
   (-lookup
     ([o k] nil)
@@ -233,7 +241,7 @@
 
   ASeq
   ISeq
-  (-first [_] (aget a i))
+  (-first [_] (-nth a i))
   (-rest [_] (if (< (inc i) (-count a))
                (IndexedSeq a (inc i))
                (list)))
@@ -251,7 +259,11 @@
   (-equiv [coll other] (equiv-sequential coll other))
 
   ICollection
-  (-conj [coll o] (cons o coll)))
+  (-conj [coll o] (cons o coll))
+
+  IPrintable
+  (-pr-seq [coll opts] (pr-sequential pr-seq "(" " " ")" opts coll)))
+
 
 (defn prim-seq
   ([prim]
@@ -273,6 +285,15 @@
   ICounted
   (-count [a] (alength a))
 
+  IIndexed
+  (-nth
+    ([coll n]
+       (aget coll n))
+    ([coll n not-found]
+       (if (and (<= 0 n) (< n (alength coll)))
+         (aget coll n)
+         not-found)))
+
   IPrintable
   (-pr-seq [a opts]
     (pr-sequential pr-seq "[" " " "]" opts a)))
@@ -293,6 +314,23 @@
     (and (has-type? o String)
          ;; FIXME: normalize first
          (c* "make_boolean (strcmp (string_get_utf8 (~{}), string_get_utf8 (~{})) == 0)" s o)))
+
+  ISeqable
+  (-seq [string] (prim-seq string 0))
+
+  ICounted
+  ;; FIXME: cache the count!
+  (-count [s] (c* "make_integer (g_utf8_strlen (string_get_utf8 (~{}), -1))" s))
+
+  IIndexed
+  (-nth
+    ([coll n]
+       (c* "make_character (g_utf8_get_char (g_utf8_offset_to_pointer (string_get_utf8 (~{}), integer_get (~{}))))"
+           coll n))
+    ([coll n not-found]
+       (if (and (<= 0 n) (< n (count coll)))
+         (-nth coll n)
+         not-found)))
 
   IPrintable
   (-pr-seq [s opts]
@@ -361,6 +399,54 @@
   ([x] x)
   ([x y] (cljc.core/* x y))
   ([x y & more] (reduce * (cljc.core/* x y) more)))
+
+(defn ^boolean <
+  "Returns non-nil if nums are in monotonically increasing order,
+  otherwise false."
+  ([x] true)
+  ([x y] (cljc.core/< x y))
+  ([x y & more]
+     (if (cljc.core/< x y)
+       (if (next more)
+         (recur y (first more) (next more))
+         (cljc.core/< y (first more)))
+       false)))
+
+(defn ^boolean <=
+  "Returns non-nil if nums are in monotonically non-decreasing order,
+  otherwise false."
+  ([x] true)
+  ([x y] (cljc.core/<= x y))
+  ([x y & more]
+   (if (cljc.core/<= x y)
+     (if (next more)
+       (recur y (first more) (next more))
+       (cljc.core/<= y (first more)))
+     false)))
+
+(defn ^boolean >
+  "Returns non-nil if nums are in monotonically decreasing order,
+  otherwise false."
+  ([x] true)
+  ([x y] (cljc.core/> x y))
+  ([x y & more]
+   (if (cljc.core/> x y)
+     (if (next more)
+       (recur y (first more) (next more))
+       (cljc.core/> y (first more)))
+     false)))
+
+(defn ^boolean >=
+  "Returns non-nil if nums are in monotonically non-increasing order,
+  otherwise false."
+  ([x] true)
+  ([x y] (cljc.core/>= x y))
+  ([x y & more]
+   (if (cljc.core/>= x y)
+     (if (next more)
+       (recur y (first more) (next more))
+       (cljc.core/>= y (first more)))
+     false)))
 
 (defn inc
   "Returns a number one greater than num."
