@@ -217,6 +217,7 @@
     (case cp
       ; Handle printable escapes before ASCII
       34 "\\\""
+      39 "\\'"
       92 "\\\\"
       ; Handle non-printable escapes
       8 "\\b"
@@ -274,12 +275,11 @@
 ;; FIXME: allocate these only once, not every time!
 (defmethod emit-constant Long [x] (emits "make_integer (" x "L)"))
 (defmethod emit-constant Integer [x] (emits "make_integer (" x "L)")) ; reader puts Integers in metadata
+(defmethod emit-constant Character [x] (emits "make_character ((gunichar)'" (escape-char x) "')"))
 (defmethod emit-constant Double [x] (emits x))
 (defmethod emit-constant String [x]
   (emits "make_string (" (wrap-in-double-quotes (escape-string x)) ")"))
 (defmethod emit-constant Boolean [x] (emits (if x "value_true" "value_false")))
-(defmethod emit-constant Character [x]
-  (emits (wrap-in-double-quotes (escape-char x))))
 
 (defmethod emit-constant java.util.regex.Pattern [x]
   (let [[_ flags pattern] (re-find #"^(?:\(\?([idmsux]*)\))?(.*)" (str x))]

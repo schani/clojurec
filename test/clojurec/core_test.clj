@@ -191,6 +191,8 @@
            [-1 0 1]))
     (is (= (core-run '(pr "a" "b"))
            ['a 'b]))
+    (is (= (core-run '(pr \a \b))
+           [\a \b]))
     (is (= (core-run '(pr '(1 2 3)))
            ['(1 2 3)]))
     (is (= (core-run '(pr (make-array 2)))

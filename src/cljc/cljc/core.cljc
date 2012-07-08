@@ -219,6 +219,11 @@
   (-pr-seq [a opts]
     (pr-sequential pr-seq "[" " " "]" opts a)))
 
+(extend-type Character
+  IPrintable
+  (-pr-seq [c opts]
+    (list "\\" (c* "make_string_from_unichar (character_get (~{}))" c))))
+
 (extend-type String
   IPrintable
   (-pr-seq [s opts]

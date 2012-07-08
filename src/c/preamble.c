@@ -51,6 +51,11 @@ typedef struct {
 
 typedef struct {
 	value_t val;
+	gunichar c;
+} character_t;
+
+typedef struct {
+	value_t val;
 	const gchar *utf8;
 } string_t;
 
@@ -89,8 +94,9 @@ typedef struct {
 #define TYPE_Integer	3
 #define TYPE_Boolean	4
 #define TYPE_Array	5
-#define TYPE_String	6
-#define FIRST_TYPE	7
+#define TYPE_Character	6
+#define TYPE_String	7
+#define FIRST_TYPE	8
 
 static value_t *value_nil = NULL;
 
@@ -312,6 +318,7 @@ static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Nil) = NULL;
 static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Integer) = NULL;
 static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Boolean) = NULL;
 static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Array) = NULL;
+static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Character) = NULL;
 static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_String) = NULL;
 
 static value_t*
@@ -368,10 +375,36 @@ array_set (value_t *v, long index, value_t *x)
 }
 
 static value_t*
+make_character (gunichar c)
+{
+	character_t *ch = (character_t*) alloc_value (PTABLE_NAME (cljc_DOT_core_SLASH_Character), sizeof (character_t));
+	ch->c = c;
+	return &ch->val;
+}
+
+static gunichar
+character_get (value_t *v)
+{
+	character_t *c = (character_t*)v;
+	assert (v->ptable->type == TYPE_Character);
+	return c->c;
+}
+
+static value_t*
 make_string (const gchar *utf8)
 {
 	string_t *s = (string_t*) alloc_value (PTABLE_NAME (cljc_DOT_core_SLASH_String), sizeof (string_t));
 	s->utf8 = utf8;
+	return &s->val;
+}
+
+static value_t*
+make_string_from_unichar (gunichar c)
+{
+	gchar *buf = GC_malloc (7);
+	string_t *s = (string_t*) alloc_value (PTABLE_NAME (cljc_DOT_core_SLASH_String), sizeof (string_t));
+	buf [g_unichar_to_utf8 (c, buf)] = '\0';
+	s->utf8 = buf;
 	return &s->val;
 }
 
@@ -564,6 +597,7 @@ cljc_init (void)
 	PTABLE_NAME (cljc_DOT_core_SLASH_Integer) = alloc_ptable (TYPE_Integer);
 	PTABLE_NAME (cljc_DOT_core_SLASH_Boolean) = alloc_ptable (TYPE_Boolean);
 	PTABLE_NAME (cljc_DOT_core_SLASH_Array) = alloc_ptable (TYPE_Array);
+	PTABLE_NAME (cljc_DOT_core_SLASH_Character) = alloc_ptable (TYPE_Character);
 	PTABLE_NAME (cljc_DOT_core_SLASH_String) = alloc_ptable (TYPE_String);
 
 	value_nil = alloc_value (PTABLE_NAME (cljc_DOT_core_SLASH_Nil), sizeof (value_t));
