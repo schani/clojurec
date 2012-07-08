@@ -382,7 +382,7 @@
                (if (local-bound? env name)
                  (let [[num-ups index] (env-stack-lookup name)]
                    (assert (and num-ups index))
-                   (emits "env_fetch (env, " num-ups ", " index ")"))
+                   (emits "/* " name " */ env_fetch (env, " num-ups ", " index ")"))
                  (emits "VAR_NAME (" (:name info) ")")))))
 
 (defmethod emit :meta
