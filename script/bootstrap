@@ -1,0 +1,10 @@
+#!/bin/sh
+
+cd run
+wget http://www.hpl.hp.com/personal/Hans_Boehm/gc/gc_source/gc-7.2c.tar.gz
+tar -zxvf gc-7.2c.tar.gz
+rm gc-7.2c.tar.gz
+mkdir libgc
+cd gc-7.2
+./configure --prefix=`pwd`/../libgc
+make install
