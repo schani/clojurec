@@ -22,7 +22,9 @@ typedef struct environment {
 	value_t *bindings [0];
 } environment_t;
 
-typedef value_t* (*function_t) (int nargs, environment_t *env, value_t *arg1, value_t *arg2, value_t *arg3, value_t *argrest);
+typedef struct closure closure_t;
+
+typedef value_t* (*function_t) (int nargs, closure_t *closure, value_t *arg1, value_t *arg2, value_t *arg3, value_t *argrest);
 
 typedef struct {
 	value_t val;
@@ -32,11 +34,11 @@ typedef struct {
 #define DEFTYPE_GET_FIELD(dt,i)		(((deftype_t*)(dt))->fields [(i)])
 #define DEFTYPE_SET_FIELD(dt,i,val)	(((deftype_t*)(dt))->fields [(i)] = (val))
 
-typedef struct {
+struct closure {
 	value_t val;
 	function_t fn;
 	environment_t *env;
-} closure_t;
+};
 
 typedef struct {
 	value_t val;
@@ -125,11 +127,11 @@ value_satisfies_protocol (value_t *val, int protocol_num)
 	return false;
 }
 
-#define FUNCALL0(c)			((c)->fn (0, (c)->env, VALUE_NONE, VALUE_NONE, VALUE_NONE, VALUE_NONE))
-#define FUNCALL1(c,a1)			((c)->fn (1, (c)->env, (a1), VALUE_NONE, VALUE_NONE, VALUE_NONE))
-#define FUNCALL2(c,a1,a2)		((c)->fn (2, (c)->env, (a1), (a2), VALUE_NONE, VALUE_NONE))
-#define FUNCALL3(c,a1,a2,a3)		((c)->fn (3, (c)->env, (a1), (a2), (a3), VALUE_NONE))
-#define FUNCALLn(c,n,a1,a2,a3,ar)	((c)->fn ((n), (c)->env, (a1), (a2), (a3), (ar)))
+#define FUNCALL0(c)			((c)->fn (0, (c), VALUE_NONE, VALUE_NONE, VALUE_NONE, VALUE_NONE))
+#define FUNCALL1(c,a1)			((c)->fn (1, (c), (a1), VALUE_NONE, VALUE_NONE, VALUE_NONE))
+#define FUNCALL2(c,a1,a2)		((c)->fn (2, (c), (a1), (a2), VALUE_NONE, VALUE_NONE))
+#define FUNCALL3(c,a1,a2,a3)		((c)->fn (3, (c), (a1), (a2), (a3), VALUE_NONE))
+#define FUNCALLn(c,n,a1,a2,a3,ar)	((c)->fn ((n), (c), (a1), (a2), (a3), (ar)))
 
 static value_t*
 protcall0 (value_t *target, int protocol_num, int fn_index)
@@ -261,7 +263,7 @@ static value_t* VAR_NAME (cljc_DOT_core_SLASH_flatten_tail);
 #define ARG_FLATTEN_TAIL(c)	FUNCALL1 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_flatten_tail), (c))
 
 static value_t*
-Closure_IFn_invoke (int nargs, environment_t *env, value_t *arg1, value_t *arg2, value_t *arg3, value_t *argrest)
+Closure_IFn_invoke (int nargs, closure_t *closure, value_t *arg1, value_t *arg2, value_t *arg3, value_t *argrest)
 {
 	closure_t *c = (closure_t*)arg1;
 
@@ -269,9 +271,9 @@ Closure_IFn_invoke (int nargs, environment_t *env, value_t *arg1, value_t *arg2,
 	assert (arg1->ptable->type == TYPE_Closure);
 
 	if (argrest == VALUE_NONE)
-		return c->fn (nargs - 1, c->env, arg2, arg3, VALUE_NONE, VALUE_NONE);
+		return c->fn (nargs - 1, c, arg2, arg3, VALUE_NONE, VALUE_NONE);
 	else
-		return c->fn (nargs - 1, c->env, arg2, arg3, ARG_FIRST (argrest), ARG_NEXT (argrest));
+		return c->fn (nargs - 1, c, arg2, arg3, ARG_FIRST (argrest), ARG_NEXT (argrest));
 }
 
 static ptable_t*
@@ -450,7 +452,7 @@ make_boolean (bool x)
 }
 
 static value_t*
-cljc_core_print (int nargs, environment_t *env, value_t *arg1, value_t *arg2, value_t *arg3, value_t *argrest)
+cljc_core_print (int nargs, closure_t *closure, value_t *arg1, value_t *arg2, value_t *arg3, value_t *argrest)
 {
 	assert (nargs == 1);
 
@@ -508,7 +510,7 @@ truth (value_t *v)
 }
 
 static value_t*
-cljc_core_apply (int nargs, environment_t *env, value_t *f, value_t *arg1, value_t *arg2, value_t *argrest)
+cljc_core_apply (int nargs, closure_t *closure, value_t *f, value_t *arg1, value_t *arg2, value_t *argrest)
 {
 	int ndirect = 0;
 	int nrest;

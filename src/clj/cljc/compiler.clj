@@ -696,9 +696,10 @@
       (when return
         (emitln ";"))
       (emit-declaration
-       (emitln "static value_t* FN_NAME (" cname ") (int nargs, environment_t *env, value_t *arg0, value_t *arg1, value_t *arg2, value_t *argrest) {")
+       (emitln "static value_t* FN_NAME (" cname ") (int nargs, closure_t *closure, value_t *arg0, value_t *arg1, value_t *arg2, value_t *argrest) {")
+       (emitln "environment_t *env = closure->env;")
        (when name
-         (emitln "value_t *this_fn = make_closure (FN_NAME (" cname "), env);"))
+         (emitln "value_t *this_fn = &closure->val;"))
        (if (= 1 (count methods))
          (do
            (when-not variadic

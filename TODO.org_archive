@@ -17,3 +17,15 @@ Archived entries from file /Users/schani/Work/clojure/clojurec/TODO.org
 http://site.icu-project.org/
 ** GLib
 http://developer.gnome.org/glib/2.32/glib-Unicode-Manipulation.html
+
+* DONE Don't pass env to functions, pass the whole closure
+   CLOSED: [2012-07-12 Thu 20:43]
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2012-07-12 Thu 20:43
+  :ARCHIVE_FILE: ~/Work/clojure/clojurec/TODO.org
+  :ARCHIVE_OLPATH: Compiler
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+Then we don't have to make a new closure for direct recursive
+functions (this_fn).
