@@ -754,16 +754,16 @@
 
 (declare split-string-seq-next-fn)
 
-(deftype SplitStringSeq [next-fn first offset]
+(deftype SplitStringSeq [string len char first offset]
   ASeq
   ISeq
   (-first [coll] first)
   (-rest [coll]
-    (or (next-fn offset) ()))
+    (or (split-string-seq-next-fn string len char offset) ()))
 
   INext
   (-next [coll]
-    (next-fn offset))
+    (split-string-seq-next-fn offset))
 
   ISequential
   IEquiv
@@ -779,26 +779,25 @@
   (-pr-seq [coll opts]
     (pr-sequential pr-seq "(" " " ")" opts coll)))
 
-(defn- split-string-seq-next-fn [string char]
-  (let [len (c* "make_integer (strlen (string_get_utf8 (~{})))" string)]
-    (fn next-fn [offset]
-      (when-not (== offset len)
-        (let [next-offset (c* "make_integer (strchr_offset (string_get_utf8 (~{}) + integer_get (~{}), character_get (~{})))"
-                              string offset char)]
-          (if (>= next-offset 0)
-            (SplitStringSeq next-fn
-                            (c* "make_string_copy_free (g_strndup (string_get_utf8 (~{}) + integer_get (~{}), integer_get (~{})))"
-                                string offset next-offset)
-                            (c* "make_integer (g_utf8_next_char (string_get_utf8 (~{}) + integer_get (~{})) - string_get_utf8 (~{}))"
-                                string (+ offset next-offset) string)
-                            len)
-            (SplitStringSeq next-fn
-                            (c* "make_string_copy_free (g_strdup (string_get_utf8 (~{}) + integer_get (~{})))" string offset)
-                            len
-                            len)))))))
+(defn- split-string-seq-next-fn [string len char offset]
+  (when-not (== offset len)
+    (let [next-offset (c* "make_integer (strchr_offset (string_get_utf8 (~{}) + integer_get (~{}), character_get (~{})))"
+			  string offset char)]
+      (if (>= next-offset 0)
+	(SplitStringSeq string len char
+			(c* "make_string_copy_free (g_strndup (string_get_utf8 (~{}) + integer_get (~{}), integer_get (~{})))"
+			    string offset next-offset)
+			(c* "make_integer (g_utf8_next_char (string_get_utf8 (~{}) + integer_get (~{})) - string_get_utf8 (~{}))"
+			    string (+ offset next-offset) string))
+	(SplitStringSeq string len char
+			(c* "make_string_copy_free (g_strdup (string_get_utf8 (~{}) + integer_get (~{})))" string offset)
+			len)))))
 
 (defn split-string-seq [string char]
-  ((split-string-seq-next-fn string char) 0))
+  (split-string-seq-next-fn string
+			    (c* "make_integer (strlen (string_get_utf8 (~{})))" string)
+			    char
+			    0))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Printing ;;;;;;;;;;;;;;;;
 
