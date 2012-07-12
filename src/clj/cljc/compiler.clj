@@ -308,11 +308,11 @@
 
 (defmethod emit-constant clojure.lang.PersistentList [x]
   (emit-meta-constant x
-		      (emits "FN_NAME (cljc_DOT_core_SLASH_Cons) (2, NULL, ")
+		      (emits "FUNCALL2 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_Cons), ")
 		      (emit-constant (first x))
 		      (emits ", ")
 		      (emit-constant (rest x))
-		      (emits ", VALUE_NONE, VALUE_NONE)")))
+		      (emits ")")))
 
 (defmethod emit-constant clojure.lang.Cons [x]
   (emit-meta-constant x
@@ -1000,23 +1000,11 @@
   [{:keys [t fields pmasks index form]}]
   (let [fields (map munge fields)
 	num-fields (count fields)]
-    (assert (< num-fields 4) (str "types with >= 4 fields not supported yet in " form))
     (emit-declaration
      (emitln "#define TYPE_" (str t) " (FIRST_TYPE + " index ")")
-     (emitln "static ptable_t* PTABLE_NAME (" t ") = NULL;")
-     (emits "static value_t* FN_NAME (" t ") (int nargs, environment_t *env")
-     (emits ", " (comma-sep (concat (map #(str "value_t *VAR_NAME (" % ")") fields)
-				    (map #(str "value_t *dummy" %) (range (- 4 num-fields))))))
-     (emitln ") {")
-     (emitln "value_t *val = alloc_value (PTABLE_NAME (" t "), sizeof (deftype_t) + sizeof (value_t*) * " num-fields ");")
-     (doseq [[i fld] (map-indexed vector fields)]
-       (emitln "DEFTYPE_SET_FIELD (val, " i ", VAR_NAME (" fld "));"))
-     (emitln "return val;")
-     (emitln "}")
-     (emitln "static value_t* VAR_NAME (" t ") = VALUE_NONE;"))
+     (emitln "static ptable_t* PTABLE_NAME (" t ") = NULL;"))
     (do
-      (emitln "PTABLE_NAME (" t ") = alloc_ptable (TYPE_NAME (" t "));")
-      (emitln "VAR_NAME (" t ") = make_closure (FN_NAME (" t "), NULL);"))))
+      (emitln "PTABLE_NAME (" t ") = alloc_ptable (TYPE_NAME (" t "));"))))
 
 (defmethod emit :defrecord*
   [{:keys [t fields pmasks]}]
@@ -1066,11 +1054,13 @@
 	       (emit-arglist args 2)
 	       (emits ")"))))
 
-(defmulti emit-c-arg (fn [type arg] type))
-(defmethod emit-c-arg :expr [_ arg]
+(defmulti emit-c-arg (fn [type env arg] type))
+(defmethod emit-c-arg :expr [_ env arg]
   (emits arg))
-(defmethod emit-c-arg :str [_ arg]
+(defmethod emit-c-arg :str [_ env arg]
   (emits (str arg)))
+(defmethod emit-c-arg :sym [_ env arg]
+  (emits (munge (:name (resolve-var (dissoc env :locals) arg)))))
 
 (defmethod emit :c
   [{:keys [env code segs args]}]
@@ -1081,7 +1071,7 @@
 		      args args]
 		 (emits (first segs))
 		 (when (seq args)
-		   (emit-c-arg (second segs) (first args))
+		   (emit-c-arg (second segs) env (first args))
 		   (recur (rest (rest segs))
 			  (rest args)))))))
 
@@ -1622,6 +1612,8 @@
 (defmethod parse-c-expr :expr [_ env form]
 	   (analyze env form))
 (defmethod parse-c-expr :str [_ _ form]
+	   form)
+(defmethod parse-c-expr :sym [_ _ form]
 	   form)
 
 (defmethod parse 'c*

@@ -28,15 +28,7 @@
 
 (deftest types
   (testing "deftype"
-    (is (= (run '(deftype* Cons [first rest])) []))
-    (is (= (run '(do
-		   (deftype* Cons [first rest])
-		   (def f (fn [c] (c* "DEFTYPE_GET_FIELD (~{}, 0)" c)))
-		   (def r (fn [c] (c* "DEFTYPE_GET_FIELD (~{}, 1)" c)))
-		   (let [c (Cons 1 2)]
-		     (cljc.core/print (f c))
-		     (cljc.core/print (r c)))))
-	   [1 2]))))
+    (is (= (run '(deftype* Cons [first rest])) []))))
 
 (deftest types-protocols
   (testing "types with protocols"
@@ -71,7 +63,13 @@
                         (extend-type Bla
                           ICounted
                           (-count ([_] 0)))))
-           []))))
+           []))
+    (is (= (core-run '(do
+			(deftype Bla [a b c d e f g]
+			  ISeqable
+			  (-seq [_] (list a b c d e f g)))
+			(pr (seq (Bla 1 2 3 4 5 6 7)))))
+	   ['(1 2 3 4 5 6 7)]))))
 
 (deftest numbers
   (testing "simple numbers"

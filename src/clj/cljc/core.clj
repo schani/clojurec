@@ -141,14 +141,19 @@
                      ret)))
         r (:name (cljc.compiler/resolve-var (dissoc &env :locals) t))
         [fpps pmasks] nil]
-    (if (seq impls)
+    (let [val (gensym "val")]
       `(do
-         (deftype* ~t ~fields ~pmasks)
-         (extend-type ~(with-meta t {:skip-protocol-flag fpps}) ~@(dt->et impls))
-         ~t)
-      `(do
-         (deftype* ~t ~fields ~pmasks)
-         ~t))))
+	 (deftype* ~t ~fields ~pmasks)
+	 (defn ~t ~fields
+	   (let [~val (~'c* "alloc_value (PTABLE_NAME (~{sym}), sizeof (deftype_t) + sizeof (value_t*) * ~{str})" ~t ~(count fields))]
+	     ~@(map-indexed (fn [i fld]
+			      (list 'c* "DEFTYPE_SET_FIELD (~{}, ~{str}, ~{})" val i fld))
+			    fields)
+	     ~val))
+	 ~@(if (seq impls)
+	     (list `(extend-type ~(with-meta t {:skip-protocol-flag fpps}) ~@(dt->et impls)))
+	     ())
+	 ~t))))
 
 (defmacro +
   ([] 0)
