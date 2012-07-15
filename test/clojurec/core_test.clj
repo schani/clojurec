@@ -23,7 +23,7 @@
     (is (= (run '(defprotocol* foo (-bar [x y]))) []))
     (is (= (run '(defprotocol foo (-bar [x y]))) []))
     (is (= (run '(let [x (fn [] 1)]
-			(cljc.core/print (. x -invoke))))
+			(cljc.core/print (. x (-invoke)))))
 	   [1]))))
 
 (deftest types
@@ -69,7 +69,29 @@
 			  ISeqable
 			  (-seq [_] (list a b c d e f g)))
 			(pr (seq (Bla 1 2 3 4 5 6 7)))))
-	   ['(1 2 3 4 5 6 7)]))))
+	   ['(1 2 3 4 5 6 7)]))
+    (is (= (core-run '(do
+			(deftype Bla [a b c])
+			(let [x (Bla 1 2 3)]
+			  (pr (.-a x) (.-b x) (.-c x)))))
+	   [1 2 3]))
+    (is (= (core-run '(do
+			(defprotocol IBla
+			  (-x [o]))
+			(deftype Bla [x y]
+			  IBla
+			  (-x [_] (inc y)))
+			(let [x (Bla 1 2)]
+			  (pr (. x -x) (. x -y) (. x (-x))))))
+	   [1 2 3]))
+    (is (= (core-run '(do
+			(deftype Bla [x y])
+			(deftype Blu [y z])
+			(let [a (Bla 1 2)
+			      u (Blu 3 4)]
+			  (pr (.-x a) (.-y a)
+			      (.-y u) (.-z u)))))
+	   [1 2 3 4]))))
 
 (deftest numbers
   (testing "simple numbers"

@@ -98,7 +98,7 @@
         expand-sig (fn [fname sig]
                      `(~sig
 		       ;; FIXME: check satisfies?
-		       (. ~(first sig) ~fname ~@(rest sig))))
+		       (. ~(first sig) (~fname ~@(rest sig)))))
         method (fn [[fname & sigs]]
                  (let [sigs (take-while vector? sigs)
                        fname (vary-meta fname assoc :protocol p)]

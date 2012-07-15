@@ -68,8 +68,11 @@ typedef struct {
 
 static ptable_entry_t empty_ptable_entry = { -1, NULL };
 
+typedef value_t* (*get_field_fn_t) (value_t *val, int field);
+
 struct ptable {
 	int type;
+	get_field_fn_t get_field_fn;
 	ptable_entry_t *entries;
 };
 
@@ -85,6 +88,8 @@ typedef struct {
 #define PTABLE_NAME(n)		PTABLE_ ## n
 #define TYPE_NAME(n)		TYPE_ ## n
 #define PROTOCOL_VTABLE_SIZE(n)	PROTOCOL_VTABLE_SIZE_ ## n
+#define FIELD_NAME(n)		FIELD_ ## n
+#define GET_FIELD_FN_NAME(n)	GET_FIELD_FN_ ## n
 
 #define PROTOCOL_cljc_DOT_core_SLASH_IFn	1
 #define FIRST_PROTOCOL				2
@@ -101,6 +106,8 @@ typedef struct {
 #define TYPE_Character	6
 #define TYPE_String	7
 #define FIRST_TYPE	8
+
+#define FIRST_FIELD	1
 
 static value_t *value_nil = NULL;
 
@@ -182,10 +189,11 @@ invoken (value_t *f, int nargs, value_t *a1, value_t *a2, value_t *ar)
 }
 
 static ptable_t*
-alloc_ptable (int type)
+alloc_ptable (int type, get_field_fn_t get_field_fn)
 {
 	ptable_t *ptable = GC_malloc (sizeof (ptable_t));
 	ptable->type = type;
+	ptable->get_field_fn = get_field_fn;
 	ptable->entries = &empty_ptable_entry;
 	return ptable;
 }
@@ -215,6 +223,14 @@ static void
 set_vtable_entry (closure_t **vtable, int index, closure_t *closure)
 {
 	vtable [index] = closure;
+}
+
+static value_t*
+get_field (value_t *val, int field)
+{
+	get_field_fn_t fn = val->ptable->get_field_fn;
+	assert (fn != NULL);
+	return fn (val, field);
 }
 
 static environment_t*
@@ -292,7 +308,7 @@ closure_ptable (void)
 		closure_t **vtable = alloc_vtable (PROTOCOL_VTABLE_SIZE (cljc_DOT_core_SLASH_IFn));
 		set_vtable_entry (vtable, MEMBER__invoke, invoke);
 
-		ptable_t *ptable = alloc_ptable (TYPE_Closure);
+		ptable_t *ptable = alloc_ptable (TYPE_Closure, NULL);
 		extend_ptable (ptable, PROTOCOL_cljc_DOT_core_SLASH_IFn, vtable);
 
 		closure_ptable = ptable;
@@ -615,12 +631,12 @@ cljc_init (void)
 {
 	GC_INIT ();
 
-	PTABLE_NAME (cljc_DOT_core_SLASH_Nil) = alloc_ptable (TYPE_Nil);
-	PTABLE_NAME (cljc_DOT_core_SLASH_Integer) = alloc_ptable (TYPE_Integer);
-	PTABLE_NAME (cljc_DOT_core_SLASH_Boolean) = alloc_ptable (TYPE_Boolean);
-	PTABLE_NAME (cljc_DOT_core_SLASH_Array) = alloc_ptable (TYPE_Array);
-	PTABLE_NAME (cljc_DOT_core_SLASH_Character) = alloc_ptable (TYPE_Character);
-	PTABLE_NAME (cljc_DOT_core_SLASH_String) = alloc_ptable (TYPE_String);
+	PTABLE_NAME (cljc_DOT_core_SLASH_Nil) = alloc_ptable (TYPE_Nil, NULL);
+	PTABLE_NAME (cljc_DOT_core_SLASH_Integer) = alloc_ptable (TYPE_Integer, NULL);
+	PTABLE_NAME (cljc_DOT_core_SLASH_Boolean) = alloc_ptable (TYPE_Boolean, NULL);
+	PTABLE_NAME (cljc_DOT_core_SLASH_Array) = alloc_ptable (TYPE_Array, NULL);
+	PTABLE_NAME (cljc_DOT_core_SLASH_Character) = alloc_ptable (TYPE_Character, NULL);
+	PTABLE_NAME (cljc_DOT_core_SLASH_String) = alloc_ptable (TYPE_String, NULL);
 
 	value_nil = alloc_value (PTABLE_NAME (cljc_DOT_core_SLASH_Nil), sizeof (value_t));
 

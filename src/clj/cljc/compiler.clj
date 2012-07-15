@@ -11,6 +11,7 @@
 (ns cljc.compiler
   (:refer-clojure :exclude [munge macroexpand-1])
   (:require [clojure.java.io :as io]
+	    [clojure.set :as set]
             [clojure.string :as string])
   (:import java.lang.StringBuilder))
 
@@ -45,13 +46,15 @@
 (defonce protocols-init '{cljc.core {cljc.core/IFn {:name cljc_DOT_core_SLASH_IFn, :methods ((-invoke [f & args]))}}})
 (defonce protocols (atom protocols-init))
 (defonce declarations (atom []))
+(defonce defined-fields (atom #{}))
 
 (defn reset-namespaces! []
   (reset! namespaces {})
   (reset! num-protocols 0)
   (reset! num-types 0)
   (reset! protocols protocols-init)
-  (reset! declarations []))
+  (reset! declarations [])
+  (reset! defined-fields #{}))
 
 (def ^:dynamic *cljs-ns* 'cljc.user)
 (def ^:dynamic *cljs-file* nil)
@@ -999,13 +1002,27 @@
 
 (defmethod emit :deftype*
   [{:keys [t fields pmasks index form]}]
-  (let [fields (map munge fields)
-	num-fields (count fields)]
+  ;; FIXME: this is very unatomic!
+  (let [first-field-num (count @defined-fields)
+	new-fields (set/difference (set fields) @defined-fields)]
+    (swap! defined-fields set/union new-fields)
     (emit-declaration
      (emitln "#define TYPE_" (str t) " (FIRST_TYPE + " index ")")
-     (emitln "static ptable_t* PTABLE_NAME (" t ") = NULL;"))
+     (emitln "static ptable_t* PTABLE_NAME (" t ") = NULL;")
+     (doseq [[i field] (map vector (range first-field-num (+ first-field-num (count new-fields))) new-fields)]
+       (emitln "#define FIELD_" (munge field) " (FIRST_FIELD + " i ")"))
+     (emitln "static value_t* GET_FIELD_FN_NAME (" t ") (value_t *val, int field) {")
+     (emitln "deftype_t *dt = (deftype_t*)val;")
+     (emitln "assert (val->ptable->type == TYPE_NAME (" t "));")
+     (emitln "switch (field) {")
+     (doseq [[i field] (map-indexed vector fields)]
+       (emitln "case FIELD_NAME (" (munge field) "): return dt->fields [" i "];"))
+     (emitln "default: assert_not_reached ();")
+     (emitln "}")
+     (emitln "return value_nil;")
+     (emitln "}"))
     (do
-      (emitln "PTABLE_NAME (" t ") = alloc_ptable (TYPE_NAME (" t "));"))))
+      (emitln "PTABLE_NAME (" t ") = alloc_ptable (TYPE_NAME (" t "), GET_FIELD_FN_NAME (" t "));"))))
 
 (defmethod emit :defrecord*
   [{:keys [t fields pmasks]}]
@@ -1046,14 +1063,15 @@
 
 (defmethod emit :dot
   [{:keys [target field method args form env]}]
-  (let [method (or method field)
-	protocol (lookup-protocol method)
-	arity (count args)]
-    (assert protocol (str "No protocol found for method " method " in " form))
-    (emit-wrap env
-	       (emits "protcall" (if (< arity 3) arity "n") " (" target ", PROTOCOL_NAME (" (str protocol) "), MEMBER_NAME (" (str (munge method)) ")")
-	       (emit-arglist args 2)
-	       (emits ")"))))
+  (emit-wrap env
+	     (if field
+	       (emits "get_field (" target ", FIELD_NAME (" field "))")
+	       (let [protocol (lookup-protocol method)
+		     arity (count args)]
+		 (assert protocol (str "No protocol found for method " method " in " form))
+		 (emits "protcall" (if (< arity 3) arity "n") " (" target ", PROTOCOL_NAME (" (str protocol) "), MEMBER_NAME (" (str (munge method)) ")")
+		 (emit-arglist args 2)
+		 (emits ")")))))
 
 (defmulti emit-c-arg (fn [type env arg] type))
 (defmethod emit-c-arg :expr [_ env arg]
@@ -1544,22 +1562,38 @@
 
 ;; dot accessor code
 
+(def ^:private property-symbol? #(boolean (and (symbol? %) (re-matches #"^-.*" (name %)))))
+
 (defn- munge-not-reserved [meth]
   (if-not (js-reserved (str meth))
     (munge meth)
     meth))
 
+(defn- clean-symbol
+  [sym]
+  (symbol
+   (if (property-symbol? sym)
+     (-> sym name (.substring 1) munge-not-reserved)
+     (-> sym name munge-not-reserved))))
+
 (defn- classify-dot-form
   [[target member args]]
   [(cond (nil? target) ::error
          :default      ::expr)
-   (cond (symbol? member)          ::symbol
+   (cond (property-symbol? member) ::property
+	 (symbol? member)          ::symbol
          (seq? member)             ::list
          :default                  ::error)
    (cond (nil? args) ()
          :default    ::expr)])
 
 (defmulti build-dot-form #(classify-dot-form %))
+
+;; (. o -p)
+;; (. (...) -p)
+(defmethod build-dot-form [::expr ::property ()]
+  [[target prop _]]
+  {:dot-action ::access :target target :field (clean-symbol prop)})
 
 (defn- build-method-call
   "Builds the intermediate method call map used to reason about the parsed form during
