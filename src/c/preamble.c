@@ -8,6 +8,10 @@
 
 #define assert_not_reached()	(assert (0))
 
+#ifndef MAIN_FUNCTION_NAME
+#define MAIN_FUNCTION_NAME main
+#endif
+
 typedef struct ptable ptable_t;
 
 typedef struct {

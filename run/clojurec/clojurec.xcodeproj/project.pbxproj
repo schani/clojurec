@@ -1,0 +1,316 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		871D5A6A15B514A900442173 /* libcord.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 871D5A6815B514A900442173 /* libcord.a */; };
+		871D5A6B15B514A900442173 /* libgc.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 871D5A6915B514A900442173 /* libgc.a */; };
+		879981D315AC8872006D4036 /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 879981D215AC8872006D4036 /* UIKit.framework */; };
+		879981D515AC8872006D4036 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 879981D415AC8872006D4036 /* Foundation.framework */; };
+		879981D715AC8872006D4036 /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 879981D615AC8872006D4036 /* CoreGraphics.framework */; };
+		879981DD15AC8872006D4036 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 879981DB15AC8872006D4036 /* InfoPlist.strings */; };
+		879981DF15AC8872006D4036 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 879981DE15AC8872006D4036 /* main.m */; };
+		879981E315AC8872006D4036 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 879981E215AC8872006D4036 /* AppDelegate.m */; };
+		87C3AADA15B30C9000252CC4 /* cljc.m in Sources */ = {isa = PBXBuildFile; fileRef = 87C3AAD915B30C9000252CC4 /* cljc.m */; };
+		87C3AAE015B30E8700252CC4 /* cljc.c in Sources */ = {isa = PBXBuildFile; fileRef = 87C3AADF15B30E8700252CC4 /* cljc.c */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		871D5A6815B514A900442173 /* libcord.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libcord.a; path = libgc.ios/lib/libcord.a; sourceTree = "<group>"; };
+		871D5A6915B514A900442173 /* libgc.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libgc.a; path = libgc.ios/lib/libgc.a; sourceTree = "<group>"; };
+		879981CE15AC8872006D4036 /* clojurec.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = clojurec.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		879981D215AC8872006D4036 /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
+		879981D415AC8872006D4036 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
+		879981D615AC8872006D4036 /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
+		879981DA15AC8872006D4036 /* clojurec-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "clojurec-Info.plist"; sourceTree = "<group>"; };
+		879981DC15AC8872006D4036 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		879981DE15AC8872006D4036 /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
+		879981E015AC8872006D4036 /* clojurec-Prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "clojurec-Prefix.pch"; sourceTree = "<group>"; };
+		879981E115AC8872006D4036 /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
+		879981E215AC8872006D4036 /* AppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
+		87C3AAD915B30C9000252CC4 /* cljc.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = cljc.m; path = ../../cljc.m; sourceTree = "<group>"; };
+		87C3AADF15B30E8700252CC4 /* cljc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = cljc.c; path = ../../cljc.c; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		879981CB15AC8872006D4036 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				871D5A6A15B514A900442173 /* libcord.a in Frameworks */,
+				871D5A6B15B514A900442173 /* libgc.a in Frameworks */,
+				879981D315AC8872006D4036 /* UIKit.framework in Frameworks */,
+				879981D515AC8872006D4036 /* Foundation.framework in Frameworks */,
+				879981D715AC8872006D4036 /* CoreGraphics.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		879981C315AC8872006D4036 = {
+			isa = PBXGroup;
+			children = (
+				871D5A6815B514A900442173 /* libcord.a */,
+				871D5A6915B514A900442173 /* libgc.a */,
+				879981D815AC8872006D4036 /* clojurec */,
+				879981D115AC8872006D4036 /* Frameworks */,
+				879981CF15AC8872006D4036 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		879981CF15AC8872006D4036 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				879981CE15AC8872006D4036 /* clojurec.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		879981D115AC8872006D4036 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				879981D215AC8872006D4036 /* UIKit.framework */,
+				879981D415AC8872006D4036 /* Foundation.framework */,
+				879981D615AC8872006D4036 /* CoreGraphics.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		879981D815AC8872006D4036 /* clojurec */ = {
+			isa = PBXGroup;
+			children = (
+				87C3AADF15B30E8700252CC4 /* cljc.c */,
+				87C3AAD915B30C9000252CC4 /* cljc.m */,
+				879981E115AC8872006D4036 /* AppDelegate.h */,
+				879981E215AC8872006D4036 /* AppDelegate.m */,
+				879981D915AC8872006D4036 /* Supporting Files */,
+			);
+			path = clojurec;
+			sourceTree = "<group>";
+		};
+		879981D915AC8872006D4036 /* Supporting Files */ = {
+			isa = PBXGroup;
+			children = (
+				879981DA15AC8872006D4036 /* clojurec-Info.plist */,
+				879981DB15AC8872006D4036 /* InfoPlist.strings */,
+				879981DE15AC8872006D4036 /* main.m */,
+				879981E015AC8872006D4036 /* clojurec-Prefix.pch */,
+			);
+			name = "Supporting Files";
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		879981CD15AC8872006D4036 /* clojurec */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 879981E615AC8872006D4036 /* Build configuration list for PBXNativeTarget "clojurec" */;
+			buildPhases = (
+				879981CA15AC8872006D4036 /* Sources */,
+				879981CB15AC8872006D4036 /* Frameworks */,
+				879981CC15AC8872006D4036 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = clojurec;
+			productName = clojurec;
+			productReference = 879981CE15AC8872006D4036 /* clojurec.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		879981C515AC8872006D4036 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0430;
+			};
+			buildConfigurationList = 879981C815AC8872006D4036 /* Build configuration list for PBXProject "clojurec" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = 879981C315AC8872006D4036;
+			productRefGroup = 879981CF15AC8872006D4036 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				879981CD15AC8872006D4036 /* clojurec */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		879981CC15AC8872006D4036 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				879981DD15AC8872006D4036 /* InfoPlist.strings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		879981CA15AC8872006D4036 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				879981DF15AC8872006D4036 /* main.m in Sources */,
+				879981E315AC8872006D4036 /* AppDelegate.m in Sources */,
+				87C3AADA15B30C9000252CC4 /* cljc.m in Sources */,
+				87C3AAE015B30E8700252CC4 /* cljc.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXVariantGroup section */
+		879981DB15AC8872006D4036 /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				879981DC15AC8872006D4036 /* en */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		879981E415AC8872006D4036 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				COPY_PHASE_STRIP = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"MAIN_FUNCTION_NAME=main_ios",
+					IOS,
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 5.1;
+				OTHER_LDFLAGS = "";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		879981E515AC8872006D4036 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				COPY_PHASE_STRIP = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"MAIN_FUNCTION_NAME=main_ios",
+					IOS,
+				);
+				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 5.1;
+				OTHER_CFLAGS = "-DNS_BLOCK_ASSERTIONS=1";
+				OTHER_LDFLAGS = "";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		879981E715AC8872006D4036 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "clojurec/clojurec-Prefix.pch";
+				HEADER_SEARCH_PATHS = (
+					"\"$(SRCROOT)/libgc.ios/include\"",
+					"/opt/local/include/glib-2.0",
+					"/opt/local/lib/glib-2.0/include",
+					/opt/local/include,
+				);
+				INFOPLIST_FILE = "clojurec/clojurec-Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 5.0;
+				LIBRARY_SEARCH_PATHS = (
+					"\"$(SRCROOT)/..\"",
+					"\"$(SRCROOT)\"",
+					"\"$(SRCROOT)/libgc.ios/lib\"",
+				);
+				ONLY_ACTIVE_ARCH = YES;
+				PRELINK_LIBS = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WRAPPER_EXTENSION = app;
+			};
+			name = Debug;
+		};
+		879981E815AC8872006D4036 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "clojurec/clojurec-Prefix.pch";
+				HEADER_SEARCH_PATHS = (
+					"\"$(SRCROOT)/libgc.ios/include\"",
+					"/opt/local/include/glib-2.0",
+					"/opt/local/lib/glib-2.0/include",
+					/opt/local/include,
+				);
+				INFOPLIST_FILE = "clojurec/clojurec-Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 5.0;
+				LIBRARY_SEARCH_PATHS = (
+					"\"$(SRCROOT)/..\"",
+					"\"$(SRCROOT)\"",
+					"\"$(SRCROOT)/libgc.ios/lib\"",
+				);
+				ONLY_ACTIVE_ARCH = YES;
+				PRELINK_LIBS = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WRAPPER_EXTENSION = app;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		879981C815AC8872006D4036 /* Build configuration list for PBXProject "clojurec" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				879981E415AC8872006D4036 /* Debug */,
+				879981E515AC8872006D4036 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		879981E615AC8872006D4036 /* Build configuration list for PBXNativeTarget "clojurec" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				879981E715AC8872006D4036 /* Debug */,
+				879981E815AC8872006D4036 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 879981C515AC8872006D4036 /* Project object */;
+}
