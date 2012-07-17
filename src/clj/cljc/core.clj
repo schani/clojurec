@@ -196,6 +196,48 @@
   ([x y] (bool-expr (list 'c* "make_boolean (integer_get (~{}) >= integer_get (~{}))" x y)))
   ([x y & more] `(and (>= ~x ~y) (>= ~y ~@more))))
 
+(defmacro bit-not [x]
+  (list 'c* "make_integer (~ (integer_get (~{})))" x))
+
+(defmacro bit-and
+  ([x y]
+     (list 'c* "make_integer (integer_get (~{}) & integer_get (~{}))" x y))
+  ([x y & more] `(bit-and (bit-and ~x ~y) ~@more)))
+
+(defmacro bit-or
+  ([x y]
+     (list 'c* "make_integer (integer_get (~{}) | integer_get (~{}))" x y))
+  ([x y & more] `(bit-or (bit-or ~x ~y) ~@more)))
+
+(defmacro bit-xor
+  ([x y]
+     (list 'c* "make_integer (integer_get (~{}) ^ integer_get (~{}))" x y))
+  ([x y & more] `(bit-xor (bit-xor ~x ~y) ~@more)))
+
+(defmacro bit-and-not
+  ([x y]
+     (list 'c* "make_integer (integer_get (~{}) & ~integer_get (~{}))" x y))
+  ([x y & more] `(bit-and-not (bit-and-not ~x ~y) ~@more)))
+
+(defmacro bit-clear [x n]
+  (list 'c* "make_integer ((integer_get (~{})) & ~(1 << integer_get (~{})))" x n))
+
+(defmacro bit-flip [x n]
+  (list 'c* "make_integer ((integer_get (~{})) ^ (1 << integer_get (~{})))" x n))
+
+(defmacro bit-test [x n]
+  (list 'c* "make_boolean (((integer_get (~{})) & (1 << integer_get (~{}))) != 0)" x n))
+
+(defmacro bit-shift-left [x n]
+  (list 'c* "make_integer ((integer_get (~{}) << integer_get (~{}))" x n))
+
+(defmacro bit-shift-right [x n]
+  (list 'c* "make_integer (integer_get (~{}) >> integer_get (~{}))" x n))
+
+(defmacro bit-set [x n]
+  (list 'c* "make_integer (integer_get (~{}) | (1 << integer_get (~{})))" x n))
+
+
 (defmacro ^{:private true} assert-args [fnname & pairs]
   `(do (when-not ~(first pairs)
          (throw (IllegalArgumentException.
