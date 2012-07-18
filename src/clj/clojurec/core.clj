@@ -4,6 +4,11 @@
 	    [clojure.java.shell :as shell]
             [cljc.compiler :as cljc]))
 
+(def default-build-options
+  {:host :unix
+   :with-makefile true})
+(def ^:dynamic *build-options* default-build-options)
+
 (defn analyze [ns-name with-core expr]
   (cljc/reset-namespaces!)
   (let [ns (if-let [ns (@cljc/namespaces ns-name)]
@@ -27,7 +32,7 @@
 		      (cljc/emit ast)))]
     (apply str
 	   (concat @cljc/declarations
-		   ["int main (void) {\n"
+		   ["int MAIN_FUNCTION_NAME (void) {\n"
 		    "environment_t *env = NULL;\n"
 		    "cljc_init ();\n"
 		    main-code
@@ -41,14 +46,21 @@
 	run-dir (io/file user-dir "run")
 	preamble (slurp (io/file user-dir "src" "c" "preamble.c"))]
     (spit (io/file run-dir "cljc.c") (str preamble code))
-    (shell/sh "make" "clean" :dir run-dir)
-    (let [{:keys [exit out]} (shell/sh "make" :dir run-dir)]
-      (if (= exit 0)
-	(let [{:keys [exit out]} (shell/sh "./cljc" :dir run-dir)]
-	  (if (= exit 0)
-	    (read-string (str \[ out \]))
-	    :run-error))
-	:compile-error))))
+
+    ;; iOS Specific
+    (when (= :ios (:host *build-options*))
+      (let [ios (slurp (io/file user-dir "src" "c" "support_ios.m"))]
+        (spit (io/file run-dir "cljc.m") (str ios))))
+
+    (when (:with-makefile *build-options*)
+      (shell/sh "make" "clean" :dir run-dir)
+      (let [{:keys [exit out err]} (shell/sh "make" :dir run-dir)]
+        (if (= exit 0)
+          (let [{:keys [exit out]} (shell/sh "./cljc" :dir run-dir)]
+            (if (= exit 0)
+              (read-string (str \[ out \]))
+              :run-error))
+          {:compile-error (str "Makefile ERROR: " err)})))))
 
 (defn run-expr [ns-name with-core expr]
   (run-code (compile-expr ns-name with-core expr)))
@@ -59,6 +71,17 @@
     (run-code (compile-asts asts))))
 
 ;;(inspect-and-run-expr '(print 1))
+
+(comment
+  ;; default build options
+  (run-expr 'my-test true '(do (cljc.core/print (+ 2 4))))
+
+  ;; for iOS build
+  (binding [*build-options* (assoc default-build-options
+                              :host :ios
+                              :with-makefile false)]
+    (run-expr 'my-test true '(do (cljc.core/print (+ 2 3)))))
+)
 
 (defn -main
   "I don't do a whole lot."

@@ -1,0 +1,7 @@
+build
+DerivedData
+.DS_Store
+gc-7.2
+libgc.ios
+clojurec.xcodeproj/project.xcworkspace/xcuserdata/
+clojurec.xcodeproj/xcuserdata/
