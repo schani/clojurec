@@ -460,3 +460,39 @@
            ['(bad fad)]))))
 
 ;;(run-tests *ns*)
+
+(deftest array-copy
+  (testing "Array copy"
+    (is (= [3 8 1 0
+            3 8 1 0
+            3 8 nil nil
+            3 3 8 1
+            8 1 0 0]
+           (core-run '(let [fill-array (fn [a b & bs]
+                                         (loop [i 0 b b bs bs]
+                                           (when (< i (alength a))
+                                             (aset a i b)
+                                             (recur (inc i) (first bs) (rest bs)))))
+                            print-array (fn [a]
+                                          (loop [i 0]
+                                            (when (< i (alength a))
+                                              (print (aget a i))
+                                              (recur (inc i)))))
+                            x (make-array 4)
+                            y (make-array 4)
+                            z (make-array 4)]
+                        (fill-array x 3 8 1 0)
+
+                        (print-array (aclone x))
+
+                        (array-copy x y)
+                        (print-array y)
+
+                        (array-copy x z 2)
+                        (print-array z)
+
+                        (array-copy y 0 y 1 3)
+                        (print-array y)
+
+                        (array-copy x 1 x 0 3)
+                        (print-array x)))))))
