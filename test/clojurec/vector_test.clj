@@ -70,4 +70,10 @@
            (core-run '(let [v [1 33 (inc 6)]]
                         (print (get v 0))
                         (print (get v 1))
+                        (print (get v 2)))))))
+  (testing "PersistentVector constant"
+    (is (= [1 33 7]
+           (core-run '(let [v '[1 33 7]]
+                        (print (get v 0))
+                        (print (get v 1))
                         (print (get v 2))))))))
