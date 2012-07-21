@@ -496,3 +496,84 @@
 
                         (array-copy x 1 x 0 3)
                         (print-array x)))))))
+
+(defmacro core-run-and-print [& exprs]
+  `(core-run '(do ~@(map #(list 'print %) exprs))))
+
+(deftest bit-operations
+  (testing "Bit operations"
+    (is (= [0 0 1 0 0 1]
+           (core-run-and-print (bit-and 1 0)
+                               (bit-and 0 0)
+                               (bit-and 1 1)
+                               (bit-and 42 1)
+                               (apply bit-and '(42 1))
+                               (bit-and 41 1))))
+    (is (= [1 0 1 43 43 41]
+           (core-run-and-print (bit-or 1 0)
+                               (bit-or 0 0)
+                               (bit-or 1 1)
+                               (bit-or 42 1)
+                               (apply bit-or '(42 1))
+                               (bit-or 41 1))))
+    (is (= [1 0 0 42 42 40]
+           (core-run-and-print (bit-and-not 1 0)
+                               (bit-and-not 0 0)
+                               (bit-and-not 1 1)
+                               (bit-and-not 42 1)
+                               (apply bit-and-not '(42 1))
+                               (bit-and-not 41 1))))
+    (is (= [0 2 968 16649 16649 0]
+           (core-run-and-print (bit-clear 1 0)
+                               (bit-clear 2 0)
+                               (bit-clear 1000 5)
+                               (bit-clear 16713 6)
+                               (apply bit-clear '(16713 6))
+                               (bit-clear 1024 10))))
+    (is (= [0 0 992 18761 18761 0]
+           (core-run-and-print (bit-flip 1 0)
+                               (bit-flip 2 1)
+                               (bit-flip 1000 3)
+                               (bit-flip 16713 11)
+                               (apply bit-flip '(16713 11))
+                               (bit-flip 1024 10))))
+    (is (= [-2 -3 999 -16714 -16714 -1025]
+           (core-run-and-print (bit-not 1)
+                               (bit-not 2)
+                               (bit-not -1000)
+                               (bit-not 16713)
+                               (apply bit-not '(16713))
+                               (bit-not 1024))))
+    (is (= [1 2 1000 18761 18761 1024]
+           (core-run-and-print (bit-set 1 0)
+                               (bit-set 2 1)
+                               (bit-set 1000 3)
+                               (bit-set 16713 11)
+                               (apply bit-set '(16713 11))
+                               (bit-set 1024 10))))
+    (is (= [true true true false false true]
+           (core-run-and-print (bit-test 1 0)
+                               (bit-test 2 1)
+                               (bit-test 1000 3)
+                               (bit-test 16713 11)
+                               (apply bit-test '(16713 11))
+                               (bit-test 1024 10))))
+    (is (= [2r10 2r100 2r1000 2r00101110 2r00101110 0 4294967296 65536]
+           (core-run-and-print (bit-shift-left 2r1 1)
+                               (bit-shift-left 2r1 2)
+                               (bit-shift-left 2r1 3)
+                               (bit-shift-left 2r00010111 1)
+                               (apply bit-shift-left '(2r00010111 1))
+                               (bit-shift-left 2r10 -1)
+                               (bit-shift-left 1 32)
+                               (bit-shift-left 1 10000))))
+    (is (= [2r0 2r010 2r001 2r000 2r0001011 2r0001011 0 1 1]
+           (core-run-and-print (bit-shift-right 2r1 1)
+                               (bit-shift-right 2r100 1)
+                               (bit-shift-right 2r100 2)
+                               (bit-shift-right 2r100 3)
+                               (bit-shift-right 2r00010111 1)
+                               (apply bit-shift-right '(2r00010111 1))
+                               (bit-shift-right 2r10 -1)
+                               (bit-shift-right 4294967296 32)
+                               (bit-shift-right 65536 10000))))))

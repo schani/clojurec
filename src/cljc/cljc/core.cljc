@@ -477,6 +477,54 @@
   "Returns a number one less than num."
   [x] (- x 1))
 
+(defn bit-xor
+  "Bitwise exclusive or"
+  [x y] (cljc.core/bit-xor x y))
+
+(defn bit-and
+  "Bitwise and"
+  [x y] (cljc.core/bit-and x y))
+
+(defn bit-or
+  "Bitwise or"
+  [x y] (cljc.core/bit-or x y))
+
+(defn bit-and-not
+  "Bitwise and"
+  [x y] (cljc.core/bit-and-not x y))
+
+(defn bit-clear
+  "Clear bit at index n"
+  [x n]
+  (cljc.core/bit-clear x n))
+
+(defn bit-flip
+  "Flip bit at index n"
+  [x n]
+  (cljc.core/bit-flip x n))
+
+(defn bit-not
+  "Bitwise complement"
+  [x] (cljc.core/bit-not x))
+
+(defn bit-set
+  "Set bit at index n"
+  [x n]
+  (cljc.core/bit-set x n))
+
+(defn bit-test
+  "Test bit at index n"
+  [x n]
+  (cljc.core/bit-test x n))
+
+(defn bit-shift-left
+  "Bitwise shift left"
+  [x n] (cljc.core/bit-shift-left x n))
+
+(defn bit-shift-right
+  "Bitwise shift right"
+  [x n] (cljc.core/bit-shift-right x n))
+
 (defn ^boolean ==
   "Returns non-nil if nums all have the equivalent
   value, otherwise false. Behavior on non nums is
