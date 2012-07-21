@@ -212,22 +212,40 @@
   ([x y & more] `(bit-and-not (bit-and-not ~x ~y) ~@more)))
 
 (defmacro bit-clear [x n]
-  (list 'c* "make_integer ((integer_get (~{})) & ~(1 << integer_get (~{})))" x n))
+  ;; FIXME: If the value of n is negative or is greater than or equal to
+  ;;        sizeof(long)*8, left shift behavior is undefined. ()
+  (list 'c* "make_integer ((integer_get (~{})) & ~(1ul << integer_get (~{})))" x n))
 
 (defmacro bit-flip [x n]
-  (list 'c* "make_integer ((integer_get (~{})) ^ (1 << integer_get (~{})))" x n))
+  ;; FIXME: see bit-clear
+  (list 'c* "make_integer ((integer_get (~{})) ^ (1ul << integer_get (~{})))" x n))
 
 (defmacro bit-test [x n]
-  (list 'c* "make_boolean (((integer_get (~{})) & (1 << integer_get (~{}))) != 0)" x n))
+  ;; FIXME: see bit-clear
+  (list 'c* "make_boolean (((integer_get (~{})) & (1ul << integer_get (~{}))) != 0)" x n))
 
 (defmacro bit-shift-left [x n]
-  (list 'c* "make_integer ((integer_get (~{}) << integer_get (~{}))" x n))
+  ;; FIXME: If the value of n is negative or is greater than or equal to
+  ;;        sizeof(long)*8, the behavior is undefined.
+  ;;        If x has nonnegative value, and x * 2^n isn't representable as long,
+  ;;        the behavior is undefined.
+  (list 'c* "make_integer (integer_get (~{}) << integer_get (~{}))" x n))
 
 (defmacro bit-shift-right [x n]
+  ;; FIXME: If the value of n is negative or is greater than or equal to
+  ;;        sizeof(long)*8, the behavior is undefined.
+  ;;        If x has a negative value, the resulting value is
+  ;;        implementation-definded.
   (list 'c* "make_integer (integer_get (~{}) >> integer_get (~{}))" x n))
 
+(defmacro bit-shift-right-zero-fill [x n]
+  ;; FIXME: If the value of n is negative or is greater than or equal to
+  ;;        sizeof(long)*8, right shift behavior is undefined.
+  (list 'c* "make_integer ((long)((unsigned long)integer_get (~{}) >> integer_get (~{})))" x n))
+
 (defmacro bit-set [x n]
-  (list 'c* "make_integer (integer_get (~{}) | (1 << integer_get (~{})))" x n))
+  ;; FIXME: see bit-clear
+  (list 'c* "make_integer (integer_get (~{}) | (1ul << integer_get (~{})))" x n))
 
 
 (defmacro ^{:private true} assert-args [fnname & pairs]
