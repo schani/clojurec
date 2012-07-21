@@ -43,6 +43,27 @@
   [array]
   (c* "make_integer (array_length (~{}))" array))
 
+(defn array-copy
+  "Copies n elements from src array, beginning at position specified by src_pos,
+  to dst array, beginning at position specified by dst_pos. If src_pos and
+  dst_pos aren't specified then elements are copied from beginning of src to
+  beginning of dst. If n is also not specified, then all elements of src is
+  copied to dst."
+  ([src dst]
+     (c* "array_copy (~{}, 0, ~{}, 0, array_length (~{}))"
+         src dst src))
+  ([src dst n]
+     (c* "array_copy (~{}, 0, ~{}, 0, integer_get (~{}))"
+         src dst n))
+  ([src src_pos dst dst_pos n]
+     (c* "array_copy (~{}, integer_get (~{}), ~{}, integer_get (~{}), integer_get (~{}))"
+         src src_pos dst dst_pos n)))
+
+(defn aclone
+  "Returns array, cloned from the passed in array"
+  [array-like]
+  (array-copy array-like (make-array (alength array-like))))
+
 (comment
 (defprotocol IFn
   (-invoke [& args]))
