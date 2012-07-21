@@ -1,5 +1,10 @@
 ;;; -*- clojure -*-
 
+(ns cljc.core.PersistentVector)
+
+(def EMPTY_NODE nil)
+(def EMPTY nil)
+
 (ns cljc.core.List)
 
 (def EMPTY nil)
@@ -72,6 +77,9 @@
 (defprotocol ICounted
   (-count [coll] "constant time count"))
 
+(defprotocol IEmptyableCollection
+  (-empty [coll]))
+
 (defprotocol IIndexed
   (-nth [coll n] [coll n not-found]))
 
@@ -86,6 +94,11 @@
 
 (defprotocol ILookup
   (-lookup [o k] [o k not-found]))
+
+(defprotocol IAssociative
+  (-contains-key? [coll k])
+  #_(-entry-at [coll k])
+  (-assoc [coll k v]))
 
 (defprotocol IEquiv
   (-equiv [o other]))
@@ -104,6 +117,16 @@
 
 (defprotocol ISet
   (-disjoin [coll v]))
+
+(defprotocol IStack
+  (-peek [coll])
+  (-pop [coll]))
+
+(defprotocol IMeta
+  (-meta [o]))
+
+(defprotocol IWithMeta
+  (-with-meta [o meta]))
 
 (defprotocol IPrintable
   (-pr-seq [o opts]))
@@ -476,6 +499,10 @@
 (defn dec
   "Returns a number one less than num."
   [x] (- x 1))
+
+(defn ^boolean pos?
+  "Returns true if num is greater than zero, else false"
+  [n] (> n 0))
 
 (defn bit-xor
   "Bitwise exclusive or"
@@ -880,7 +907,7 @@
   (*print-fn* x)
   nil)
 
-(defn str [x]
+(defn str [& xs]
   "?")
 
 (defn- pr-seq [obj opts]
@@ -916,3 +943,244 @@
 
 (defn slurp [filename]
   (c* "make_string_copy_free (slurp_file (string_get_utf8 (~{})))" filename))
+
+;;; PersistentVector
+
+(defn- error [cause]
+  (c* "fprintf(stderr, \"%s\\n\", string_get_utf8 (~{}))" cause)
+  (c* "exit(1)")
+  nil)
+
+(deftype VectorNode [edit arr])
+
+(declare pv-fresh-node pv-aget pv-aset tail-off new-path push-tail array-for
+         do-assoc pop-tail)
+
+(deftype PersistentVector [meta cnt shift root tail]
+  IWithMeta
+  (-with-meta [coll meta] (PersistentVector meta cnt shift root tail))
+
+  IMeta
+  (-meta [coll] meta)
+
+  ICounted
+  (-count [coll] cnt)
+
+  ICollection
+  (-conj [coll o]
+    (if (< (- cnt (tail-off coll)) 32)
+      (let [tail-len (alength tail)
+            new-tail (make-array (inc tail-len))]
+        (array-copy tail new-tail)
+        (aset new-tail tail-len o)
+        (PersistentVector meta (inc cnt) shift root new-tail))
+      (let [root-overflow? (> (bit-shift-right-zero-fill cnt 5) (bit-shift-left 1 shift))
+            new-shift (if root-overflow? (+ shift 5) shift)
+            new-root (if root-overflow?
+                       (let [n-r (pv-fresh-node nil)]
+                           (pv-aset n-r 0 root)
+                           (pv-aset n-r 1 (new-path nil shift (VectorNode nil tail)))
+                           n-r)
+                       (push-tail coll shift root (VectorNode nil tail)))
+            new-tail (make-array 1)]
+        (aset new-tail 0 o)
+        (PersistentVector meta (inc cnt) new-shift new-root new-tail))))
+
+  IIndexed
+  (-nth [coll n]
+    (aget (array-for coll n) (bit-and n 0x01f)))
+  (-nth [coll n not-found]
+    (if (and (<= 0 n) (< n cnt))
+      (-nth coll n)
+      not-found))
+
+  ILookup
+  (-lookup [coll k] (-nth coll k nil))
+  (-lookup [coll k not-found] (-nth coll k not-found))
+
+  IStack
+  (-peek [coll]
+    (when (> cnt 0)
+      (-nth coll (dec cnt))))
+  (-pop [coll]
+    (cond
+     (zero? cnt) (error "Can't pop empty vector")
+     (== 1 cnt) (-with-meta cljc.core.PersistentVector/EMPTY meta)
+     (< 1 (- cnt (tail-off coll))) (let [new-tail-len (dec (alength tail))
+                                         new-tail (make-array new-tail-len)]
+                                     (PersistentVector meta (dec cnt) shift root
+                                                       (array-copy tail new-tail new-tail-len)))
+     true (let [new-tail (array-for coll (- cnt 2))
+                nr (pop-tail coll shift root)
+                new-root (if (nil? nr) cljc.core.PersistentVector/EMPTY_NODE nr)
+                cnt-1 (dec cnt)]
+            (if (and (< 5 shift) (nil? (pv-aget new-root 1)))
+              (PersistentVector meta cnt-1 (- shift 5) (pv-aget new-root 0) new-tail)
+              (PersistentVector meta cnt-1 shift new-root new-tail)))))
+
+  IEmptyableCollection
+  (-empty [coll] (-with-meta cljc.core.PersistentVector/EMPTY meta))
+
+  IAssociative
+  (-assoc [coll k v]
+    (cond
+       (and (<= 0 k) (< k cnt))
+       (if (<= (tail-off coll) k)
+         (let [new-tail (aclone tail)]
+           (aset new-tail (bit-and k 0x01f) v)
+           (PersistentVector meta cnt shift root new-tail))
+         (PersistentVector meta cnt shift (do-assoc coll shift root k v) tail))
+       (== k cnt) (-conj coll v)
+       true (error (str "Index " k " out of bounds  [0," cnt "]"))))
+
+  IFn
+  (-invoke [coll k]
+    (-lookup coll k))
+  (-invoke [coll k not-found]
+    (-lookup coll k not-found))
+
+  ;; Not yet ported from ClojureScript
+
+  ;; ISequential
+  ;; IEquiv
+  ;; (-equiv [coll other] (equiv-sequential coll other))
+
+  ;; IHash
+  ;; (-hash [coll] (caching-hash coll hash-coll __hash))
+
+  ;; ISeqable
+  ;; (-seq [coll]
+  ;;   (if (zero? cnt)
+  ;;     nil
+  ;;     (chunked-seq coll 0 0)))
+
+  ;; IMapEntry
+  ;; (-key [coll]
+  ;;   (-nth coll 0))
+  ;; (-val [coll]
+  ;;   (-nth coll 1))
+
+  ;; IVector
+  ;; (-assoc-n [coll n val] (-assoc coll n val))
+
+  ;; IReduce
+  ;; (-reduce [v f]
+  ;;   (ci-reduce v f))
+  ;; (-reduce [v f start]
+  ;;   (ci-reduce v f start))
+
+  ;; IKVReduce
+  ;; (-kv-reduce [v f init]
+  ;;   (let [step-init (array 0 init)] ; [step 0 init init]
+  ;;     (loop [i 0]
+  ;;       (if (< i cnt)
+  ;;         (let [arr (array-for v i)
+  ;;               len (.-length arr)]
+  ;;           (let [init (loop [j 0 init (aget step-init 1)]
+  ;;                        (if (< j len)
+  ;;                          (let [init (f init (+ j i) (aget arr j))]
+  ;;                            (if (reduced? init)
+  ;;                              init
+  ;;                              (recur (inc j) init)))
+  ;;                          (do (aset step-init 0 len)
+  ;;                              (aset step-init 1 init)
+  ;;                              init)))]
+  ;;             (if (reduced? init)
+  ;;               @init
+  ;;               (recur (+ i (aget step-init 0))))))
+  ;;         (aget step-init 1)))))
+
+  ;; IEditableCollection
+  ;; (-as-transient [coll]
+  ;;   (TransientVector. cnt shift (tv-editable-root root) (tv-editable-tail tail)))
+
+  ;; IReversible
+  ;; (-rseq [coll]
+  ;;   (if (pos? cnt)
+  ;;     (RSeq. coll (dec cnt) nil)
+  ;;     ())))
+  )
+
+(defn- pv-fresh-node [edit]
+  (VectorNode edit (make-array 32)))
+
+(defn- pv-aget [node idx]
+  (aget (.-arr node) idx))
+
+(defn- pv-aset [node idx val]
+  (aset (.-arr node) idx val))
+
+(defn- pv-clone-node [node]
+  (VectorNode (.-edit node) (aclone (.-arr node))))
+
+(defn- tail-off [pv]
+  (let [cnt (.-cnt pv)]
+    (if (< cnt 32)
+      0
+      (bit-shift-left (bit-shift-right-zero-fill (dec cnt) 5) 5))))
+
+(defn- new-path [edit level node]
+  (loop [ll level
+         ret node]
+    (if (zero? ll)
+      ret
+      (let [embed ret
+            r (pv-fresh-node edit)
+            _ (pv-aset r 0 embed)]
+        (recur (- ll 5) r)))))
+
+(defn- push-tail [pv level parent tailnode]
+  (let [ret (pv-clone-node parent)
+        subidx (bit-and (bit-shift-right-zero-fill (dec (.-cnt pv)) level) 0x01f)]
+    (if (== 5 level)
+      (do
+        (pv-aset ret subidx tailnode)
+        ret)
+      (let [child (pv-aget parent subidx)]
+        (if-not (nil? child)
+          (let [node-to-insert (push-tail pv (- level 5) child tailnode)]
+            (pv-aset ret subidx node-to-insert)
+            ret)
+          (let [node-to-insert (new-path nil (- level 5) tailnode)]
+            (pv-aset ret subidx node-to-insert)
+            ret))))))
+
+(defn- array-for [pv i]
+  (if (and (<= 0 i) (< i (.-cnt pv)))
+    (if (>= i (tail-off pv))
+      (.-tail pv)
+      (loop [node (.-root pv)
+             level (.-shift pv)]
+        (if (pos? level)
+          (recur (pv-aget node (bit-and (bit-shift-right-zero-fill i level) 0x01f))
+                 (- level 5))
+          (.-arr node))))
+    (error (str "No item " i " in vector of length " (.-cnt pv)))))
+
+(defn- do-assoc [pv level node i val]
+  (let [ret (pv-clone-node node)]
+    (if (zero? level)
+      (do
+        (pv-aset ret (bit-and i 0x01f) val)
+        ret)
+      (let [subidx (bit-and (bit-shift-right-zero-fill i level) 0x01f)]
+        (pv-aset ret subidx (do-assoc pv (- level 5) (pv-aget node subidx) i val))
+        ret))))
+
+(defn- pop-tail [pv level node]
+  (let [subidx (bit-and (bit-shift-right-zero-fill (- (.-cnt pv) 2) level) 0x01f)]
+    (cond
+     (> level 5) (let [new-child (pop-tail pv (- level 5) (pv-aget node subidx))]
+                   (if (and (nil? new-child) (zero? subidx))
+                     nil
+                     (let [ret (pv-clone-node node)]
+                       (pv-aset ret subidx new-child)
+                       ret)))
+     (zero? subidx) nil
+     true (let [ret (pv-clone-node node)]
+            (pv-aset ret subidx nil)
+            ret))))
+
+(set! cljc.core.PersistentVector/EMPTY_NODE (pv-fresh-node nil))
+(set! cljc.core.PersistentVector/EMPTY
+      (PersistentVector nil 0 5 cljc.core.PersistentVector/EMPTY_NODE (make-array 0)))
