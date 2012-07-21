@@ -429,9 +429,17 @@
 
 (defmethod emit :vector
   [{:keys [items env]}]
-  (emit-wrap env
-    (emits "cljs.core.PersistentVector.fromArray(["
-           (comma-sep items) "])")))
+  (let [emit-conj
+        (fn emit-conj [xs]
+          (if (empty? xs)
+            (emits "VAR_NAME (cljc_DOT_core_DOT_PersistentVector_SLASH_EMPTY)")
+            (do
+              (emits "FUNCALL2 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH__conj), ")
+              (emit-conj (rest xs))
+              (emits ", ")
+              (emits (first xs))
+              (emits ")"))))]
+    (emit-wrap env (emit-conj (reverse items)))))
 
 (defmethod emit :set
   [{:keys [items env]}]
