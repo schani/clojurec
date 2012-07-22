@@ -8,7 +8,7 @@
 (defn- core-run [x]
   (run-expr 'clojurec.core-test true x))
 
-(deftest persistent-vector
+(deftest persistent-vector-test
   (testing "PersistentVector predicates"
     (is (= [true true true true true]
            (core-run '(do (print (vector? []))
@@ -95,7 +95,7 @@
            (core-run '(do (print (= [1 2 3] [1 2 3]))
                           (print (= [1 2 3] [1 2 3 4]))))))))
 
-(deftest chunked-seq
+(deftest chunked-seq-test
   (testing "ChunkedSeq created from PersistentVector"
     (is (= [true true 0 99 -1]
            (core-run '(let [v (loop [i 0 v []]
@@ -108,3 +108,43 @@
                         (print (first cs))
                         (print (last cs))
                         (print (first (conj cs -1)))))))))
+
+(deftest subvec-test
+  (testing "Subvec"
+    (is (= [100 0 99 nil
+            99 1 99 nil
+            1 99 nil
+            0 nil
+            0 nil
+            1234 4321]
+           (core-run '(let [v (loop [i 0 v []]
+                                (if (< i 100)
+                                  (recur (inc i) (conj v i))
+                                  v))
+                            sv1 (subvec v 0)
+                            sv2 (subvec v 1)
+                            sv3 (subvec v 99)
+                            sv4 (subvec v 100)
+                            sv5 (subvec v 50 50)]
+                        (print (count sv1))
+                        (print (sv1 0))
+                        (print (sv1 99))
+                        (print (sv1 100))
+
+                        (print (count sv2))
+                        (print (sv2 0))
+                        (print (sv2 98))
+                        (print (sv2 99))
+
+                        (print (count sv3))
+                        (print (sv3 0))
+                        (print (sv3 1))
+
+                        (print (count sv4))
+                        (print (sv4 0))
+
+                        (print (count sv5))
+                        (print (sv5 0))
+
+                        (print ((conj sv5 1234) 0))
+                        (print ((-assoc sv2 50 4321) 50))))))))

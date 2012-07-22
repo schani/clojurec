@@ -1459,3 +1459,93 @@ reduces them without incurring seq initialization"
   ([vec node i off] (chunked-seq vec node i off nil))
   ([vec node i off meta]
      (ChunkedSeq vec node i off meta)))
+
+(deftype Subvec [meta v start end]
+  IWithMeta
+  (-with-meta [coll meta] (Subvec meta v start end))
+
+  IMeta
+  (-meta [coll] meta)
+
+  IStack
+  (-peek [coll]
+    (-nth v (dec end)))
+  (-pop [coll]
+    (if (== start end)
+      (error "Can't pop empty vector")
+      (Subvec meta v start (dec end))))
+
+  ICollection
+  (-conj [coll o]
+    (Subvec meta (-assoc-n v end o) start (inc end)))
+
+  IEmptyableCollection
+  (-empty [coll] (-with-meta cljc.core.PersistentVector/EMPTY meta))
+
+  ICounted
+  (-count [coll] (- end start))
+
+  IIndexed
+  (-nth [coll n]
+    (if (< n (- end start))
+      (nth v (+ start n))
+      (error "Index out of bounds")))
+  (-nth [coll n not-found]
+    (if (< n (- end start))
+      (nth v (+ start n) not-found)
+      not-found))
+
+  ILookup
+  (-lookup [coll k] (-nth coll k nil))
+  (-lookup [coll k not-found] (-nth coll k not-found))
+
+  IAssociative
+  (-assoc [coll key val]
+    (let [v-pos (+ start key)]
+      (Subvec meta (assoc v v-pos val)
+              start (max end (inc v-pos)))))
+
+  IVector
+  (-assoc-n [coll n val] (-assoc coll n val))
+
+  IReduce
+  (-reduce [coll f]
+    (ci-reduce coll f))
+  (-reduce [coll f start]
+    (ci-reduce coll f start))
+
+  IFn
+  (-invoke [coll k]
+    (-lookup coll k))
+  (-invoke [coll k not-found]
+    (-lookup coll k not-found))
+
+  ;; IHash
+  ;; (-hash [coll] (caching-hash coll hash-coll __hash))
+
+  ;; ISequential
+  ;; IEquiv
+  ;; (-equiv [coll other] (equiv-sequential coll other))
+
+  ;; ISeqable
+  ;; (-seq [coll]
+  ;;   (let [subvec-seq (fn subvec-seq [i]
+  ;;                      (when-not (== i end)
+  ;;                        (cons (-nth v i)
+  ;;                              (lazy-seq
+  ;;                               (subvec-seq (inc i))))))]
+  ;;     (subvec-seq start)))
+  )
+
+(defn subvec
+  "Returns a persistent vector of the items in vector from
+  start (inclusive) to end (exclusive).  If end is not supplied,
+  defaults to (count vector). This operation is O(1) and very fast, as
+  the resulting vector shares structure with the original and no
+  trimming is done."
+  ([v start]
+     (subvec v start (count v)))
+  ([v start end]
+     (if (<= start end)
+       (Subvec nil v start end)
+       (error "Invalid subvec range"))))
