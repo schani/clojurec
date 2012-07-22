@@ -613,3 +613,23 @@
                                (bit-shift-right 2r10 -1)
                                (bit-shift-right 4294967296 32)
                                (bit-shift-right 65536 10000))))))
+
+(deftest array-chunk
+  (testing "ArrayChunk"
+    (is (= [2 1 2 3 nil 3 nil 5 5 0 0]
+           (core-run '(let [a (doto (make-array 4)
+                                (aset 0 1) (aset 1 2) (aset 2 3) (aset 3 4))
+                            ac (array-chunk a 1 3)
+                            ac2 (-drop-first ac)
+                            ac3 (array-chunk a 1 1)]
+                        (print (-count ac))
+                        (print (-count ac2))
+                        (print (-nth ac 0))
+                        (print (-nth ac 1))
+                        (print (-nth ac 2 nil))
+                        (print (-nth ac2 0))
+                        (print (-nth ac2 1 nil))
+                        (print (reduce + ac))
+                        (print (reduce + 0 ac))
+                        (print (reduce + ac3))
+                        (print (reduce + 0 ac3))))))))
