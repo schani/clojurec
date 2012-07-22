@@ -14,6 +14,11 @@
 (declare print)
 (declare apply)
 
+(defn- error [cause]
+  (c* "fprintf(stderr, \"%s\\n\", string_get_utf8 (~{}))" cause)
+  (c* "exit(1)")
+  nil)
+
 (def
   ^{:doc "Each runtime environment provides a diffenent way to print output.
   Whatever function *print-fn* is bound to will be passed any
@@ -133,6 +138,9 @@
 
 (defprotocol IPrintable
   (-pr-seq [o opts]))
+
+(defprotocol IChunk
+  (-drop-first [coll]))
 
 (declare pr-sequential pr-seq list cons inc equiv-sequential)
 
@@ -986,13 +994,39 @@ reduces them without incurring seq initialization"
 (defn slurp [filename]
   (c* "make_string_copy_free (slurp_file (string_get_utf8 (~{})))" filename))
 
+(deftype ArrayChunk [arr off end]
+  ICounted
+  (-count [_] (- end off))
+
+  IIndexed
+  (-nth [coll i]
+    (aget arr (+ off i)))
+  (-nth [coll i not-found]
+    (if (and (>= i 0) (< i (- end off)))
+      (aget arr (+ off i))
+      not-found))
+
+  IChunk
+  (-drop-first [coll]
+    (if (== off end)
+      (error "-drop-first of empty chunk")
+      (ArrayChunk arr (inc off) end)))
+
+  IReduce
+  (-reduce [coll f]
+    (if (< off end) (ci-reduce coll f (aget arr off) 1) 0))
+  (-reduce [coll f start]
+    (ci-reduce coll f start 0)))
+
+(defn array-chunk
+  ([arr]
+     (array-chunk arr 0 (alength arr)))
+  ([arr off]
+     (array-chunk arr off (alength arr)))
+  ([arr off end]
+     (ArrayChunk arr off end)))
+
 ;;; PersistentVector
-
-(defn- error [cause]
-  (c* "fprintf(stderr, \"%s\\n\", string_get_utf8 (~{}))" cause)
-  (c* "exit(1)")
-  nil)
-
 (deftype VectorNode [edit arr])
 
 (declare pv-fresh-node pv-aget pv-aset tail-off new-path push-tail array-for
