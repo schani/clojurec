@@ -145,6 +145,13 @@
 (defprotocol IChunk
   (-drop-first [coll]))
 
+(defprotocol IChunkedSeq
+  (-chunked-first [coll])
+  (-chunked-rest [coll]))
+
+(defprotocol IChunkedNext
+  (-chunked-next [coll]))
+
 (declare pr-sequential pr-seq list cons inc equiv-sequential)
 
 (deftype Cons [first rest]
@@ -464,6 +471,14 @@ reduces them without incurring seq initialization"
       (-next coll)
       (seq (rest coll)))))
 
+(defn last
+  "Return the last item in coll, in linear time"
+  [s]
+  (let [sn (next s)]
+    (if-not (nil? sn)
+      (recur sn)
+      (first s))))
+
 (defn +
   "Returns the sum of nums. (+) returns 0."
   ([] 0)
@@ -613,6 +628,18 @@ reduces them without incurring seq initialization"
 (defn ^boolean boolean [x]
   (if x true false))
 
+(defn ^boolean seq?
+  "Return true if s satisfies ISeq"
+  [s]
+  (if (nil? s)
+    false
+    (satisfies? ISeq s)))
+
+(defn ^boolean seqable?
+  "Return true if s satisfies ISeqable"
+  [s]
+  (satisfies? ISeqable s))
+
 (defn ^boolean contains?
   "Returns true if key is present in the given collection, otherwise
   returns false.  Note that for numerically indexed collections like
@@ -655,6 +682,9 @@ reduces them without incurring seq initialization"
 (defn ^boolean reduceable?
   "Returns true if coll satisfies IReduce"
   [x] (satisfies? IReduce x))
+
+(defn ^boolean chunked-seq?
+  [x] (satisfies? IChunkedSeq x))
 
 (defn- accumulating-seq-count [coll]
   (loop [s (seq coll) acc 0]
@@ -1037,7 +1067,7 @@ reduces them without incurring seq initialization"
 (deftype VectorNode [edit arr])
 
 (declare pv-fresh-node pv-aget pv-aset tail-off new-path push-tail array-for
-         do-assoc pop-tail)
+         do-assoc pop-tail chunked-seq)
 
 (deftype PersistentVector [meta cnt shift root tail]
   IWithMeta
@@ -1131,20 +1161,20 @@ reduces them without incurring seq initialization"
   IVector
   (-assoc-n [coll n val] (-assoc coll n val))
 
-  ;; Not yet ported from ClojureScript
+  ISeqable
+  (-seq [coll]
+    (if (zero? cnt)
+      nil
+      (chunked-seq coll 0 0)))
 
-  ;; ISequential
-  ;; IEquiv
-  ;; (-equiv [coll other] (equiv-sequential coll other))
+  ISequential
+  IEquiv
+  (-equiv [coll other] (equiv-sequential coll other))
+
+  ;; Not yet ported from ClojureScript
 
   ;; IHash
   ;; (-hash [coll] (caching-hash coll hash-coll __hash))
-
-  ;; ISeqable
-  ;; (-seq [coll]
-  ;;   (if (zero? cnt)
-  ;;     nil
-  ;;     (chunked-seq coll 0 0)))
 
   ;; IMapEntry
   ;; (-key [coll]
@@ -1267,3 +1297,71 @@ reduces them without incurring seq initialization"
 (set! cljc.core.PersistentVector/EMPTY_NODE (pv-fresh-node nil))
 (set! cljc.core.PersistentVector/EMPTY
       (PersistentVector nil 0 5 cljc.core.PersistentVector/EMPTY_NODE (make-array 0)))
+
+(deftype ChunkedSeq [vec node i off meta]
+  IWithMeta
+  (-with-meta [coll m]
+    (chunked-seq vec node i off m))
+  (-meta [coll] meta)
+
+  ISeqable
+  (-seq [coll] coll)
+
+  ISequential
+  IEquiv
+  (-equiv [coll other] (equiv-sequential coll other))
+
+  ASeq
+  ISeq
+  (-first [coll]
+    (aget node off))
+  (-rest [coll]
+    (if (< (inc off) (alength node))
+      (let [s (chunked-seq vec node i (inc off))]
+        (if (nil? s)
+          ()
+          s))
+      (-chunked-rest coll)))
+
+  IChunkedSeq
+  (-chunked-first [coll]
+    (array-chunk node off))
+  (-chunked-rest [coll]
+    (let [l (alength node)
+          s (when (< (+ i l) (-count vec))
+              (chunked-seq vec (+ i l) 0))]
+      (if (nil? s)
+        ()
+        s)))
+
+  INext
+  (-next [coll]
+    (if (< (inc off) (alength node))
+      (let [s (chunked-seq vec node i (inc off))]
+        (if (nil? s)
+          nil
+          s))
+      (-chunked-next coll)))
+
+  IChunkedNext
+  (-chunked-next [coll]
+    (let [l (alength node)
+          s (when (< (+ i l) (-count vec))
+              (chunked-seq vec (+ i l) 0))]
+      (if (nil? s)
+        nil
+        s)))
+
+  ICollection
+  (-conj [coll o]
+    (cons o coll))
+
+  IEmptyableCollection
+  (-empty [coll]
+    (-with-meta cljc.core.PersistentVector/EMPTY meta)))
+
+(defn chunked-seq
+  ([vec i off] (chunked-seq vec (array-for vec i) i off nil))
+  ([vec node i off] (chunked-seq vec node i off nil))
+  ([vec node i off meta]
+     (ChunkedSeq vec node i off meta)))
