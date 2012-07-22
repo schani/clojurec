@@ -91,7 +91,22 @@
 			      u (Blu 3 4)]
 			  (pr (.-x a) (.-y a)
 			      (.-y u) (.-z u)))))
-	   [1 2 3 4]))))
+	   [1 2 3 4]))
+    (is (= (core-run '(do
+			(defprotocol IFoo
+			  (-foo [o r]))
+			(deftype Bar []
+			  IFoo
+			  (-foo [o _] (pr 1)))
+			(deftype Baz [x]
+			  IFoo
+			  (-foo [o r]
+				(pr 2)
+				(when r
+				  (pr " ")
+				  (-foo x false))))
+			(-foo (Baz (Bar)) true)))
+	   [2 1]))))
 
 (deftest numbers
   (testing "simple numbers"
