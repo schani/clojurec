@@ -480,6 +480,31 @@ reduces them without incurring seq initialization"
       (-next coll)
       (seq (rest coll)))))
 
+(defn second
+  "Same as (first (next x))"
+  [coll]
+  (first (next coll)))
+
+(defn ffirst
+  "Same as (first (first x))"
+  [coll]
+  (first (first coll)))
+
+(defn nfirst
+  "Same as (next (first x))"
+  [coll]
+  (next (first coll)))
+
+(defn fnext
+  "Same as (first (next x))"
+  [coll]
+  (first (next coll)))
+
+(defn nnext
+  "Same as (next (next x))"
+  [coll]
+  (next (next coll)))
+
 (defn last
   "Return the last item in coll, in linear time"
   [s]
@@ -565,9 +590,26 @@ reduces them without incurring seq initialization"
   "Returns a number one less than num."
   [x] (- x 1))
 
+(defn max
+  "Returns the greatest of the nums."
+  ([x] x)
+  ([x y] (if (> x y) x y))
+  ([x y & more]
+     (reduce max (max x y) more)))
+
+(defn min
+  "Returns the least of the nums."
+  ([x] x)
+  ([x y] (if (< x y) x y))
+  ([x y & more]
+     (reduce min (min x y) more)))
+
 (defn ^boolean pos?
   "Returns true if num is greater than zero, else false"
   [n] (> n 0))
+
+(defn ^boolean zero? [n]
+  (cljc.core/zero? n))
 
 (defn bit-xor
   "Bitwise exclusive or"
@@ -709,6 +751,45 @@ reduces them without incurring seq initialization"
     (-count coll)
     (accumulating-seq-count coll)))
 
+(declare indexed?)
+
+(defn- linear-traversal-nth
+  ([coll n]
+     (cond
+       (nil? coll)     (error "Index out of bounds")
+       (zero? n)       (if (seq coll)
+                         (first coll)
+                         (error "Index out of bounds"))
+       (indexed? coll) (-nth coll n)
+       (seq coll)      (linear-traversal-nth (next coll) (dec n))
+       true            (error "Index out of bounds")))
+  ([coll n not-found]
+     (cond
+       (nil? coll)     not-found
+       (zero? n)       (if (seq coll)
+                         (first coll)
+                         not-found)
+       (indexed? coll) (-nth coll n not-found)
+       (seq coll)      (linear-traversal-nth (next coll) (dec n) not-found)
+       true            not-found)))
+
+(defn nth
+  "Returns the value at the index. get returns nil if index out of
+  bounds, nth throws an exception unless not-found is supplied.  nth
+  also works for strings, arrays, regex Matchers and Lists, and,
+  in O(n) time, for sequences."
+  ([coll n]
+     (when-not (nil? coll)
+       (if (satisfies? IIndexed coll)
+         (-nth coll n)
+         (linear-traversal-nth coll n))))
+  ([coll n not-found]
+     (if-not (nil? coll)
+       (if (satisfies? IIndexed coll)
+         (-nth coll n not-found)
+         (linear-traversal-nth coll n not-found))
+       not-found)))
+
 (defn cons
   "Returns a new seq where x is the first element and seq is the rest."
   [x coll]
@@ -723,6 +804,19 @@ reduces them without incurring seq initialization"
      (-lookup o k))
   ([o k not-found]
      (-lookup o k not-found)))
+
+(defn assoc
+  "assoc[iate]. When applied to a map, returns a new map of the
+   same (hashed/sorted) type, that contains the mapping of key(s) to
+   val(s). When applied to a vector, returns a new vector that
+   contains val at index."
+  ([coll k v]
+     (-assoc coll k v))
+  ([coll k v & kvs]
+     (let [ret (assoc coll k v)]
+       (if kvs
+         (recur ret (first kvs) (second kvs) (nnext kvs))
+         ret))))
 
 (defn disj
   "disj[oin]. Returns a new set of the same (hashed/sorted) type, that
