@@ -6,6 +6,13 @@
   (run-expr 'clojurec.core-test true x))
 
 (deftest persistent-vector
+  (testing "PersistentVector vector?"
+    (is (= [true true true true]
+           (core-run '(do (print (vector? []))
+                          (print (vector? [1 2 3]))
+                          (print (vector? (conj [1 2 3] 4)))
+                          (print (vector? (conj [] 1))))))))
+
   (testing "PersistentVector conj/get"
     (is (= [1234
             0 100 200 300 400 500 600 700 800 900 1000 1100 1200 1233

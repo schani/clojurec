@@ -127,6 +127,9 @@
   (-peek [coll])
   (-pop [coll]))
 
+(defprotocol IVector
+  (-assoc-n [coll n val]))
+
 (defprotocol IMeta
   (-meta [o]))
 
@@ -630,6 +633,10 @@ reduces them without incurring seq initialization"
     false
     true))
 
+(defn ^boolean vector?
+  "Return true if x satisfies IVector"
+  [x] (satisfies? IVector x))
+
 (defn ^boolean empty?
   "Returns true if coll has no items - same as (not (seq coll)).
   Please use the idiom (seq x) rather than (not (empty? x))"
@@ -1130,6 +1137,9 @@ reduces them without incurring seq initialization"
   (-reduce [v f start]
     (ci-reduce v f start))
 
+  IVector
+  (-assoc-n [coll n val] (-assoc coll n val))
+
   ;; Not yet ported from ClojureScript
 
   ;; ISequential
@@ -1150,9 +1160,6 @@ reduces them without incurring seq initialization"
   ;;   (-nth coll 0))
   ;; (-val [coll]
   ;;   (-nth coll 1))
-
-  ;; IVector
-  ;; (-assoc-n [coll n val] (-assoc coll n val))
 
   ;; IKVReduce
   ;; (-kv-reduce [v f init]
