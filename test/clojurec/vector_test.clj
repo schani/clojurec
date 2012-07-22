@@ -76,4 +76,9 @@
            (core-run '(let [v '[1 33 7]]
                         (print (get v 0))
                         (print (get v 1))
-                        (print (get v 2))))))))
+                        (print (get v 2)))))))
+  (testing "PersistentVector reduce"
+    (is (= [true 6]
+           (core-run '(do
+                        (print (reduceable? []))
+                        (print (reduce + [1 2 3]))))))))

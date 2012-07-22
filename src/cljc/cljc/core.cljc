@@ -128,6 +128,9 @@
 (defprotocol IWithMeta
   (-with-meta [o meta]))
 
+(defprotocol IReduce
+  (-reduce [coll f] [coll f start]))
+
 (defprotocol IPrintable
   (-pr-seq [o opts]))
 
@@ -278,6 +281,33 @@
 (extend-type Boolean
   IPrintable
   (-pr-seq [o opts] (list (if o "true" "false"))))
+
+(defn- ci-reduce
+  "Accepts any collection which satisfies the ICount and IIndexed protocols and
+reduces them without incurring seq initialization"
+  ([cicoll f]
+     (let [cnt (-count cicoll)]
+       (if (zero? cnt)
+         (f)
+         (loop [val (-nth cicoll 0), n 1]
+           (if (< n cnt)
+             (let [nval (f val (-nth cicoll n))]
+               (recur nval (inc n)))
+             val)))))
+  ([cicoll f val]
+     (let [cnt (-count cicoll)]
+       (loop [val val, n 0]
+         (if (< n cnt)
+           (let [nval (f val (-nth cicoll n))]
+             (recur nval (inc n)))
+           val))))
+  ([cicoll f val idx]
+     (let [cnt (-count cicoll)]
+       (loop [val val, n idx]
+         (if (< n cnt)
+           (let [nval (f val (-nth cicoll n))]
+             (recur nval (inc n)))
+           val)))))
 
 (deftype IndexedSeq [a i]
   ISeqable
@@ -603,6 +633,14 @@
   "Returns true if coll implements count in constant time"
   [x] (satisfies? ICounted x))
 
+(defn ^boolean indexed?
+  "Returns true if coll implements nth in constant time"
+  [x] (satisfies? IIndexed x))
+
+(defn ^boolean reduceable?
+  "Returns true if coll satisfies IReduce"
+  [x] (satisfies? IReduce x))
+
 (defn- accumulating-seq-count [coll]
   (loop [s (seq coll) acc 0]
     (if (counted? s) ; assumes nil is counted, which it currently is
@@ -710,9 +748,13 @@
   applying f to that result and the 2nd item, etc. If coll contains no
   items, returns val and f is not called."
   ([f coll]
-     (seq-reduce f coll))
+     (if (satisfies? IReduce coll)
+       (-reduce coll f)
+       (seq-reduce f coll)))
   ([f val coll]
-     (seq-reduce f val coll)))
+     (if (satisfies? IReduce coll)
+       (-reduce coll f val)
+       (seq-reduce f val coll))))
 
 (defn concat
   "Returns a lazy seq representing the concatenation of the elements in the supplied colls."
@@ -1039,6 +1081,12 @@
   (-invoke [coll k not-found]
     (-lookup coll k not-found))
 
+  IReduce
+  (-reduce [v f]
+    (ci-reduce v f))
+  (-reduce [v f start]
+    (ci-reduce v f start))
+
   ;; Not yet ported from ClojureScript
 
   ;; ISequential
@@ -1062,12 +1110,6 @@
 
   ;; IVector
   ;; (-assoc-n [coll n val] (-assoc coll n val))
-
-  ;; IReduce
-  ;; (-reduce [v f]
-  ;;   (ci-reduce v f))
-  ;; (-reduce [v f start]
-  ;;   (ci-reduce v f start))
 
   ;; IKVReduce
   ;; (-kv-reduce [v f init]
