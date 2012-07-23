@@ -69,6 +69,9 @@
 (defprotocol IEquiv
   (-equiv [o other]))
 
+(defprotocol IHash
+  (-hash [o]))
+
 (defprotocol ISeqable
   (-seq [o]))
 
@@ -547,6 +550,9 @@
        (if ks
          (recur ret (first ks) (next ks))
          ret))))
+
+(defn hash
+  ([o] (cljc.core/hash o)))
 
 (defn- equiv-sequential
   "Assumes x is sequential. Returns true if x equals y, otherwise

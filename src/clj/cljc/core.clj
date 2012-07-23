@@ -37,6 +37,9 @@
 (defn bool-expr [e]
   (vary-meta e assoc :tag 'boolean))
 
+(defmacro hash [o]
+  (list 'c* "make_integer((unsigned) hash(~{}))" o))
+
 (defmacro identical? [a b]
   (bool-expr (list 'c* "(make_boolean (~{} == ~{}))" a b)))
 

@@ -330,6 +330,15 @@
                           (= '(nil nil nil) (seq (make-array 3)))))
            [true true]))))
 
+(deftest hashing
+  (testing "object hashing"
+    (is (= (core-run '(pr (= (hash "zabadooba") (hash "zabadooba"))))  [true]))
+    (is (= (core-run '(pr (= (hash 2354) 2354)))  [true]))
+    (is (= (core-run '(pr (= (hash nil) 0)))  [true]))
+    (is (= (core-run '(pr (= (hash 0) 0)))  [true]))   
+    (is (= (core-run '(pr (= (hash "") 0)))  [true]))
+    (is (= (core-run '(pr (= (hash 2354) (hash "2354"))))  [false]))))
+
 (deftest sets
   (testing "sets"
     (is (= (core-run '(pr (contains? nil 123)))
