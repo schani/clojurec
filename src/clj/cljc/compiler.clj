@@ -211,6 +211,7 @@
           (str "WARNING: " (:name-sym ev) " not declared ^:dynamic"))))))
 
 (def ^:dynamic *env-stack* nil)
+(def ^:dynamic *gthis-ups* nil)
 
 (defn- comma-sep [xs]
   (interpose "," xs))
@@ -366,9 +367,6 @@
         result
         (recur (rest coll) (inc i))))))
 
-(defn local-bound? [env name]
-  (contains? (into #{} (map #(:name (val %)) (:locals env))) name))
-
 (defn env-stack-lookup [name]
   (some-indexed (fn [up level]
 		  (some-indexed (fn [i n]
@@ -380,13 +378,18 @@
 
 (defmethod emit :var
   [{:keys [info env] :as arg}]
-  (let [name (:name info)]
+  (let [name (:name info)
+	field (:field info)
+	local (:local info)]
     (emit-wrap env
-               (if (local-bound? env name)
-                 (let [[num-ups index] (env-stack-lookup name)]
-                   (assert (and num-ups index))
-                   (emits "/* " name " */ env_fetch (env, " num-ups ", " index ")"))
-                 (emits "VAR_NAME (" (:name info) ")")))))
+	       (cond
+		local (let [[num-ups index] (env-stack-lookup name)]
+			(assert (and num-ups index))
+			(emits "/* " name " */ env_fetch (env, " num-ups ", " index ")"))
+		field (do
+			(assert *gthis-ups*)
+			(emits "/* " name " */ DEFTYPE_GET_FIELD (env_fetch (env, " *gthis-ups* ", 0), " (:index info) ")"))
+		:else (emits "VAR_NAME (" name ")")))))
 
 (defmethod emit :meta
   [{:keys [expr meta env]}]
@@ -561,13 +564,16 @@
         (emitln "return " delegate-name "(" (string/join ", " params) ");")))
     (emits "})")))
 
-(defn emit-in-new-env [bindings variadic val-inits num-non-args rest-val-init emitter]
+(defn emit-in-new-env [bindings variadic reset-gthis-ups val-inits num-non-args rest-val-init emitter]
   (if (seq bindings)
     (let [num-vals (count bindings)
 	  num-direct-vals (if variadic
 			    (dec num-vals)
 			    num-vals)]
-      (binding [*env-stack* (cons bindings *env-stack*)]
+      (binding [*env-stack* (cons bindings *env-stack*)
+		*gthis-ups* (if reset-gthis-ups
+			      0
+			      (and *gthis-ups* (inc *gthis-ups*)))]
 	(emitln "environment_t *new_env = alloc_env (env, " num-vals ");")
 	(emitln "{")
 	(when rest-val-init
@@ -615,6 +621,7 @@
   `(let [bindings# ~bindings]
      (emit-in-new-env (map :name bindings#)
 		      false
+		      false
 		      (map :init bindings#)
                       0
 		      nil
@@ -622,9 +629,10 @@
 			~@body))))
 
 (defn emit-fn-method
-  [{:keys [params statements ret recurs]} variadic [fn-name fn-init]]
+  [{:keys [params statements ret recurs has-gthis]} variadic [fn-name fn-init]]
   (emit-in-new-env (concat (if fn-name [fn-name] []) params)
 		   variadic
+		   has-gthis
 		   (concat (if fn-init [fn-init] []) (map #(str "arg" %) (range 3)))
                    (if fn-name 1 0)
 		   (if (or variadic (> (count params) 3))
@@ -1125,19 +1133,19 @@
          params (uniqify (remove '#{&} params))
          fixed-arity (count (if variadic (butlast params) params))
          body (next meth)
-         gthis (and fields (gensym "this__"))
-         locals (reduce (fn [m fld]
+         locals (reduce (fn [m [i fld]]
                           (assoc m fld
-                                 {:name (symbol (str gthis "." (munge fld)))
+                                 {:index i
+				  :name fld
                                   :field true
                                   :mutable (-> fld meta :mutable)}))
-                        locals fields)
-         locals (reduce (fn [m name] (assoc m name {:name (munge name)})) locals params)
+                        locals (map-indexed vector fields))
+         locals (reduce (fn [m name] (assoc m name {:name (munge name) :local true})) locals params)
          recur-frame {:names (vec (map munge params)) :flag (atom nil)}
          block (binding [*recur-frames* (cons recur-frame *recur-frames*)]
                  (analyze-block (assoc env :context :return :locals locals) body))]
      (merge {:env env :variadic variadic :params (map munge params) :max-fixed-arity fixed-arity
-             :gthis gthis :recurs @(:flag recur-frame)}
+             :has-gthis (boolean fields) :recurs @(:flag recur-frame)}
             block))))
 
 (defmethod parse 'fn*
@@ -1155,6 +1163,7 @@
         max-fixed-arity (apply max (map :max-fixed-arity methods))
         variadic (boolean (some :variadic methods))
         locals (if name (assoc locals name {:name mname :fn-var true
+					    :local true
                                             :variadic variadic
                                             :max-fixed-arity max-fixed-arity
                                             :method-params (map :params methods)}))
