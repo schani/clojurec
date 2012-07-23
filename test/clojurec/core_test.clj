@@ -106,7 +106,28 @@
 				  (pr " ")
 				  (-foo x false))))
 			(-foo (Baz (Bar)) true)))
-	   [2 1]))))
+	   [2 1]))
+    (is (= (core-run '(do
+			(defprotocol IGet
+			  (-get [o]))
+			(deftype Getter [x]
+			  IGet
+			  (-get [o]
+				((fn [o] x)
+				 (Getter 345))))
+			(pr (-get (Getter 123)))))
+	   [123]))
+    (is (= (core-run '(do
+                        (defprotocol IFoo
+                          (-foo [o]))
+                        (deftype Bar [^:mutable x]
+                          IFoo
+                          (-foo [o] (set! x (inc x))))
+                        (let [o (Bar 0)]
+                          (print (-foo o))
+                          (print (-foo o))
+                          (print (-foo o)))))
+           [1 2 3]))))
 
 (deftest numbers
   (testing "simple numbers"

@@ -77,15 +77,7 @@
                                                    meths)]
                                        `(~'c* ~(core/str "set_vtable_entry (((vtable_value_t*)~{})->vtable, MEMBER_NAME (" (cljc.compiler/munge name) "), (closure_t*)~{})")
                                               ~vtable
-                                              (fn ~@(map (fn [[args & body]]
-							   `(~args
-							     (let ~(apply vector
-									  (apply concat
-										 (map-indexed (fn [i field]
-												`[~field (~'c* ~(core/str "DEFTYPE_GET_FIELD (~{}, " i ")") ~(first args))])
-											      fields)))
-							       ~@body)))
-							 meths)))))
+                                              (fn ~@meths))))
                                    sigs)
 			    (~'c* ~(core/str "extend_ptable (PTABLE_NAME (" t "), PROTOCOL_NAME (" psym "), ((vtable_value_t*)~{})->vtable)") ~vtable))))]
     (concat '(do) (map assign-impls impl-map))))
