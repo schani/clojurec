@@ -637,57 +637,6 @@
 		       (emitln "break;")
 		       (emitln "}")))))
 
-(comment
-(defn emit-fn-method
-  [{:keys [gthis name variadic params statements ret env recurs max-fixed-arity]}]
-  (emit-wrap env
-             (emitln "(function " name "(" (comma-sep params) "){")
-             (when gthis
-               (emitln "var " gthis " = this;"))
-             (when recurs (emitln "while(true){"))
-             (emit-block :return statements ret)
-             (when recurs
-               (emitln "break;")
-               (emitln "}"))
-             (emits "})")))
-)
-
-(defn emit-variadic-fn-method
-  [{:keys [gthis name variadic params statements ret env recurs max-fixed-arity] :as f}]
-  (emit-wrap env
-             (let [name (or name (gensym))
-                   delegate-name (str name "__delegate")]
-               (emitln "(function() { ")
-               (emitln "var " delegate-name " = function (" (comma-sep params) "){")
-               (when recurs (emitln "while(true){"))
-               (emit-block :return statements ret)
-               (when recurs
-                 (emitln "break;")
-                 (emitln "}"))
-               (emitln "};")
-
-               (emitln "var " name " = function (" (comma-sep
-                                                     (if variadic
-                                                       (concat (butlast params) ['var_args])
-                                                       params)) "){")
-               (when gthis
-                 (emitln "var " gthis " = this;"))
-               (when variadic
-                 (emitln "var " (last params) " = null;")
-                 (emitln "if (goog.isDef(var_args)) {")
-                 (emitln "  " (last params) " = cljs.core.array_seq(Array.prototype.slice.call(arguments, " (dec (count params)) "),0);")
-                 (emitln "} "))
-               (emitln "return " delegate-name ".call(" (string/join ", " (cons "this" params)) ");")
-               (emitln "};")
-
-               (emitln name ".cljs$lang$maxFixedArity = " max-fixed-arity ";")
-               (emits name ".cljs$lang$applyTo = ")
-               (emit-apply-to (assoc f :name name))
-               (emitln ";")
-               (emitln name ".cljs$lang$arity$variadic = " delegate-name ";")
-               (emitln "return " name ";")
-               (emitln "})()"))))
-
 (defmethod emit :fn
   [{:keys [name env methods variadic]}]
   (when-not (= :statement (:context env))
@@ -724,78 +673,6 @@
              (emitln "default: assert_not_reached ();"))
            (emitln "}")))
        (emitln "}")))))
-
-(comment
-(defmethod emit :fn
-  [{:keys [name env methods max-fixed-arity variadic recur-frames loop-lets]}]
-  ;;fn statements get erased, serve no purpose and can pollute scope if named
-  (when-not (= :statement (:context env))
-    (let [loop-locals (seq (concat
-                            (mapcat :names (filter #(and % @(:flag %)) recur-frames))
-                            (mapcat :names loop-lets)))]
-      (when loop-locals
-        (when (= :return (:context env))
-            (emits "return "))
-        (emitln "((function (" (comma-sep loop-locals) "){")
-        (when-not (= :return (:context env))
-            (emits "return ")))
-      (if (= 1 (count methods))
-        (if variadic
-          (emit-variadic-fn-method (assoc (first methods) :name name))
-          (emit-fn-method (assoc (first methods) :name name)))
-        (let [has-name? (and name true)
-              name (or name (gensym))
-              maxparams (apply max-key count (map :params methods))
-              mmap (into {}
-                     (map (fn [method]
-                            [(symbol (str name "__" (count (:params method))))
-                             method])
-                          methods))
-              ms (sort-by #(-> % second :params count) (seq mmap))]
-          (when (= :return (:context env))
-            (emits "return "))
-          (emitln "(function() {")
-          (emitln "var " name " = null;")
-          (doseq [[n meth] ms]
-            (emits "var " n " = ")
-            (if (:variadic meth)
-              (emit-variadic-fn-method meth)
-              (emit-fn-method meth))
-            (emitln ";"))
-            (emitln name " = function(" (comma-sep (if variadic
-                                                     (concat (butlast maxparams) ['var_args])
-                                                     maxparams)) "){")
-          (when variadic
-            (emitln "var " (last maxparams) " = var_args;"))
-          (emitln "switch(arguments.length){")
-          (doseq [[n meth] ms]
-            (if (:variadic meth)
-              (do (emitln "default:")
-                  (emitln "return " n ".cljs$lang$arity$variadic("
-                          (comma-sep (butlast maxparams))
-                          (and (> (count maxparams) 1) ", ")
-                          "cljs.core.array_seq(arguments, " max-fixed-arity "));"))
-              (let [pcnt (count (:params meth))]
-                (emitln "case " pcnt ":")
-                (emitln "return " n ".call(this" (if (zero? pcnt) nil
-                                                     (list "," (comma-sep (take pcnt maxparams)))) ");"))))
-          (emitln "}")
-          (emitln "throw('Invalid arity: ' + arguments.length);")
-          (emitln "};")
-          (when variadic
-            (emitln name ".cljs$lang$maxFixedArity = " max-fixed-arity ";")
-            (emitln name ".cljs$lang$applyTo = " (some #(let [[n m] %] (when (:variadic m) n)) ms) ".cljs$lang$applyTo;"))
-          (when has-name?
-            (doseq [[n meth] ms]
-              (let [c (count (:params meth))]
-                (if (:variadic meth)
-                  (emitln name ".cljs$lang$arity$variadic = " n ".cljs$lang$arity$variadic;")
-                  (emitln name ".cljs$lang$arity$" c " = " n ";")))))
-          (emitln "return " name ";")
-          (emitln "})()")))
-      (when loop-locals
-        (emitln ";})(" (comma-sep loop-locals) "))")))))
-)
 
 (defmethod emit :do
   [{:keys [statements ret env]}]
