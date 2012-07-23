@@ -277,7 +277,7 @@ static value_t* VAR_NAME (cljc_DOT_core_SLASH_count);
 static value_t* VAR_NAME (cljc_DOT_core_SLASH_flatten_tail);
 
 #define ARG_NIL		VAR_NAME (cljc_DOT_core_DOT_List_SLASH_EMPTY)
-#define ARG_CONS(a,d)	FUNCALL2 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_Cons), (a), (d))
+#define ARG_CONS(a,d)	FUNCALL3 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_Cons), (a), (d), VALUE_NONE)
 #define ARG_FIRST(c)	FUNCALL1 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_first), (c))
 #define ARG_NEXT(c)	FUNCALL1 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_next), (c))
 #define ARG_COUNT(c)	integer_get (FUNCALL1 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_count), (c)))
@@ -451,6 +451,22 @@ string_get_utf8 (value_t *v)
 	string_t *s = (string_t*)v;
 	assert (v->ptable->type == TYPE_String);
 	return s->utf8;
+}
+
+static unsigned int
+string_hash_code(value_t *v)
+{
+        string_t *s = (string_t*)v;
+        unsigned int hash = 0;
+        const gchar *buf;
+        gchar c;
+	assert (v->ptable->type == TYPE_String);
+        buf = s->utf8;
+
+        while((c = *buf++)){
+                hash = 31*hash + c;
+        }
+        return hash;
 }
 
 static value_t*

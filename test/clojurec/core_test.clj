@@ -194,7 +194,7 @@
 
 (deftest core
   (testing "cljc.core"
-    (is (= (core-run '(let [c (Cons 1 2)]
+    (is (= (core-run '(let [c (Cons 1 2 nil)]
 			(print (. c -first))
 			(print (. c -rest))))
 	   [1 2]))
@@ -332,12 +332,16 @@
 
 (deftest hashing
   (testing "object hashing"
-    (is (= (core-run '(pr (= (hash "zabadooba") (hash "zabadooba"))))  [true]))
-    (is (= (core-run '(pr (= (hash 2354) 2354)))  [true]))
-    (is (= (core-run '(pr (= (hash nil) 0)))  [true]))
-    (is (= (core-run '(pr (= (hash 0) 0)))  [true]))   
-    (is (= (core-run '(pr (= (hash "") 0)))  [true]))
-    (is (= (core-run '(pr (= (hash 2354) (hash "2354"))))  [false]))))
+    (is (= (core-run '(pr (= (-hash "a") 97)))  [true]))
+    (is (= (core-run '(pr (= (-hash \a) 97)))  [true]))
+    (is (= (core-run '(pr (= (-hash 2354) 2354)))  [true]))
+    (is (= (core-run '(pr (= (-hash nil) 0)))  [true]))
+    (is (= (core-run '(pr (= (-hash '()) 0)))  [true]))
+    (is (= (core-run '(pr (= (-hash false) 0)))  [true]))
+    (is (= (core-run '(pr (= (-hash true) 1)))  [true]))
+    (is (= (core-run '(pr (= (-hash 0) 0)))  [true]))
+    (is (= (core-run '(pr (= (-hash "") 0)))  [true]))
+    (is (= (core-run '(pr (= (-hash 2354) (-hash "2354"))))  [false]))))
 
 (deftest sets
   (testing "sets"

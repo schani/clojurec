@@ -10,7 +10,7 @@
                             satisfies? identical? true? false? nil? str get
 
                             aget aset
-                            + - * / < <= > >= == zero? pos? neg? inc dec max min mod
+                            + - * / < <= > >= == zero? pos? neg? inc dec max min mod hash
                             bit-and bit-and-not bit-clear bit-flip bit-not bit-or bit-set
                             bit-test bit-shift-left bit-shift-right bit-xor]))
 
@@ -191,6 +191,9 @@
   ([x y] (bool-expr (list 'c* "make_boolean (integer_get (~{}) >= integer_get (~{}))" x y)))
   ([x y & more] `(and (>= ~x ~y) (>= ~y ~@more))))
 
+(defmacro mod [num div]
+  (list 'c* "make_integer (integer_get(~{}) % integer_get(~{}))" num div))
+
 (defmacro bit-not [x]
   (list 'c* "make_integer (~ (integer_get (~{})))" x))
 
@@ -232,6 +235,14 @@
 (defmacro bit-set [x n]
   (list 'c* "make_integer (integer_get (~{}) | (1 << integer_get (~{})))" x n))
 
+;; internal
+(defmacro caching-hash [coll hash-fn hash-key]
+  `(let [h# ~hash-key]
+     (if-not (nil? h#)
+       h#
+       (let [h# (~hash-fn ~coll)]
+         (set! ~hash-key h#)
+         h#))))
 
 (defmacro ^{:private true} assert-args [fnname & pairs]
   `(do (when-not ~(first pairs)
