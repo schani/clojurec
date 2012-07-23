@@ -871,7 +871,11 @@
 
 (defmethod emit :set!
   [{:keys [target val env]}]
-  (emit-wrap env (emits target " = " val)))
+  (let [info (:info target)]
+    (emit-wrap env
+	       (if (:field info)
+		 (emits "DEFTYPE_SET_FIELD (env_fetch (env, " *gthis-ups* ", 0), " (:index info) ", " val ")")
+		 (emits target " = " val)))))
 
 (defmethod emit :ns
   [{:keys [name requires uses requires-macros env]}]

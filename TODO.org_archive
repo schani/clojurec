@@ -48,4 +48,14 @@ functions (this_fn).
     IFoo
     (-foo [o] (print 2) (-foo x))) ;; calls Baz.-foo instead of Bar.-foo
   (-foo (Baz (Bar)))))
+* DONE Mutable type fields
+  CLOSED: [2012-07-23 Mon 15:16]
+  :PROPERTIES:
+  :ARCHIVE_TIME: 2012-07-23 Mon 15:16
+  :ARCHIVE_FILE: ~/Work/clojure/clojurec/TODO.org
+  :ARCHIVE_OLPATH: Compiler
+  :ARCHIVE_CATEGORY: TODO
+  :ARCHIVE_TODO: DONE
+  :END:
+
 
