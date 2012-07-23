@@ -399,6 +399,21 @@ array_set (value_t *v, long index, value_t *x)
 }
 
 static value_t*
+array_copy (value_t *src, long src_pos, value_t *dst, long dst_pos, long len)
+{
+	array_t *s = (array_t*)src, *d = (array_t*)dst;
+
+	assert (src->ptable->type == TYPE_Array);
+	assert (dst->ptable->type == TYPE_Array);
+	assert (len >= 0);
+	assert (src_pos >= 0 && src_pos <= s->len && src_pos + len <= s->len);
+	assert (dst_pos >= 0 && dst_pos <= d->len && dst_pos + len <= d->len);
+
+	memmove(d->elems + dst_pos, s->elems + src_pos, len * sizeof(d->elems[0]));
+	return dst;
+}
+
+static value_t*
 make_character (gunichar c)
 {
 	character_t *ch = (character_t*) alloc_value (PTABLE_NAME (cljc_DOT_core_SLASH_Character), sizeof (character_t));

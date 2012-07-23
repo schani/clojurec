@@ -324,11 +324,20 @@
             (comma-sep (map #(fn [] (emit-constant %)) x))
             [")"])))
 
+(defn- persistent-vector-emit-seq [items]
+  (let [emit-conj
+        (fn emit-conj [xs]
+          (if (empty? xs)
+            (list "VAR_NAME (cljc_DOT_core_DOT_PersistentVector_SLASH_EMPTY)")
+            (lazy-seq
+             (concat ["FUNCALL2 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH__conj), "]
+                     (emit-conj (rest xs))
+                     [", " (first xs) ")"]))))]
+    (emit-conj (reverse items))))
+
 (defmethod emit-constant clojure.lang.IPersistentVector [x]
   (emit-meta-constant x
-    (concat ["cljs.core.vec(["]
-            (comma-sep (map #(fn [] (emit-constant %)) x))
-            ["])"])))
+    (persistent-vector-emit-seq (map #(fn [] (emit-constant %)) x))))
 
 (defmethod emit-constant clojure.lang.IPersistentMap [x]
   (emit-meta-constant x
@@ -429,8 +438,7 @@
 (defmethod emit :vector
   [{:keys [items env]}]
   (emit-wrap env
-    (emits "cljs.core.PersistentVector.fromArray(["
-           (comma-sep items) "])")))
+    (emits (persistent-vector-emit-seq items))))
 
 (defmethod emit :set
   [{:keys [items env]}]
