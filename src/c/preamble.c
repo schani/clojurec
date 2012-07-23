@@ -51,6 +51,11 @@ typedef struct {
 
 typedef struct {
 	value_t val;
+	double x;
+} float_t;
+
+typedef struct {
+	value_t val;
 	long len;
 	value_t *elems [0];
 } array_t;
@@ -105,11 +110,12 @@ typedef struct {
 #define TYPE_Nil	1
 #define TYPE_Closure	2
 #define TYPE_Integer	3
-#define TYPE_Boolean	4
-#define TYPE_Array	5
-#define TYPE_Character	6
-#define TYPE_String	7
-#define FIRST_TYPE	8
+#define TYPE_Float	4
+#define TYPE_Boolean	5
+#define TYPE_Array	6
+#define TYPE_Character	7
+#define TYPE_String	8
+#define FIRST_TYPE	9
 
 #define FIRST_FIELD	1
 
@@ -340,6 +346,7 @@ make_closure (function_t fn, environment_t *env)
 
 static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Nil) = NULL;
 static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Integer) = NULL;
+static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Float) = NULL;
 static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Boolean) = NULL;
 static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Array) = NULL;
 static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Character) = NULL;
@@ -359,6 +366,22 @@ integer_get (value_t *v)
 	integer_t *i = (integer_t*)v;
 	assert (v->ptable->type == TYPE_Integer);
 	return i->x;
+}
+
+static value_t*
+make_float (double x)
+{
+	float_t *f = (float_t*) alloc_value (PTABLE_NAME (cljc_DOT_core_SLASH_Float), sizeof (float_t));
+	f->x = x;
+	return &f->val;
+}
+
+static double
+float_get (value_t *v)
+{
+	float_t *f = (float_t*)v;
+	assert (v->ptable->type == TYPE_Float);
+	return f->x;
 }
 
 static value_t*
@@ -503,6 +526,11 @@ cljc_core_print (int nargs, closure_t *closure, value_t *arg1, value_t *arg2, va
 		case TYPE_Integer: {
 			integer_t *i = (integer_t*)arg1;
 			printf ("%ld", i->x);
+			break;
+		}
+		case TYPE_Float: {
+			float_t *f = (float_t*)arg1;
+			printf ("%f", f->x);
 			break;
 		}
 		case TYPE_Boolean:
@@ -652,6 +680,7 @@ cljc_init (void)
 
 	PTABLE_NAME (cljc_DOT_core_SLASH_Nil) = alloc_ptable (TYPE_Nil, NULL);
 	PTABLE_NAME (cljc_DOT_core_SLASH_Integer) = alloc_ptable (TYPE_Integer, NULL);
+	PTABLE_NAME (cljc_DOT_core_SLASH_Float) = alloc_ptable (TYPE_Float, NULL);
 	PTABLE_NAME (cljc_DOT_core_SLASH_Boolean) = alloc_ptable (TYPE_Boolean, NULL);
 	PTABLE_NAME (cljc_DOT_core_SLASH_Array) = alloc_ptable (TYPE_Array, NULL);
 	PTABLE_NAME (cljc_DOT_core_SLASH_Character) = alloc_ptable (TYPE_Character, NULL);
