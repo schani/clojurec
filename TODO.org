@@ -1,4 +1,24 @@
 * Compiler
+** TODO Use C arrays for rest arguments
+Allocate them on the stack where possible.
 ** TODO Use the namespaces atom for protocols, too
 ** TODO Dot in deftype constructor names
+** TODO Don't depend on C argument evaluation order
+Argument evaluation order in C is undefined.  This will probably
+eventually bite us in more than one place.  The compiler will have to
+transform complex expressions into simple C statements, like
+
+  (a (b) (c))
+
+into
+
+  tmp1 = b ();
+  tmp2 = c ();
+  return a (tmp1, tmp2);
+
+This will require rewriting the emitter a bit.  It will also help
+getting rid of a few areas where we now output awkward code.
+** TODO Don't construct constants anew every time they're evaluated
+Best to generate them at first evaluation, then store them in a static
+var.
 * Runtime
