@@ -231,6 +231,15 @@
   IPrintable
   (-pr-seq [i opts] (list (c* "make_string_copy_free (g_strdup_printf (\"%ld\", integer_get (~{})))" i))))
 
+(extend-type Float
+  IEquiv
+  (-equiv [f o]
+    (and (has-type? o Float)
+         (c* "make_boolean (float_get (~{}) == float_get (~{}))" f o)))
+
+  IPrintable
+  (-pr-seq [f opts] (list (c* "make_string_copy_free (g_strdup_printf (\"%f\", float_get (~{})))" f))))
+
 (extend-type Boolean
   IPrintable
   (-pr-seq [o opts] (list (if o "true" "false"))))
