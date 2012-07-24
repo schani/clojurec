@@ -227,10 +227,10 @@
   (list 'c* "make_boolean (((integer_get (~{})) & (1 << integer_get (~{}))) != 0)" x n))
 
 (defmacro bit-shift-left [x n]
-  (list 'c* "make_integer ((integer_get (~{}) << integer_get (~{}))" x n))
+  (list 'c* "make_integer ((integer_get (~{}) << integer_get (~{})))" x n))
 
 (defmacro bit-shift-right [x n]
-  (list 'c* "make_integer (integer_get (~{}) >> integer_get (~{}))" x n))
+  (list 'c* "make_integer ((integer_get (~{}) >> integer_get (~{})))" x n))
 
 (defmacro bit-set [x n]
   (list 'c* "make_integer (integer_get (~{}) | (1 << integer_get (~{})))" x n))
