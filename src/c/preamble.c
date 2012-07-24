@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <stdio.h>
+#include <inttypes.h>
 #include <stdbool.h>
 #include <string.h>
 #include <gc.h>
@@ -276,7 +277,7 @@ static value_t* VAR_NAME (cljc_DOT_core_SLASH_count);
 static value_t* VAR_NAME (cljc_DOT_core_SLASH_flatten_tail);
 
 #define ARG_NIL		VAR_NAME (cljc_DOT_core_DOT_List_SLASH_EMPTY)
-#define ARG_CONS(a,d)	FUNCALL2 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_Cons), (a), (d))
+#define ARG_CONS(a,d)	FUNCALL3 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_Cons), (a), (d), VALUE_NONE)
 #define ARG_FIRST(c)	FUNCALL1 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_first), (c))
 #define ARG_NEXT(c)	FUNCALL1 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_next), (c))
 #define ARG_COUNT(c)	integer_get (FUNCALL1 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_count), (c)))
@@ -452,6 +453,22 @@ string_get_utf8 (value_t *v)
 	return s->utf8;
 }
 
+static unsigned int
+string_hash_code(value_t *v)
+{
+        string_t *s = (string_t*)v;
+        unsigned int hash = 0;
+        const gchar *buf;
+        gchar c;
+	assert (v->ptable->type == TYPE_String);
+        buf = s->utf8;
+
+        while((c = *buf++)){
+                hash = 31*hash + c;
+        }
+        return hash;
+}
+
 static value_t*
 make_vtable_value (closure_t **vtable)
 {
@@ -527,6 +544,72 @@ truth (value_t *v)
 	if (v == value_false)
 		return false;
 	return true;
+}
+
+/**
+ *  MurmurHash3 was created by Austin Appleby  in 2008. The cannonical
+ *  implementations are in C++ and placed in the public.
+ *
+ *    https://sites.google.com/site/murmurhash/
+ *
+ */
+uint32_t hashmurmur3_32(const void *data, size_t nbytes)
+{
+  if (data == NULL || nbytes == 0) return 0;
+
+    const uint32_t c1 = 0xcc9e2d51;
+    const uint32_t c2 = 0x1b873593;
+
+    const int nblocks = nbytes / 4;
+    const uint32_t *blocks = (const uint32_t *)(data);
+    const uint8_t *tail = (const uint8_t *)(data + (nblocks * 4));
+
+    uint32_t h = 0;
+
+    int i;
+    uint32_t k;
+    for (i = 0; i < nblocks; i++) {
+        k = blocks[i];
+
+        k *= c1;
+        k = (k << 15) | (k >> (32 - 15));
+        k *= c2;
+
+        h ^= k;
+        h = (h << 13) | (h >> (32 - 13));
+        h = (h * 5) + 0xe6546b64;
+    }
+
+    k = 0;
+    switch (nbytes & 3) {
+        case 3:
+            k ^= tail[2] << 16;
+        case 2:
+            k ^= tail[1] << 8;
+        case 1:
+            k ^= tail[0];
+            k *= c1;
+            k = (k << 13) | (k >> (32 - 15));
+            k *= c2;
+            h ^= k;
+    };
+
+    h ^= nbytes;
+
+    h ^= h >> 16;
+    h *= 0x85ebca6b;
+    h ^= h >> 13;
+    h *= 0xc2b2ae35;
+    h ^= h >> 16;
+
+    return h;
+}
+
+
+static int
+hash(value_t *v)
+{
+        hashmurmur3_32(&v, sizeof(value_t*));
 }
 
 static value_t*

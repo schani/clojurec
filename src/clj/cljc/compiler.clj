@@ -312,10 +312,12 @@
 
 (defmethod emit-constant clojure.lang.PersistentList [x]
   (emit-meta-constant x
-		      (emits "FUNCALL2 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_Cons), ")
+		      (emits "FUNCALL3 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_Cons), ")
 		      (emit-constant (first x))
 		      (emits ", ")
 		      (emit-constant (rest x))
+                      (emits ", ")
+		      (emit-constant (hash x))
 		      (emits ")")))
 
 (defmethod emit-constant clojure.lang.Cons [x]
