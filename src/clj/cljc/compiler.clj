@@ -280,7 +280,8 @@
 (defmethod emit-constant Long [x] (emits "make_integer (" x "L)"))
 (defmethod emit-constant Integer [x] (emits "make_integer (" x "L)")) ; reader puts Integers in metadata
 (defmethod emit-constant Character [x] (emits "make_character ((gunichar)'" (escape-char x) "')"))
-(defmethod emit-constant Double [x] (emits x))
+(defmethod emit-constant Float [x] (emits "make_float (" x "f)"))
+(defmethod emit-constant Double [x] (emits "make_float (" x "f)"))
 (defmethod emit-constant String [x]
   (emits "make_string (" (wrap-in-double-quotes (escape-string x)) ")"))
 (defmethod emit-constant Boolean [x] (emits (if x "value_true" "value_false")))
