@@ -93,7 +93,18 @@
   (testing "PersistentVector equiv"
     (is (= [true false]
            (core-run '(do (print (= [1 2 3] [1 2 3]))
-                          (print (= [1 2 3] [1 2 3 4]))))))))
+                          (print (= [1 2 3] [1 2 3 4])))))))
+
+  (testing "PersistentVector vec/vector"
+    (is (= [1 33 7 1 33 7]
+           (core-run '(let [v1 (vector 1 33 (inc 6))
+                            v2 (vec (list 1 33 7))]
+                        (print (get v1 0))
+                        (print (get v1 1))
+                        (print (get v1 2))
+                        (print (get v2 0))
+                        (print (get v2 1))
+                        (print (get v2 2))))))))
 
 (deftest chunked-seq-test
   (testing "ChunkedSeq created from PersistentVector"
@@ -148,3 +159,51 @@
 
                         (print ((conj sv5 1234) 0))
                         (print ((-assoc sv2 50 4321) 50))))))))
+
+(deftest transient-vector-test
+  (testing "TransientVector conj!"
+    (is (= [1234
+            0 100 200 300 400 500 600 700 800 900 1000 1100 1200 1233
+            nil]
+           (core-run '(let [vec (loop [i 0 v (-as-transient [])]
+                                  (if (< i 1234)
+                                    (recur (inc i) (conj! v i))
+                                    v))]
+                        (print (count vec))
+                        (loop [i 0]
+                          (when (< i 1234)
+                            (print (get vec i))
+                            (recur (+ i 100))))
+                        (print (get vec 1233))
+                        (print (get vec 1234)))))))
+
+  (testing "TransientVector assoc!"
+    (is (= [1234 0 1 2 3 4 5 6 7 8 9 10 11 12 1233 nil]
+           (core-run '(let [vec1 (loop [i 0 v (-as-transient [])]
+                                   (if (< i 1234)
+                                     (recur (inc i) (conj! v i))
+                                     v))
+                            vec (loop [i 0 v vec1]
+                                  (if (< i 13)
+                                    (recur (inc i) (assoc! v (* 100 i) i))
+                                    v))]
+                        (print (count vec))
+                        (loop [i 0]
+                          (when (< i 1234)
+                            (print (get vec i))
+                            (recur (+ i 100))))
+                        (print (get vec 1233))
+                        (print (get vec 1234)))))))
+
+  (testing "PersistentVector pop!"
+    (is (= [0 123 1]
+           (core-run '(let [v1 (conj! (-as-transient []) 123)
+                            v100 (loop [i 1 v (-as-transient [123])]
+                                   (if (< i 100) (recur (inc i) (conj! v i)) v))
+                            vec (loop [i 1 v v100]
+                                  (if (< i 100)
+                                    (recur (inc i) (pop! v))
+                                    v))]
+                        (print (count (pop! v1)))
+                        (print (vec (dec (count vec))))
+                        (print (count vec))))))))
