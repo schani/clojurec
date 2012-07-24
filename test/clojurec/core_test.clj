@@ -347,10 +347,12 @@
                           (-foo [o]))
                         (deftype Foo [foo-field]
                           IFoo
-                          (-foo [o] "Foo"))
+                          (-foo [o] "Foo")
+                          IHash
+                          (-hash [o] (hash o)))
                         (let [f1 (Foo "blah")
                               f2 (Foo "blah")]
-                          (pr (= (hash f1) (hash f2))))))
+                          (pr (= (-hash f1) (-hash f2))))))
            [false]))))
 
 (deftest sets
