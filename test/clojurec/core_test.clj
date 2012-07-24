@@ -341,7 +341,17 @@
     (is (= (core-run '(pr (= (-hash true) 1)))  [true]))
     (is (= (core-run '(pr (= (-hash 0) 0)))  [true]))
     (is (= (core-run '(pr (= (-hash "") 0)))  [true]))
-    (is (= (core-run '(pr (= (-hash 2354) (-hash "2354"))))  [false]))))
+    (is (= (core-run '(pr (= (-hash 2354) (-hash "2354"))))  [false]))
+    (is (= (core-run '(do
+                        (defprotocol IFoo
+                          (-foo [o]))
+                        (deftype Foo [foo-field]
+                          IFoo
+                          (-foo [o] "Foo"))
+                        (let [f1 (Foo "blah")
+                              f2 (Foo "blah")]
+                          (pr (= (hash f1) (hash f2))))))
+           [false]))))
 
 (deftest sets
   (testing "sets"

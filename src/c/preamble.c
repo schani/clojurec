@@ -609,7 +609,7 @@ uint32_t hashmurmur3_32(const void *data, size_t nbytes)
 static int
 hash(value_t *v)
 {
-        hashmurmur3_32(v, sizeof(value_t*));
+        hashmurmur3_32(&v, sizeof(value_t*));
 }
 
 static value_t*
