@@ -2,8 +2,8 @@
   (:refer-clojure :exclude [-> ->> .. amap and areduce alength aclone assert binding bound-fn case comment cond condp
                             declare definline definterface defmethod defmulti defn defn- defonce
                             defprotocol defrecord defstruct deftype delay doseq dosync dotimes doto
-                            extend-protocol extend-type fn for future gen-class gen-interface
-                            if-let if-not import io! lazy-cat lazy-seq let letfn locking loop
+                            extend-protocol extend-type fn float float? for future gen-class gen-interface
+                            if-let if-not import int integer? io! lazy-cat lazy-seq let letfn locking loop
                             memfn ns or proxy proxy-super pvalues refer-clojure reify sync time
                             when when-first when-let when-not while with-bindings with-in-str
                             with-loading-context with-local-vars with-open with-out-str with-precision with-redefs
@@ -48,6 +48,24 @@
 		(if (nil? x#)
 		  ~'false
 		  (~'c* ~(core/str "(make_boolean (~{}->ptable->type == TYPE_" (core/str t) "))") x#)))))
+
+(defmacro integer? [x]
+  `(has-type? ~x "Integer"))
+
+(defmacro float? [x]
+  `(has-type? ~x "Float"))
+
+(defmacro int [x]
+  `(let [x# ~x]
+     (if (float? x#)
+       (~'c* "make_integer (float_get (~{}))" x#)
+       x#)))
+
+(defmacro float [x]
+  `(let [x# ~x]
+     (if (integer? x#)
+       (~'c* "make_float (integer_get (~{}))" x#)
+       x#)))
 
 (defmacro extend-type [tsym & impls]
   (let [resolve #(let [ret (cljc.compiler/resolve-existing-var (dissoc &env :locals) %)]
@@ -147,45 +165,62 @@
 	     ())
 	 ~t))))
 
+(defmacro math-op [op x y]
+  `(let [x# ~x
+         y# ~y]
+     (if (and (integer? x#) (integer? y#))
+       (~'c* ~(core/str "make_integer (integer_get (~{}) " (name op) " integer_get (~{}))") x# y#)
+       (~'c* ~(core/str "make_float (float_get (~{}) " (name op) " float_get (~{}))") (float x#) (float y#)))))
+
+(defmacro math-op-as-bool [op x y]
+  `(let [x# ~x
+         y# ~y]
+     (if (and (integer? x#) (integer? y#))
+       (~'c* ~(core/str "make_boolean (integer_get (~{}) " (name op) " integer_get (~{}))") x# y#)
+       (~'c* ~(core/str "make_boolean (float_get (~{}) " (name op) " float_get (~{}))") (float x#) (float y#)))))
+
 (defmacro +
   ([] 0)
   ([x] x)
-  ([x y] (list 'c* "make_integer (integer_get (~{}) + integer_get (~{}))" x y))
+  ([x y] `(math-op + ~x ~y))
   ([x y & more] `(+ (+ ~x ~y) ~@more)))
 
 (defmacro -
-  ([x] (list 'c* "make_integer (- integer_get (~{}))" x))
-  ([x y] (list 'c* "make_integer (integer_get (~{}) - integer_get (~{}))" x y))
+  ([x] `(- 0 ~x))
+  ([x y] `(math-op - ~x ~y))
   ([x y & more] `(- (- ~x ~y) ~@more)))
 
 (defmacro *
   ([] 1)
   ([x] x)
-  ([x y] (list 'c* "make_integer (integer_get (~{}) * integer_get (~{}))" x y))
+  ([x y] `(math-op * ~x ~y))  
   ([x y & more] `(* (* ~x ~y) ~@more)))
 
 (defmacro zero?
-  [x]
-  (list 'c* "make_boolean (integer_get (~{}) == 0)" x))
+  [val]
+  (bool-expr `(let [x# ~val]
+        	(if (nil? x#)
+        	  ~'false
+                  (math-op-as-bool == x# 0)))))
 
 (defmacro <
   ([x] true)
-  ([x y] (bool-expr (list 'c* "make_boolean (integer_get (~{}) < integer_get (~{}))" x y)))
+  ([x y] (bool-expr `(math-op-as-bool < ~x ~y)))  
   ([x y & more] `(and (< ~x ~y) (< ~y ~@more))))
 
 (defmacro >
   ([x] true)
-  ([x y] (bool-expr (list 'c* "make_boolean (integer_get (~{}) > integer_get (~{}))" x y)))
+  ([x y] (bool-expr `(math-op-as-bool > ~x ~y)))  
   ([x y & more] `(and (> ~x ~y) (> ~y ~@more))))
 
 (defmacro <=
   ([x] true)
-  ([x y] (bool-expr (list 'c* "make_boolean (integer_get (~{}) <= integer_get (~{}))" x y)))
+  ([x y] (bool-expr `(math-op-as-bool <= ~x ~y)))  
   ([x y & more] `(and (<= ~x ~y) (<= ~y ~@more))))
 
 (defmacro >=
   ([x] true)
-  ([x y] (bool-expr (list 'c* "make_boolean (integer_get (~{}) >= integer_get (~{}))" x y)))
+  ([x y] (bool-expr `(math-op-as-bool >= ~x ~y)))  
   ([x y & more] `(and (>= ~x ~y) (>= ~y ~@more))))
 
 (defmacro bit-not [x]
