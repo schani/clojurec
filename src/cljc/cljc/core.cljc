@@ -108,6 +108,9 @@
 (defprotocol IEquiv
   (-equiv [o other]))
 
+(defprotocol IHash
+  (-hash [o]))
+
 (defprotocol ISeqable
   (-seq [o]))
 
@@ -172,9 +175,9 @@
 (defprotocol IChunkedNext
   (-chunked-next [coll]))
 
-(declare pr-sequential pr-seq list cons inc equiv-sequential)
+(declare pr-sequential pr-seq list hash-coll cons inc equiv-sequential)
 
-(deftype Cons [first rest]
+(deftype Cons [first rest ^:mutable __hash]
   ASeq
   ISeq
   (-first [coll] first)
@@ -191,7 +194,11 @@
   (-seq [coll] coll)
 
   ICollection
-  (-conj [coll o] (Cons o coll))
+  (-conj [coll o] (Cons o coll nil))
+
+  IHash
+  (-hash [coll]
+    (caching-hash coll hash-coll __hash))
 
   IPrintable
   (-pr-seq [coll opts] (pr-sequential pr-seq "(" " " ")" opts coll)))
@@ -208,7 +215,7 @@
   (-seq [coll] nil)
 
   ICollection
-  (-conj [coll o] (Cons o nil))
+  (-conj [coll o] (Cons o nil nil))
 
   ISequential
   IEquiv
@@ -216,6 +223,9 @@
 
   ICounted
   (-count [_] 0)
+
+  IHash
+  (-hash [coll] 0)
 
   IPrintable
   (-pr-seq [coll opts] (list "()")))
@@ -304,6 +314,9 @@
   ISet
   (-disjoin [_ v] nil)
 
+  IHash
+  (-hash [o] 0)
+
   IPrintable
   (-pr-seq [o opts] (list "nil")))
 
@@ -312,6 +325,9 @@
   (-equiv [i o]
     (and (has-type? o Integer)
          (c* "make_boolean (integer_get (~{}) == integer_get (~{}))" i o)))
+
+  IHash
+  (-hash [o] o)
 
   IPrintable
   (-pr-seq [i opts] (list (c* "make_string_copy_free (g_strdup_printf (\"%ld\", integer_get (~{})))" i))))
@@ -326,6 +342,10 @@
   (-pr-seq [f opts] (list (c* "make_string_copy_free (g_strdup_printf (\"%f\", float_get (~{})))" f))))
 
 (extend-type Boolean
+  IHash
+  (-hash [o]
+    (if (identical? o true) 1 0))
+
   IPrintable
   (-pr-seq [o opts] (list (if o "true" "false"))))
 
@@ -425,6 +445,10 @@ reduces them without incurring seq initialization"
     (and (has-type? o Character)
          (c* "make_boolean (character_get (~{}) == character_get (~{}))" c o)))
 
+  IHash
+  (-hash [c]
+    (c* "make_integer (character_get (~{}))" c))
+
   IPrintable
   (-pr-seq [c opts]
     (list "\\" (c* "make_string_from_unichar (character_get (~{}))" c))))
@@ -435,6 +459,10 @@ reduces them without incurring seq initialization"
     (and (has-type? o String)
          ;; FIXME: normalize first
          (c* "make_boolean (strcmp (string_get_utf8 (~{}), string_get_utf8 (~{})) == 0)" s o)))
+
+  IHash
+  (-hash [s]
+    (c* "make_integer (string_hash_code(~{}))" s))
 
   ISeqable
   (-seq [string] (prim-seq string 0))
@@ -623,6 +651,11 @@ reduces them without incurring seq initialization"
   ([x y] (if (< x y) x y))
   ([x y & more]
      (reduce min (min x y) more)))
+
+(defn mod
+  "Modulus of num and div. Truncates toward negative infinity."
+  [n d]
+  (cljc.core/mod n d))
 
 (defn ^boolean pos?
   "Returns true if num is greater than zero, else false"
@@ -815,8 +848,8 @@ reduces them without incurring seq initialization"
   [x coll]
   (if (or (nil? coll)
           (satisfies? ISeq coll))
-    (Cons x coll)
-    (Cons x (seq coll))))
+    (Cons x coll nil)
+    (Cons x (seq coll) nil)))
 
 (defn get
   "Returns the value mapped to key, not-found or nil if key not present."
@@ -861,6 +894,18 @@ reduces them without incurring seq initialization"
              (nil? ys) false
              (= (first xs) (first ys)) (recur (next xs) (next ys))
              true false)))))
+
+(defn hash [o]
+  (-hash o))
+
+(defn hash-combine [seed hash]
+  ; a la boost
+  (bit-xor seed (+ hash 0x9e3779b9
+                   (bit-shift-left seed 6)
+                   (bit-shift-right seed 2))))
+
+(defn- hash-coll [coll]
+  (reduce #(hash-combine %1 (-hash %2)) (-hash (first coll)) (next coll)))
 
 (defn ^boolean every?
   "Returns true if (pred x) is logical true for every x in coll, else
@@ -1102,7 +1147,7 @@ reduces them without incurring seq initialization"
   (-seq [coll] coll)
 
   ICollection
-  (-conj [coll o] (Cons o coll))
+  (-conj [coll o] (Cons o coll nil))
 
   IPrintable
   (-pr-seq [coll opts]

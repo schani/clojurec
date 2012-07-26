@@ -217,6 +217,9 @@
   ([x y] (bool-expr `(math-op-as-bool >= ~x ~y)))  
   ([x y & more] `(and (>= ~x ~y) (>= ~y ~@more))))
 
+(defmacro mod [num div]
+  (list 'c* "make_integer (integer_get(~{}) % integer_get(~{}))" num div))
+
 (defmacro bit-not [x]
   (list 'c* "make_integer (~ (integer_get (~{})))" x))
 
@@ -276,6 +279,14 @@
   ;; FIXME: see bit-clear
   (list 'c* "make_integer (integer_get (~{}) | (1ul << integer_get (~{})))" x n))
 
+;; internal
+(defmacro caching-hash [coll hash-fn hash-key]
+  `(let [h# ~hash-key]
+     (if-not (nil? h#)
+       h#
+       (let [h# (~hash-fn ~coll)]
+         (set! ~hash-key h#)
+         h#))))
 
 (defmacro ^{:private true} assert-args [fnname & pairs]
   `(do (when-not ~(first pairs)
