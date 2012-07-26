@@ -81,6 +81,14 @@
                               :host :ios
                               :with-makefile false)]
     (run-expr 'my-test true '(do (cljc.core/print (+ 2 3)))))
+
+  ;; for Android build
+  (binding [*build-options* (assoc default-build-options
+                              :host :android
+                              :with-makefile false)]
+    (run-expr 'my-test true '(do
+                               (cljc.core/pr "Hi From Android ClojureC!")
+                               (cljc.core/pr (+ 2.0 3)))))
 )
 
 (defn -main

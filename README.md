@@ -23,6 +23,10 @@ Make sure you're using [Leiningen 2](https://github.com/technomancy/leiningen/) 
 
 All tests should pass.
 
+## Android Notes
+
+See the README.md file in "clojurec/run/android".
+
 
 ## iOS Notes
 
