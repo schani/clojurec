@@ -9,6 +9,9 @@
 (defn- core-run [x]
   (run-expr 'clojurec.core-test true x))
 
+(defmacro core-run-and-print [& exprs]
+  `(core-run '(do ~@(map #(list 'print %) exprs))))
+
 (deftest basic
   (testing "very basic stuff"
     (is (= (run '(cljc.core/print nil)) [nil]))
@@ -370,15 +373,15 @@
 
 (deftest hashing
   (testing "object hashing"
-    (is (= (core-run '(pr (= (-hash \a) 97)))  [true]))
-    (is (= (core-run '(pr (= (-hash 2354) 2354)))  [true]))
-    (is (= (core-run '(pr (= (-hash nil) 0)))  [true]))
-    (is (= (core-run '(pr (= (-hash '()) 0)))  [true]))
-    (is (= (core-run '(pr (= (-hash false) 0)))  [true]))
-    (is (= (core-run '(pr (= (-hash true) 1)))  [true]))
-    (is (= (core-run '(pr (= (-hash 0) 0)))  [true]))
-    (is (= (core-run '(pr (= (-hash "") 0)))  [true]))))
-
+    (is (= (core-run-and-print (hash \a)
+			       (hash 2354)
+			       (hash nil)
+			       (hash '())
+			       (hash false)
+			       (hash true)
+			       (hash 0)
+			       (hash ""))
+	   [97 2354 0 0 0 1 0 0]))))
 
 (deftest sets
   (testing "sets"
@@ -582,9 +585,6 @@
 
                         (array-copy x 1 x 0 3)
                         (print-array x)))))))
-
-(defmacro core-run-and-print [& exprs]
-  `(core-run '(do ~@(map #(list 'print %) exprs))))
 
 (deftest bit-operations
   (testing "Bit operations"
