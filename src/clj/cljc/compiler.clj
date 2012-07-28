@@ -197,6 +197,7 @@
 
 (def ^:dynamic *env-stack* nil)
 (def ^:dynamic *gthis-ups* nil)
+(def ^:dynamic *loop-try-nest* nil)
 
 (defn- comma-sep [xs]
   (interpose "," xs))
@@ -710,75 +711,95 @@
           (emits statements))
         (emit ret)))))
 
+(defn- emit-continue []
+  (emitln (if (and (seq *loop-try-nest*) (not (zero? (first *loop-try-nest*))))
+            "return VALUE_RECUR;"
+            "continue;")))
+
 (defmethod emit :try*
   [{:keys [env try catch name finally]}]
   (let [context (:context env)
         subcontext (if (= :expr context) :return context)]
     (if (or name finally)
       (let [fn-name (munge (gensym :try))]
-        (emit-wrap env
-         (emits "(" fn-name " (env))"))
-        (emit-declaration
-         (emitln "static value_t* " fn-name " (environment_t *env) {")
-         (emitln "int setjmp_result;")
-         (emitln "value_t *result;")
-         (emitln "jmp_buf buf, *last_topmost = topmost_jmp_buf;")
-         (emitln "topmost_jmp_buf = &buf;")
-         (emitln "if (!(setjmp_result = _setjmp (buf))) {")
-         (emits "result = ")
-         (let [{:keys [statements ret]} try]
-           (emit-block :expr statements ret))
-         (emitln ";")
-         (emitln "topmost_jmp_buf = last_topmost;")
-         (emitln "} else {")
-         (when name
+        (if *loop-try-nest*
+          (do
+            (assert (not (= :expr context)))
+            (emitln "{")
+            (emitln "value_t *result = (" fn-name " (env));")
+            (emitln "if (result == VALUE_RECUR) {")
+            (emit-continue)
+            (emitln "}")
+            (emit-wrap env "result")
+            (emitln "}"))
+          (emit-wrap env
+                     (emits "(" fn-name " (env))")))
+        (binding [*loop-try-nest* (when *loop-try-nest*
+                                    (cons (inc (first *loop-try-nest*)) (rest *loop-try-nest*)))]
+          (emit-declaration
+           (emitln "static value_t* " fn-name " (environment_t *env) {")
+           (emitln "int setjmp_result;")
+           (emitln "value_t *result;")
+           (emitln "jmp_buf buf, *last_topmost = topmost_jmp_buf;")
+           (emitln "topmost_jmp_buf = &buf;")
            (emitln "if (!(setjmp_result = _setjmp (buf))) {")
-           (with-new-env [{:name name :init "get_exception ()"}]
-             (if catch
-               (let [{:keys [statements ret]} catch]
-                 (emits "result = ")
-                 (emit-block :expr statements ret)
-                 (emitln ";"))
-               (emitln "result = value_nil;")))
-           (emitln "}"))
-         (emitln "topmost_jmp_buf = last_topmost;")
-         (emitln "}")
-         (when finally
-          (let [{:keys [statements ret]} finally]
-            (assert (not= :constant (:op ret)) "finally block cannot contain constant")
-            (emit-block :statement statements ret)))
-         (emitln "if (setjmp_result) { rethrow_exception (); }")
-         (emitln "return result;")
-         (emitln "}")))
+           (emits "result = ")
+           (let [{:keys [statements ret]} try]
+             (emit-block :expr statements ret))
+           (emitln ";")
+           (emitln "topmost_jmp_buf = last_topmost;")
+           (emitln "} else {")
+           (when name
+             (emitln "if (!(setjmp_result = _setjmp (buf))) {")
+             (with-new-env [{:name name :init "get_exception ()"}]
+               (if catch
+                 (let [{:keys [statements ret]} catch]
+                   (emits "result = ")
+                   (emit-block :expr statements ret)
+                   (emitln ";"))
+                 (emitln "result = value_nil;")))
+             (emitln "}"))
+           (emitln "topmost_jmp_buf = last_topmost;")
+           (emitln "}")
+           (when finally
+             (let [{:keys [statements ret]} finally]
+               (assert (not= :constant (:op ret)) "finally block cannot contain constant")
+               (emit-block :statement statements ret)))
+           (emitln "if (setjmp_result) { rethrow_exception (); }")
+           (emitln "return result;")
+           (emitln "}"))))
       (let [{:keys [statements ret]} try]
         (emit {:op :do :statements statements :ret ret :env env})))))
 
 (defmethod emit :let
   [{:keys [bindings statements ret env loop]}]
   (let [context (:context env)]
-    (if (= :expr context)
-      (let [fn-name (munge (gensym :let-fn))]
-	(emits "(" fn-name " (env))")
-	(emit-declaration
-	 (emitln "static value_t* " fn-name " (environment_t *env) {")
-	 (with-new-env bindings
-	   (when loop
-	     (emitln "for (;;) {"))
-	   (emit-block :return statements ret)
-	   (when loop
-	     (emitln "break;")
-	     (emitln "}")))
-	 (emitln "}")))
-      (do
-	(emitln "{")
-	(with-new-env bindings
-	  (when loop
-	    (emitln "for (;;) {"))
-	  (emit-block context statements ret)
-	  (when loop
-	    (emitln "break;")
-	    (emitln "}")))
-	(emitln "}")))))
+    (binding [*loop-try-nest* (if loop
+                                (cons 0 *loop-try-nest*)
+                                *loop-try-nest*)]
+      (if (= :expr context)
+        (let [fn-name (munge (gensym :let-fn))]
+          (emits "assert_not_recur (" fn-name " (env))")
+          (emit-declaration
+           (emitln "static value_t* " fn-name " (environment_t *env) {")
+           (with-new-env bindings
+             (when loop
+               (emitln "for (;;) {"))
+             (emit-block :return statements ret)
+             (when loop
+               (emitln "break;")
+               (emitln "}")))
+           (emitln "}")))
+        (do
+          (emitln "{")
+          (with-new-env bindings
+            (when loop
+              (emitln "for (;;) {"))
+            (emit-block context statements ret)
+            (when loop
+              (emitln "break;")
+              (emitln "}")))
+          (emitln "}"))))))
 
 (defmethod emit :recur
   [{:keys [frame exprs env]}]
@@ -790,7 +811,7 @@
     (dotimes [i (count exprs)]
       (let [[num-ups index] (env-stack-lookup (names i))]
 	(emitln "env_set (env_up (env, " num-ups "), " index ", " (temps i) ");")))
-    (emitln "continue;")
+    (emit-continue)
     (emitln "}")))
 
 (defmethod emit :letfn

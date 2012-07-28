@@ -238,7 +238,16 @@
                               (.-info e))
                             (finally
                              (pr 567 " ")))))
-           [345 567 123]))))
+           [345 567 123]))
+    (is (= (core-run '(loop [i 2
+                             x 1]
+                        (try
+                          (if (< i 11)
+                            (recur (+ i 1) (* x i))
+                            (throw (Exception. x)))
+                          (catch Exception e
+                            (cljc.core/print (.-info e))))))
+           [3628800]))))
 
 (deftest core
   (testing "cljc.core"

@@ -20,6 +20,7 @@ typedef struct {
 } value_t;
 
 #define VALUE_NONE	((value_t*)-1)
+#define VALUE_RECUR	((value_t*)-2)
 
 typedef struct environment {
 	struct environment *up;
@@ -663,6 +664,13 @@ static void
 rethrow_exception (void)
 {
 	throw_exception (get_exception ());
+}
+
+static value_t*
+assert_not_recur (value_t *val)
+{
+	assert (val != VALUE_RECUR);
+	return val;
 }
 
 static gchar*
