@@ -872,10 +872,7 @@
 
 (defmethod emit :new
   [{:keys [ctor args env]}]
-  (emit-wrap env
-             (emits "(new " ctor "("
-                    (comma-sep args)
-                    "))")))
+  (emit {:op :invoke :f ctor :args args :env env}))
 
 (defmethod emit :set!
   [{:keys [target val env]}]

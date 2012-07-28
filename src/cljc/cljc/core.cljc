@@ -171,7 +171,7 @@
   (-seq [coll] coll)
 
   ICollection
-  (-conj [coll o] (Cons o coll))
+  (-conj [coll o] (Cons. o coll))
 
   IPrintable
   (-pr-seq [coll opts] (pr-sequential pr-seq "(" " " ")" opts coll)))
@@ -188,7 +188,7 @@
   (-seq [coll] nil)
 
   ICollection
-  (-conj [coll o] (Cons o nil))
+  (-conj [coll o] (Cons. o nil))
 
   ISequential
   IEquiv
@@ -335,12 +335,12 @@ reduces them without incurring seq initialization"
   ISeq
   (-first [_] (-nth a i))
   (-rest [_] (if (< (inc i) (-count a))
-               (IndexedSeq a (inc i))
+               (IndexedSeq. a (inc i))
                (list)))
 
   INext
   (-next [_] (if (< (inc i) (-count a))
-               (IndexedSeq a (inc i))
+               (IndexedSeq. a (inc i))
                nil))
 
   ICounted
@@ -362,7 +362,7 @@ reduces them without incurring seq initialization"
      (prim-seq prim 0))
   ([prim i]
      (when-not (zero? (-count prim))
-       (IndexedSeq prim i))))
+       (IndexedSeq. prim i))))
 
 (defn array-seq
   ([array]
@@ -786,8 +786,8 @@ reduces them without incurring seq initialization"
   [x coll]
   (if (or (nil? coll)
           (satisfies? ISeq coll))
-    (Cons x coll)
-    (Cons x (seq coll))))
+    (Cons. x coll)
+    (Cons. x (seq coll))))
 
 (defn get
   "Returns the value mapped to key, not-found or nil if key not present."
@@ -979,7 +979,7 @@ reduces them without incurring seq initialization"
   (-conj [coll o]
     (if (member? elems o)
       coll
-      (ListSet (conj elems o))))
+      (ListSet. (conj elems o))))
 
   IEquiv
   (-equiv [coll other]
@@ -1006,7 +1006,7 @@ reduces them without incurring seq initialization"
   ISet
   (-disjoin [coll v]
     (if (member? elems v)
-      (ListSet (reverse-rember elems v))
+      (ListSet. (reverse-rember elems v))
       coll))
 
   IFn
@@ -1022,7 +1022,7 @@ reduces them without incurring seq initialization"
   "Returns a set of the distinct elements of coll."
   [coll]
   (loop [in (seq coll)
-         out (ListSet ())]
+         out (ListSet. ())]
     (if (seq in)
       (recur (next in) (conj out (first in)))
       out)))
@@ -1050,7 +1050,7 @@ reduces them without incurring seq initialization"
   (-seq [coll] coll)
 
   ICollection
-  (-conj [coll o] (Cons o coll))
+  (-conj [coll o] (Cons. o coll))
 
   IPrintable
   (-pr-seq [coll opts]
@@ -1061,14 +1061,14 @@ reduces them without incurring seq initialization"
     (let [next-offset (c* "make_integer (strchr_offset (string_get_utf8 (~{}) + integer_get (~{}), character_get (~{})))"
 			  string offset char)]
       (if (>= next-offset 0)
-	(SplitStringSeq string len char
-			(c* "make_string_copy_free (g_strndup (string_get_utf8 (~{}) + integer_get (~{}), integer_get (~{})))"
-			    string offset next-offset)
-			(c* "make_integer (g_utf8_next_char (string_get_utf8 (~{}) + integer_get (~{})) - string_get_utf8 (~{}))"
-			    string (+ offset next-offset) string))
-	(SplitStringSeq string len char
-			(c* "make_string_copy_free (g_strdup (string_get_utf8 (~{}) + integer_get (~{})))" string offset)
-			len)))))
+	(SplitStringSeq. string len char
+                         (c* "make_string_copy_free (g_strndup (string_get_utf8 (~{}) + integer_get (~{}), integer_get (~{})))"
+                             string offset next-offset)
+                         (c* "make_integer (g_utf8_next_char (string_get_utf8 (~{}) + integer_get (~{})) - string_get_utf8 (~{}))"
+                             string (+ offset next-offset) string))
+	(SplitStringSeq. string len char
+                         (c* "make_string_copy_free (g_strdup (string_get_utf8 (~{}) + integer_get (~{})))" string offset)
+                         len)))))
 
 (defn split-string-seq [string char]
   (split-string-seq-next-fn string
@@ -1141,7 +1141,7 @@ reduces them without incurring seq initialization"
   (-drop-first [coll]
     (if (== off end)
       (error "-drop-first of empty chunk")
-      (ArrayChunk arr (inc off) end)))
+      (ArrayChunk. arr (inc off) end)))
 
   IReduce
   (-reduce [coll f]
@@ -1155,7 +1155,7 @@ reduces them without incurring seq initialization"
   ([arr off]
      (array-chunk arr off (alength arr)))
   ([arr off end]
-     (ArrayChunk arr off end)))
+     (ArrayChunk. arr off end)))
 
 ;;; PersistentVector
 (deftype VectorNode [edit arr])
@@ -1165,7 +1165,7 @@ reduces them without incurring seq initialization"
 
 (deftype PersistentVector [meta cnt shift root tail]
   IWithMeta
-  (-with-meta [coll meta] (PersistentVector meta cnt shift root tail))
+  (-with-meta [coll meta] (PersistentVector. meta cnt shift root tail))
 
   IMeta
   (-meta [coll] meta)
@@ -1180,18 +1180,18 @@ reduces them without incurring seq initialization"
             new-tail (make-array (inc tail-len))]
         (array-copy tail new-tail)
         (aset new-tail tail-len o)
-        (PersistentVector meta (inc cnt) shift root new-tail))
+        (PersistentVector. meta (inc cnt) shift root new-tail))
       (let [root-overflow? (> (bit-shift-right-zero-fill cnt 5) (bit-shift-left 1 shift))
             new-shift (if root-overflow? (+ shift 5) shift)
             new-root (if root-overflow?
                        (let [n-r (pv-fresh-node nil)]
                            (pv-aset n-r 0 root)
-                           (pv-aset n-r 1 (new-path nil shift (VectorNode nil tail)))
+                           (pv-aset n-r 1 (new-path nil shift (VectorNode. nil tail)))
                            n-r)
-                       (push-tail coll shift root (VectorNode nil tail)))
+                       (push-tail coll shift root (VectorNode. nil tail)))
             new-tail (make-array 1)]
         (aset new-tail 0 o)
-        (PersistentVector meta (inc cnt) new-shift new-root new-tail))))
+        (PersistentVector. meta (inc cnt) new-shift new-root new-tail))))
 
   IIndexed
   (-nth [coll n]
@@ -1215,15 +1215,15 @@ reduces them without incurring seq initialization"
      (== 1 cnt) (-with-meta cljc.core.PersistentVector/EMPTY meta)
      (< 1 (- cnt (tail-off coll))) (let [new-tail-len (dec (alength tail))
                                          new-tail (make-array new-tail-len)]
-                                     (PersistentVector meta (dec cnt) shift root
-                                                       (array-copy tail new-tail new-tail-len)))
+                                     (PersistentVector. meta (dec cnt) shift root
+                                                        (array-copy tail new-tail new-tail-len)))
      true (let [new-tail (array-for coll (- cnt 2))
                 nr (pop-tail coll shift root)
                 new-root (if (nil? nr) cljc.core.PersistentVector/EMPTY_NODE nr)
                 cnt-1 (dec cnt)]
             (if (and (< 5 shift) (nil? (pv-aget new-root 1)))
-              (PersistentVector meta cnt-1 (- shift 5) (pv-aget new-root 0) new-tail)
-              (PersistentVector meta cnt-1 shift new-root new-tail)))))
+              (PersistentVector. meta cnt-1 (- shift 5) (pv-aget new-root 0) new-tail)
+              (PersistentVector. meta cnt-1 shift new-root new-tail)))))
 
   IEmptyableCollection
   (-empty [coll] (-with-meta cljc.core.PersistentVector/EMPTY meta))
@@ -1235,8 +1235,8 @@ reduces them without incurring seq initialization"
        (if (<= (tail-off coll) k)
          (let [new-tail (aclone tail)]
            (aset new-tail (bit-and k 0x01f) v)
-           (PersistentVector meta cnt shift root new-tail))
-         (PersistentVector meta cnt shift (do-assoc coll shift root k v) tail))
+           (PersistentVector. meta cnt shift root new-tail))
+         (PersistentVector. meta cnt shift (do-assoc coll shift root k v) tail))
        (== k cnt) (-conj coll v)
        true (error (str "Index " k " out of bounds  [0," cnt "]"))))
 
@@ -1309,7 +1309,7 @@ reduces them without incurring seq initialization"
   )
 
 (defn- pv-fresh-node [edit]
-  (VectorNode edit (make-array 32)))
+  (VectorNode. edit (make-array 32)))
 
 (defn- pv-aget [node idx]
   (aget (.-arr node) idx))
@@ -1318,7 +1318,7 @@ reduces them without incurring seq initialization"
   (aset (.-arr node) idx val))
 
 (defn- pv-clone-node [node]
-  (VectorNode (.-edit node) (aclone (.-arr node))))
+  (VectorNode. (.-edit node) (aclone (.-arr node))))
 
 (defn- tail-off [pv]
   (let [cnt (.-cnt pv)]
@@ -1390,7 +1390,7 @@ reduces them without incurring seq initialization"
 
 (set! cljc.core.PersistentVector/EMPTY_NODE (pv-fresh-node nil))
 (set! cljc.core.PersistentVector/EMPTY
-      (PersistentVector nil 0 5 cljc.core.PersistentVector/EMPTY_NODE (make-array 0)))
+      (PersistentVector. nil 0 5 cljc.core.PersistentVector/EMPTY_NODE (make-array 0)))
 
 (deftype ChunkedSeq [vec node i off meta]
   IWithMeta
@@ -1458,11 +1458,11 @@ reduces them without incurring seq initialization"
   ([vec i off] (chunked-seq vec (array-for vec i) i off nil))
   ([vec node i off] (chunked-seq vec node i off nil))
   ([vec node i off meta]
-     (ChunkedSeq vec node i off meta)))
+     (ChunkedSeq. vec node i off meta)))
 
 (deftype Subvec [meta v start end]
   IWithMeta
-  (-with-meta [coll meta] (Subvec meta v start end))
+  (-with-meta [coll meta] (Subvec. meta v start end))
 
   IMeta
   (-meta [coll] meta)
@@ -1473,11 +1473,11 @@ reduces them without incurring seq initialization"
   (-pop [coll]
     (if (== start end)
       (error "Can't pop empty vector")
-      (Subvec meta v start (dec end))))
+      (Subvec. meta v start (dec end))))
 
   ICollection
   (-conj [coll o]
-    (Subvec meta (-assoc-n v end o) start (inc end)))
+    (Subvec. meta (-assoc-n v end o) start (inc end)))
 
   IEmptyableCollection
   (-empty [coll] (-with-meta cljc.core.PersistentVector/EMPTY meta))
@@ -1502,8 +1502,8 @@ reduces them without incurring seq initialization"
   IAssociative
   (-assoc [coll key val]
     (let [v-pos (+ start key)]
-      (Subvec meta (assoc v v-pos val)
-              start (max end (inc v-pos)))))
+      (Subvec. meta (assoc v v-pos val)
+               start (max end (inc v-pos)))))
 
   IVector
   (-assoc-n [coll n val] (-assoc coll n val))
@@ -1547,5 +1547,5 @@ reduces them without incurring seq initialization"
      (subvec v start (count v)))
   ([v start end]
      (if (<= start end)
-       (Subvec nil v start end)
+       (Subvec. nil v start end)
        (error "Invalid subvec range"))))

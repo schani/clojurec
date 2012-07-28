@@ -31,7 +31,7 @@
     (is (= (run '(deftype* Cons [first rest])) []))
     (is (= (core-run '(do
                         (deftype Bla [^:mutable x y])
-                        (let [b (Bla 1 2)]
+                        (let [b (Bla. 1 2)]
                           (set! (.-x b) 3)
                           (pr (.-x b) (.-y b)))))
            [3 2]))))
@@ -46,7 +46,7 @@
 		     ISeq
 		     (-first [coll] first)
 		     (-rest [coll] rest))
-		   (let [c (Cons 1 2)]
+		   (let [c (Cons. 1 2)]
 		     (cljc.core/print (. c -first))
 		     (cljc.core/print (. c -rest)))))
 	   [1 2]))
@@ -74,11 +74,11 @@
 			(deftype Bla [a b c d e f g]
 			  ISeqable
 			  (-seq [_] (list a b c d e f g)))
-			(pr (seq (Bla 1 2 3 4 5 6 7)))))
+			(pr (seq (Bla. 1 2 3 4 5 6 7)))))
 	   ['(1 2 3 4 5 6 7)]))
     (is (= (core-run '(do
 			(deftype Bla [a b c])
-			(let [x (Bla 1 2 3)]
+			(let [x (Bla. 1 2 3)]
 			  (pr (.-a x) (.-b x) (.-c x)))))
 	   [1 2 3]))
     (is (= (core-run '(do
@@ -87,14 +87,14 @@
 			(deftype Bla [x y]
 			  IBla
 			  (-x [_] (inc y)))
-			(let [x (Bla 1 2)]
+			(let [x (Bla. 1 2)]
 			  (pr (. x -x) (. x -y) (. x (-x))))))
 	   [1 2 3]))
     (is (= (core-run '(do
 			(deftype Bla [x y])
 			(deftype Blu [y z])
-			(let [a (Bla 1 2)
-			      u (Blu 3 4)]
+			(let [a (Bla. 1 2)
+			      u (Blu. 3 4)]
 			  (pr (.-x a) (.-y a)
 			      (.-y u) (.-z u)))))
 	   [1 2 3 4]))
@@ -111,7 +111,7 @@
 				(when r
 				  (pr " ")
 				  (-foo x false))))
-			(-foo (Baz (Bar)) true)))
+			(-foo (Baz. (Bar.)) true)))
 	   [2 1]))
     (is (= (core-run '(do
 			(defprotocol IGet
@@ -120,8 +120,8 @@
 			  IGet
 			  (-get [o]
 				((fn [o] x)
-				 (Getter 345))))
-			(pr (-get (Getter 123)))))
+				 (Getter. 345))))
+			(pr (-get (Getter. 123)))))
 	   [123]))
     (is (= (core-run '(do
                         (defprotocol IFoo
@@ -129,7 +129,7 @@
                         (deftype Bar [^:mutable x]
                           IFoo
                           (-foo [o] (set! x (inc x))))
-                        (let [o (Bar 0)]
+                        (let [o (Bar. 0)]
                           (print (-foo o))
                           (print (-foo o))
                           (print (-foo o)))))
@@ -200,7 +200,7 @@
 
 (deftest core
   (testing "cljc.core"
-    (is (= (core-run '(let [c (Cons 1 2)]
+    (is (= (core-run '(let [c (Cons. 1 2)]
 			(print (. c -first))
 			(print (. c -rest))))
 	   [1 2]))
