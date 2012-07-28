@@ -337,17 +337,33 @@
             (comma-sep (map #(fn [] (emit-constant %)) x))
             ["])"])))
 
-(defn emit-block
-  [context statements ret]
-  (when statements
-    (emits statements))
-  (emit ret))
-
 (defmacro emit-wrap [env & body]
   `(let [env# ~env]
      (when (= :return (:context env#)) (emits "return "))
      ~@body
      (when-not (= :expr (:context env#)) (emitln ";"))))
+
+(defmacro emit-declaration [& body]
+  `(swap! declarations conj (with-out-str ~@body)))
+
+(defn emit-block
+  [context statements ret]
+  (let [ret-context (:context (:env ret))]
+    (if (or (and statements (not (= :statement context)))
+            (not (= context ret-context)))
+      (let [fn-name (munge (gensym :block))]
+        (emit-wrap {:context context}
+                   (emits "(" fn-name " (env))"))
+        (emit-declaration
+         (emitln "static value_t* " fn-name " (environment_t *env) {")
+         (when statements
+           (emits statements))
+         (emit ret)
+         (emitln "}")))
+      (do
+        (when statements
+          (emits statements))
+        (emit ret)))))
 
 (defmethod emit :no-op
   [m] (emits ";"))
@@ -477,9 +493,9 @@
 
 (defmethod emit :throw
   [{:keys [throw env]}]
-  (if (= :expr (:context env))
-    (emits "(function(){throw " throw "})()")
-    (emitln "throw " throw ";")))
+  (emits "throw_exception (" throw ")")
+  (when-not (= :expr (:context env))
+    (emitln ";")))
 
 (defn emit-comment
   "Emit a nicely formatted comment string."
@@ -495,9 +511,6 @@
           (when e
             (print-comment-lines e)))
         (emitln "*/")))))
-
-(defmacro emit-declaration [& body]
-  `(swap! declarations conj (with-out-str ~@body)))
 
 (defmethod emit :def
   [{:keys [name init env]}]
@@ -677,41 +690,68 @@
 
 (defmethod emit :do
   [{:keys [statements ret env]}]
+  ;; FIXME: Just use emit-block for this.  Right now we cannot do this
+  ;; because we will sometimes emit a function where it isn't strictly
+  ;; necessary (when a throw is in a :return position, in which case
+  ;; it doesn't have a :return context).  That triggers the bug where
+  ;; a recur within an expr-function doesn't work.
   (let [context (:context env)]
-    (when (and statements (= :expr context)) (emits "(function (){"))
-    ;(when statements (emitln "{"))
-    (emit-block context statements ret)
-    ;(when statements (emits "}"))
-    (when (and statements (= :expr context)) (emits "})()"))))
+    (if (and statements (= :expr context))
+      (let [fn-name (munge (gensym :do))]
+        (emit-wrap env
+                   (emits "(" fn-name " (env))"))
+        (emit-declaration
+         (emitln "static value_t* " fn-name " (environment_t *env) {")
+         (emits statements)
+         (emit ret)
+         (emitln "}")))
+      (do
+        (when statements
+          (emits statements))
+        (emit ret)))))
 
 (defmethod emit :try*
   [{:keys [env try catch name finally]}]
   (let [context (:context env)
         subcontext (if (= :expr context) :return context)]
     (if (or name finally)
-      (do
-        (when (= :expr context) (emits "(function (){"))
-        (emits "try{")
-        (let [{:keys [statements ret]} try]
-          (emit-block subcontext statements ret))
-        (emits "}")
-        (when name
-          (emits "catch (" name "){")
-          (when catch
-            (let [{:keys [statements ret]} catch]
-              (emit-block subcontext statements ret)))
-          (emits "}"))
-        (when finally
+      (let [fn-name (munge (gensym :try))]
+        (emit-wrap env
+         (emits "(" fn-name " (env))"))
+        (emit-declaration
+         (emitln "static value_t* " fn-name " (environment_t *env) {")
+         (emitln "int setjmp_result;")
+         (emitln "value_t *result;")
+         (emitln "jmp_buf buf, *last_topmost = topmost_jmp_buf;")
+         (emitln "topmost_jmp_buf = &buf;")
+         (emitln "if (!(setjmp_result = _setjmp (buf))) {")
+         (emits "result = ")
+         (let [{:keys [statements ret]} try]
+           (emit-block :expr statements ret))
+         (emitln ";")
+         (emitln "topmost_jmp_buf = last_topmost;")
+         (emitln "} else {")
+         (when name
+           (emitln "if (!(setjmp_result = _setjmp (buf))) {")
+           (with-new-env [{:name name :init "get_exception ()"}]
+             (if catch
+               (let [{:keys [statements ret]} catch]
+                 (emits "result = ")
+                 (emit-block :expr statements ret)
+                 (emitln ";"))
+               (emitln "result = value_nil;")))
+           (emitln "}"))
+         (emitln "topmost_jmp_buf = last_topmost;")
+         (emitln "}")
+         (when finally
           (let [{:keys [statements ret]} finally]
             (assert (not= :constant (:op ret)) "finally block cannot contain constant")
-            (emits "finally {")
-            (emit-block subcontext statements ret)
-            (emits "}")))
-        (when (= :expr context) (emits "})()")))
+            (emit-block :statement statements ret)))
+         (emitln "if (setjmp_result) { rethrow_exception (); }")
+         (emitln "return result;")
+         (emitln "}")))
       (let [{:keys [statements ret]} try]
-        (when (and statements (= :expr context)) (emits "(function (){"))
-        (emit-block subcontext statements ret)
-        (when (and statements (= :expr context)) (emits "})()"))))))
+        (emit {:op :do :statements statements :ret ret :env env})))))
 
 (defmethod emit :let
   [{:keys [bindings statements ret env loop]}]
@@ -720,7 +760,7 @@
       (let [fn-name (munge (gensym :let-fn))]
 	(emits "(" fn-name " (env))")
 	(emit-declaration
-	 (emitln "value_t* " fn-name " (environment_t *env) {")
+	 (emitln "static value_t* " fn-name " (environment_t *env) {")
 	 (with-new-env bindings
 	   (when loop
 	     (emitln "for (;;) {"))
@@ -1042,7 +1082,7 @@
         locals (:locals catchenv)
         mname (when name (munge name))
         locals (if name
-                 (assoc locals name {:name mname})
+                 (assoc locals name {:name mname :local true})
                  locals)
         catch (when cblock
                 (analyze-block (assoc catchenv :locals locals) (rest cblock)))

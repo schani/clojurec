@@ -213,6 +213,33 @@
 		     (cljc.core/print x))))
 	   [3628800]))))
 
+(deftest exceptions
+  (testing "exception handling"
+    (is (= (run '(cljc.core/print (try
+                                    123
+                                    (finally
+                                     (cljc.core/print 345)))))
+           [345 123]))
+    (is (= (core-run '(pr (try
+                            (throw (Exception. 123))
+                            (catch Exception e
+                              (.-info e))
+                            (finally
+                             (pr 345 " ")))))
+           [345 123]))
+    (is (= (core-run '(pr (try
+                            (try
+                              (throw (Exception. 123))
+                              (catch Cons _
+                                (pr 0))
+                              (finally
+                               (pr 345 " ")))
+                            (catch Exception e
+                              (.-info e))
+                            (finally
+                             (pr 567 " ")))))
+           [345 567 123]))))
+
 (deftest core
   (testing "cljc.core"
     (is (= (core-run '(let [c (Cons. 1 2)]

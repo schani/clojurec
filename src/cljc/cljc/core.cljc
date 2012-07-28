@@ -14,10 +14,10 @@
 (declare print)
 (declare apply)
 
+(deftype Exception [info])
+
 (defn- error [cause]
-  (c* "fprintf(stderr, \"%s\\n\", string_get_utf8 (~{}))" cause)
-  (c* "exit(1)")
-  nil)
+  (throw (Exception. cause)))
 
 (def
   ^{:doc "Each runtime environment provides a diffenent way to print output.

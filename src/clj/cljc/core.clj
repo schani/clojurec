@@ -256,6 +256,37 @@
         (when more
           (list* `assert-args fnname more)))))
 
+(defmacro try
+  "(try expr* catch-clause* finally-clause?)
+
+   Special Form
+
+   catch-clause => (catch protoname name expr*)
+   finally-clause => (finally expr*)
+
+  Catches and handles exceptions."
+  [& forms]
+  (let [catch? #(and (list? %) (= (first %) 'catch))
+        [body catches] (split-with (complement catch?) forms)
+        [catches fin] (split-with catch? catches)
+        e (gensym "e")]
+    (assert (every? #(clojure.core/> (count %) 2) catches) "catch block must specify a prototype and a name")
+    (if (seq catches)
+      `(~'try*
+        ~@body
+        (catch ~e
+            (cond
+             ~@(mapcat
+                (fn [[_ type name & cb]]
+                  (let [type (:name (cljc.compiler/resolve-var (dissoc &env :locals) type))]
+                    `[(has-type? ~e ~type) (let [~name ~e] ~@cb)]))
+                catches)
+             true (throw ~e)))
+        ~@fin)
+      `(~'try*
+        ~@body
+        ~@fin))))
+
 (defmacro doseq
   "Repeatedly executes body (presumably for side-effects) with
   bindings and filtering as provided by \"for\".  Does not retain

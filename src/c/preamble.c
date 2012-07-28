@@ -5,6 +5,7 @@
 #include <gc.h>
 #include <glib.h>
 #include <stdlib.h>
+#include <setjmp.h>
 
 #define assert_not_reached()	(assert (0))
 
@@ -635,6 +636,34 @@ cljc_core_apply (int nargs, closure_t *closure, value_t *f, value_t *arg1, value
 }
 
 static value_t *VAR_NAME (cljc_DOT_core_SLASH_apply) = VALUE_NONE;
+
+static value_t *current_exception = VALUE_NONE;
+static jmp_buf *topmost_jmp_buf = NULL;
+
+static value_t*
+throw_exception (value_t *exception)
+{
+	assert (current_exception == VALUE_NONE);
+	current_exception = exception;
+	_longjmp (*topmost_jmp_buf, 1);
+	assert_not_reached ();
+	return value_nil;
+}
+
+static value_t*
+get_exception (void)
+{
+	value_t *exception = current_exception;
+	assert (exception != VALUE_NONE);
+	current_exception = VALUE_NONE;
+	return exception;
+}
+
+static void
+rethrow_exception (void)
+{
+	throw_exception (get_exception ());
+}
 
 static gchar*
 slurp_file (const char *filename)
