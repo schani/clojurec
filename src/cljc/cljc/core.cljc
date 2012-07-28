@@ -1040,7 +1040,7 @@ reduces them without incurring seq initialization"
 
   INext
   (-next [coll]
-    (split-string-seq-next-fn offset))
+    (split-string-seq-next-fn string len char offset))
 
   ISequential
   IEquiv

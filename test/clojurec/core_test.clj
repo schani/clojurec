@@ -482,24 +482,25 @@
 
 (deftest programs
   (testing "somewhat useful programs"
-    (is (= (core-run '(do
-                        (defn remove-one [coll o]
-                          (loop [rev ()
-                                 coll (seq coll)]
-                            (if coll
-                              (let [f (first coll)]
-                                (if (= o f)
-                                  (concat rev (next coll))
-                                  (recur (cons f rev) (next coll))))
-                              rev)))
+    (is (= (let [filename (.getAbsolutePath (io/file (java.lang.System/getProperty "user.dir") "test" "english.0"))]
+             (core-run (list 'do
+                             '(defn remove-one [coll o]
+                                (loop [rev ()
+                                       coll (seq coll)]
+                                  (if coll
+                                    (let [f (first coll)]
+                                      (if (= o f)
+                                        (concat rev (next coll))
+                                        (recur (cons f rev) (next coll))))
+                                    rev)))
 
-                        (defn check-word [len chars word]
-                          (and (= len (count word))
-                               (empty? (reduce remove-one word chars))))
+                             '(defn check-word [len chars word]
+                                (and (= len (count word))
+                                     (empty? (reduce remove-one word chars))))
 
-                        (pr (filter (fn [word] (check-word 3 "abcdef" word))
-                                    (list "bad" "leg" "its" "gig" "gag" "bag" "fad")))))
-           ['(bad fad)]))))
+                             `(pr (filter (fn [word] (check-word 5 "abcdefg" word))
+                                          (~'split-string-seq (slurp ~filename) \newline))))))
+           ['(badge caged faced)]))))
 
 ;;(run-tests *ns*)
 
