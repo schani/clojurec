@@ -24,20 +24,6 @@
 (declare ^:dynamic *cljs-file*)
 (require 'cljc.core)
 
-(def js-reserved
-  #{"abstract" "break" "byte" "case"
-    "catch" "char" "class" "const" "continue"
-    "debugger" "default" "delete" "do" "double"
-    "else" "enum" "export" "extends" "final"
-    "finally" "float" "for" "function" "goto" "if"
-    "implements" "import" "in" "instanceof" "int"
-    "interface" "let" "long" "native" "new"
-    "package" "private" "protected" "public"
-    "return" "short" "static" "super" "switch"
-    "synchronized" "this" "throw" "throws"
-    "transient" "try" "typeof" "var" "void"
-    "volatile" "while" "with" "yield" "methods"})
-
 (def cljs-reserved-file-names #{"deps.cljs"})
 
 (defonce namespaces (atom '{}))
@@ -82,8 +68,7 @@
              (let [idx (inc (.lastIndexOf ss "]"))]
                (str (subs ss 0 idx)
                     (clojure.lang.Compiler/munge (subs ss idx))))
-             (clojure.lang.Compiler/munge ss))
-        ms (if (js-reserved ms) (str ms "$") ms)]
+             (clojure.lang.Compiler/munge ss))]
     (if (symbol? s)
       (symbol ms)
       ms)))
@@ -1471,17 +1456,12 @@
 
 (def ^:private property-symbol? #(boolean (and (symbol? %) (re-matches #"^-.*" (name %)))))
 
-(defn- munge-not-reserved [meth]
-  (if-not (js-reserved (str meth))
-    (munge meth)
-    meth))
-
 (defn- clean-symbol
   [sym]
   (symbol
    (if (property-symbol? sym)
-     (-> sym name (.substring 1) munge-not-reserved)
-     (-> sym name munge-not-reserved))))
+     (-> sym name (.substring 1) munge)
+     (-> sym name munge))))
 
 (defn- classify-dot-form
   [[target member args]]
@@ -1507,8 +1487,8 @@
   compilation."
   [target meth args]
   (if (symbol? meth)
-    {:dot-action ::call :target target :method (munge-not-reserved meth) :args args}
-    {:dot-action ::call :target target :method (munge-not-reserved (first meth)) :args args}))
+    {:dot-action ::call :target target :method (munge meth) :args args}
+    {:dot-action ::call :target target :method (munge (first meth)) :args args}))
 
 ;; (. o m 1 2)
 (defmethod build-dot-form [::expr ::symbol ::expr]

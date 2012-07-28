@@ -16,7 +16,8 @@
     (is (= (run '(def heusler (fn* ([x] x)))) []))
     (is (= (run '(cljc.core/print (let [a 1 a a] a))) [1]))
     (is (= (run '(cljc.core/print (((fn* ([x] (fn* ([y] x)))) 1) 2))) [1]))
-    (is (= (run '(do (cljc.core/print 1) (cljc.core/print 2))) [1 2]))))
+    (is (= (run '(do (cljc.core/print 1) (cljc.core/print 2))) [1 2]))
+    (is (= (run '(def transient nil)) []))))
 
 (deftest protocols
   (testing "protocols"
