@@ -72,11 +72,12 @@ typedef struct {
 
 static ptable_entry_t empty_ptable_entry = { -1, NULL };
 
-typedef value_t* (*get_field_fn_t) (value_t *val, int field);
+// new_val == VALUE_NONE to get the current value
+typedef value_t* (*field_access_fn_t) (value_t *val, int field, value_t *new_val);
 
 struct ptable {
 	int type;
-	get_field_fn_t get_field_fn;
+	field_access_fn_t field_access_fn;
 	ptable_entry_t *entries;
 };
 
@@ -93,7 +94,7 @@ typedef struct {
 #define TYPE_NAME(n)		TYPE_ ## n
 #define PROTOCOL_VTABLE_SIZE(n)	PROTOCOL_VTABLE_SIZE_ ## n
 #define FIELD_NAME(n)		FIELD_ ## n
-#define GET_FIELD_FN_NAME(n)	GET_FIELD_FN_ ## n
+#define FIELD_ACCESS_FN_NAME(n)	FIELD_ACCESS_FN_ ## n
 
 #define PROTOCOL_cljc_DOT_core_SLASH_IFn	1
 #define FIRST_PROTOCOL				2
@@ -193,11 +194,11 @@ invoken (value_t *f, int nargs, value_t *a1, value_t *a2, value_t *ar)
 }
 
 static ptable_t*
-alloc_ptable (int type, get_field_fn_t get_field_fn)
+alloc_ptable (int type, field_access_fn_t field_access_fn)
 {
 	ptable_t *ptable = GC_malloc (sizeof (ptable_t));
 	ptable->type = type;
-	ptable->get_field_fn = get_field_fn;
+	ptable->field_access_fn = field_access_fn;
 	ptable->entries = &empty_ptable_entry;
 	return ptable;
 }
@@ -232,9 +233,17 @@ set_vtable_entry (closure_t **vtable, int index, closure_t *closure)
 static value_t*
 get_field (value_t *val, int field)
 {
-	get_field_fn_t fn = val->ptable->get_field_fn;
+	field_access_fn_t fn = val->ptable->field_access_fn;
 	assert (fn != NULL);
-	return fn (val, field);
+	return fn (val, field, VALUE_NONE);
+}
+
+static value_t*
+set_field (value_t *val, int field, value_t *new_val)
+{
+	field_access_fn_t fn = val->ptable->field_access_fn;
+	assert (fn != NULL);
+	return fn (val, field, new_val);
 }
 
 static environment_t*

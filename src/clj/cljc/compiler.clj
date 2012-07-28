@@ -881,9 +881,17 @@
   [{:keys [target val env]}]
   (let [info (:info target)]
     (emit-wrap env
-	       (if (:field info)
-		 (emits "DEFTYPE_SET_FIELD (env_fetch (env, " *gthis-ups* ", 0), " (:index info) ", " val ")")
-		 (emits target " = " val)))))
+               (cond
+                (:field info)
+                (emits "DEFTYPE_SET_FIELD (env_fetch (env, " *gthis-ups* ", 0), " (:index info) ", " val ")")
+
+                (= (:op target) :dot)
+                (do
+                  (assert (:field target))
+                  (emits "set_field (" (:target target) ", FIELD_NAME (" (:field target) "), " val ")"))
+
+                :else
+                (emits target " = " val)))))
 
 (defmethod emit :ns
   [{:keys [name requires uses requires-macros env]}]
@@ -908,18 +916,22 @@
      (emitln "static ptable_t* PTABLE_NAME (" t ") = NULL;")
      (doseq [[i field] (map vector (range first-field-num (+ first-field-num (count new-fields))) new-fields)]
        (emitln "#define FIELD_" (munge field) " (FIRST_FIELD + " i ")"))
-     (emitln "static value_t* GET_FIELD_FN_NAME (" t ") (value_t *val, int field) {")
+     (emitln "static value_t* FIELD_ACCESS_FN_NAME (" t ") (value_t *val, int field, value_t *new_val) {")
      (emitln "deftype_t *dt = (deftype_t*)val;")
      (emitln "assert (val->ptable->type == TYPE_NAME (" t "));")
      (emitln "switch (field) {")
      (doseq [[i field] (map-indexed vector fields)]
-       (emitln "case FIELD_NAME (" (munge field) "): return dt->fields [" i "];"))
+       (emitln "case FIELD_NAME (" (munge field) "):")
+       (if (:mutable (meta field))
+         (emitln "if (new_val != VALUE_NONE) { dt->fields [" i "] = new_val; }")
+         (emitln "assert (new_val == VALUE_NONE);"))
+       (emitln "return dt->fields [" i "];"))
      (emitln "default: assert_not_reached ();")
      (emitln "}")
      (emitln "return value_nil;")
      (emitln "}"))
     (do
-      (emitln "PTABLE_NAME (" t ") = alloc_ptable (TYPE_NAME (" t "), GET_FIELD_FN_NAME (" t "));"))))
+      (emitln "PTABLE_NAME (" t ") = alloc_ptable (TYPE_NAME (" t "), FIELD_ACCESS_FN_NAME (" t "));"))))
 
 (defmethod emit :defrecord*
   [{:keys [t fields pmasks]}]

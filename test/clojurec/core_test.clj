@@ -28,7 +28,13 @@
 
 (deftest types
   (testing "deftype"
-    (is (= (run '(deftype* Cons [first rest])) []))))
+    (is (= (run '(deftype* Cons [first rest])) []))
+    (is (= (core-run '(do
+                        (deftype Bla [^:mutable x y])
+                        (let [b (Bla 1 2)]
+                          (set! (.-x b) 3)
+                          (pr (.-x b) (.-y b)))))
+           [3 2]))))
 
 (deftest types-protocols
   (testing "types with protocols"
