@@ -15,9 +15,23 @@
     (is (= (run '(cljc.core/print (has-type? 1 Integer))) [true]))
     (is (= (run '(def heusler (fn* ([x] x)))) []))
     (is (= (run '(cljc.core/print (let [a 1 a a] a))) [1]))
+    (is (= (run '(cljc.core/print (let [a 1 a (+ a 1) a (+ a 1)] a))) [3]))
     (is (= (run '(cljc.core/print (((fn* ([x] (fn* ([y] x)))) 1) 2))) [1]))
     (is (= (run '(do (cljc.core/print 1) (cljc.core/print 2))) [1 2]))
-    (is (= (run '(def transient nil)) []))))
+    (is (= (run '(def transient nil)) []))
+    (is (= (run '(letfn [(dispatch [x]
+                           (if (<= x 1)
+                             0
+                             (+ 1
+                                (if (< (bit-and x 1) 1)
+                                  (decrease x)
+                                  (increase x)))))
+                         (decrease [x]
+                           (dispatch (bit-shift-right x 1)))
+                         (increase [x]
+                           (dispatch (+ x 1)))]
+                   (cljc.core/print (dispatch 9))))
+           [7]))))
 
 (deftest protocols
   (testing "protocols"

@@ -755,12 +755,7 @@
 
 (defmethod emit :letfn
   [{:keys [bindings statements ret env]}]
-  (let [context (:context env)]
-    (when (= :expr context) (emits "(function (){"))
-    (doseq [{:keys [name init]} bindings]
-      (emitln "var " name " = " init ";"))
-    (emit-block (if (= :expr context) :return context) statements ret)
-    (when (= :expr context) (emits "})()"))))
+  (emit {:op :let :bindings bindings :statements statements :ret ret :env env}))
 
 (defn- emit-arglist [args num-register-args]
   (let [arity (count args)
