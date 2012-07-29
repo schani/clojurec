@@ -266,7 +266,8 @@
 (defmethod emit-constant Long [x] (emits "make_integer (" x "L)"))
 (defmethod emit-constant Integer [x] (emits "make_integer (" x "L)")) ; reader puts Integers in metadata
 (defmethod emit-constant Character [x] (emits "make_character ((gunichar)'" (escape-char x) "')"))
-(defmethod emit-constant Double [x] (emits x))
+(defmethod emit-constant Float [x] (emits "make_float (" x ")"))
+(defmethod emit-constant Double [x] (emits "make_float (" x ")"))
 (defmethod emit-constant String [x]
   (emits "make_string (" (wrap-in-double-quotes (escape-string x)) ")"))
 (defmethod emit-constant Boolean [x] (emits (if x "value_true" "value_false")))
@@ -298,10 +299,12 @@
 
 (defmethod emit-constant clojure.lang.PersistentList [x]
   (emit-meta-constant x
-		      (emits "FUNCALL2 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_Cons), ")
+		      (emits "FUNCALL3 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_Cons), ")
 		      (emit-constant (first x))
 		      (emits ", ")
 		      (emit-constant (rest x))
+                      (emits ", ")
+		      (emits "value_nil")
 		      (emits ")")))
 
 (defmethod emit-constant clojure.lang.Cons [x]

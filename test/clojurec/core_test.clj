@@ -9,6 +9,9 @@
 (defn- core-run [x]
   (run-expr 'clojurec.core-test true x))
 
+(defmacro core-run-and-print [& exprs]
+  `(core-run '(do ~@(map #(list 'print %) exprs))))
+
 (deftest basic
   (testing "very basic stuff"
     (is (= (run '(cljc.core/print nil)) [nil]))
@@ -152,57 +155,109 @@
 
 (deftest numbers
   (testing "simple numbers"
-    (is (= (run '(cljc.core/print (+ 1 2))) [3]))
-    (is (= (run '(cljc.core/print (< 1 2))) [true]))
-    (is (= (run '(cljc.core/print (< 1 1))) [false]))
-    (is (= (run '(cljc.core/print (< 2 1))) [false]))
-    (is (= (core-run '(do
-			(print (dec 1))
-			(print (inc 1))))
+    (is (= (core-run-and-print (+)
+                               (+ 1)
+                               (+ 1.0)
+                               (+ 1 2)
+                               (+ 1 2.0)
+                               (+ 1.0 2.0)
+                               (+ 1.0 2.0 4)
+                               (- 1)
+                               (- 1.0)
+                               (- 1 2)
+                               (- 1 2 3)
+                               (- 1 2.0 3))
+           [0 1 1.0 3 3.0 3.0 7.0 -1 -1.0 -1 -4 -4.0]))
+
+    (is (= (core-run-and-print (*)
+                               (* 1)
+                               (* 1.0)
+                               (* 1 2)
+                               (* 1 2 3)
+                               (* 1 2 3.0))
+           [1 1 1.0 2 6 6.0]))
+    
+    (is (= (core-run-and-print (apply + ())
+                               (apply + '(1))
+                               (apply + '(1 2))
+                               (apply + '(1 2.0))
+                               (apply - '(1 2 3))
+                               (apply - '(1 2.0 3))
+                               (apply * '())
+                               (apply * '(1 2 3))
+                               (apply * '(1 2 3.0)))
+           [0 1 3 3.0 -4 -4.0 1 6 6.0]))
+
+    (is (= (core-run-and-print (zero? nil)
+                               (zero? 0)
+                               (zero? 1)
+                               (zero? 0.0)
+                               (zero? 1.0)
+                               (float? 1.0)
+                               (float? 1))
+           [false true false true false true false]))
+
+    (is (= (core-run-and-print (< 1 2)
+                               (< 1 1)
+                               (< 1.0 1)
+                               (< 2 1)
+                               (< 2 1.0)
+                               (> 2 1.0)
+                               (>= 2 1)
+                               (>= 2 1.0))
+           [true false false false false true true true]))
+    
+    (is (= (core-run-and-print (dec 1)
+                               (inc 1))
 	   [0 2]))))
 
 (deftest bit-ops
-  (testing "primitive low level bit ops"    
-    (is (= (run '(cljc.core/print (bit-and 1 0))) [0]))
-    (is (= (run '(cljc.core/print (bit-and 0 0))) [0]))
-    (is (= (run '(cljc.core/print (bit-and 1 1))) [1]))
-    (is (= (run '(cljc.core/print (bit-and 42 1))) [0]))
-    (is (= (run '(cljc.core/print (bit-and 41 1))) [1]))
-    (is (= (run '(cljc.core/print (bit-or 1 0))) [1]))
-    (is (= (run '(cljc.core/print (bit-or 0 0))) [0]))
-    (is (= (run '(cljc.core/print (bit-or 1 1))) [1]))
-    (is (= (run '(cljc.core/print (bit-or 42 1))) [43]))
-    (is (= (run '(cljc.core/print (bit-or 41 1))) [41]))
-    (is (= (run '(cljc.core/print (bit-and-not 1 0))) [1]))
-    (is (= (run '(cljc.core/print (bit-and-not 0 0))) [0]))
-    (is (= (run '(cljc.core/print (bit-and-not 1 1))) [0]))
-    (is (= (run '(cljc.core/print (bit-and-not 42 1))) [42]))
-    (is (= (run '(cljc.core/print (bit-and-not 41 1))) [40]))
-    (is (= (run '(cljc.core/print (bit-clear 1 0))) [0]))
-    (is (= (run '(cljc.core/print (bit-clear 2 0))) [2]))
-    (is (= (run '(cljc.core/print (bit-clear 1000 5))) [968]))
-    (is (= (run '(cljc.core/print (bit-clear 16713 6))) [16649]))
-    (is (= (run '(cljc.core/print (bit-clear 1024 10))) [0]))
-    (is (= (run '(cljc.core/print (bit-flip 1 0))) [0]))
-    (is (= (run '(cljc.core/print (bit-flip 2 1))) [0]))
-    (is (= (run '(cljc.core/print (bit-flip 1000 3))) [992]))
-    (is (= (run '(cljc.core/print (bit-flip 16713 11))) [18761]))
-    (is (= (run '(cljc.core/print (bit-flip 1024 10))) [0]))
-    (is (= (run '(cljc.core/print (bit-not 1))) [-2]))
-    (is (= (run '(cljc.core/print (bit-not 2))) [-3]))
-    (is (= (run '(cljc.core/print (bit-not -1000))) [999]))
-    (is (= (run '(cljc.core/print (bit-not 16713))) [-16714]))
-    (is (= (run '(cljc.core/print (bit-not 1024))) [-1025]))
-    (is (= (run '(cljc.core/print (bit-set 1 0))) [1]))
-    (is (= (run '(cljc.core/print (bit-set 2 1))) [2]))
-    (is (= (run '(cljc.core/print (bit-set 1000 3))) [1000]))
-    (is (= (run '(cljc.core/print (bit-set 16713 11))) [18761]))
-    (is (= (run '(cljc.core/print (bit-set 1024 10))) [1024])) 
-    (is (= (run '(cljc.core/print (bit-test 1 0))) [true]))
-    (is (= (run '(cljc.core/print (bit-test 2 1))) [true]))
-    (is (= (run '(cljc.core/print (bit-test 1000 3))) [true]))
-    (is (= (run '(cljc.core/print (bit-test 16713 11))) [false]))
-    (is (= (run '(cljc.core/print (bit-test 1024 10))) [true])) ))
+  (testing "primitive low level bit ops"
+    (is (= (core-run-and-print (bit-and 1 0)
+                               (bit-and 0 0)
+                               (bit-and 1 1)
+                               (bit-and 42 1)
+                               (bit-and 41 1)
+                               (bit-or 1 0)
+                               (bit-or 0 0)
+                               (bit-or 1 1)
+                               (bit-or 42 1)
+                               (bit-or 41 1)
+                               (bit-and-not 1 0)
+                               (bit-and-not 0 0)
+                               (bit-and-not 1 1)
+                               (bit-and-not 42 1)
+                               (bit-and-not 41 1))
+           [0 0 1 0 1 1 0 1 43 41 1 0 0 42 40]))
+
+    (is (= (core-run-and-print (bit-clear 1 0)
+                               (bit-clear 2 0)
+                               (bit-clear 1000 5)
+                               (bit-clear 16713 6)
+                               (bit-clear 1024 10)
+                               (bit-flip 1 0)
+                               (bit-flip 2 1)
+                               (bit-flip 1000 3)
+                               (bit-flip 16713 11)
+                               (bit-flip 1024 10)
+                               (bit-not 1)
+                               (bit-not 2)
+                               (bit-not -1000)
+                               (bit-not 16713)
+                               (bit-not 1024))
+           [0 2 968 16649 0 0 0 992 18761 0 -2 -3 999 -16714 -1025]))
+
+    (is (= (core-run-and-print (bit-set 1 0)
+                               (bit-set 2 1)
+                               (bit-set 1000 3)
+                               (bit-set 16713 11)
+                               (bit-set 1024 10)
+                               (bit-test 1 0)
+                               (bit-test 2 1)
+                               (bit-test 1000 3)
+                               (bit-test 16713 11)
+                               (bit-test 1024 10))
+           [1 2 1000 18761 1024 true true true false true]))))
 
 (deftest loops
   (testing "simple loops"
@@ -251,7 +306,7 @@
 
 (deftest core
   (testing "cljc.core"
-    (is (= (core-run '(let [c (Cons. 1 2)]
+    (is (= (core-run '(let [c (Cons. 1 2 nil)]
 			(print (. c -first))
 			(print (. c -rest))))
 	   [1 2]))
@@ -386,6 +441,18 @@
     (is (= (core-run '(pr (= '(1 2 3) '(1 2 3))
                           (= '(nil nil nil) (seq (make-array 3)))))
            [true true]))))
+
+(deftest hashing
+  (testing "object hashing"
+    (is (= (core-run-and-print (hash \a)
+			       (hash 2354)
+			       (hash nil)
+			       (hash '())
+			       (hash false)
+			       (hash true)
+			       (hash 0)
+			       (hash ""))
+	   [97 2354 0 0 0 1 0 0]))))
 
 (deftest sets
   (testing "sets"
@@ -590,9 +657,6 @@
 
                         (array-copy x 1 x 0 3)
                         (print-array x)))))))
-
-(defmacro core-run-and-print [& exprs]
-  `(core-run '(do ~@(map #(list 'print %) exprs))))
 
 (deftest bit-operations
   (testing "Bit operations"

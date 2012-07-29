@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <stdio.h>
+#include <inttypes.h>
 #include <stdbool.h>
 #include <string.h>
 #include <gc.h>
@@ -12,6 +13,8 @@
 #ifndef MAIN_FUNCTION_NAME
 #define MAIN_FUNCTION_NAME main
 #endif
+
+static uint32_t hashmurmur3_32(const void *data, size_t nbytes);
 
 typedef struct ptable ptable_t;
 
@@ -50,6 +53,11 @@ typedef struct {
 	value_t val;
 	long x;
 } integer_t;
+
+typedef struct {
+	value_t val;
+	double x;
+} float_t;
 
 typedef struct {
 	value_t val;
@@ -108,11 +116,12 @@ typedef struct {
 #define TYPE_Nil	1
 #define TYPE_Closure	2
 #define TYPE_Integer	3
-#define TYPE_Boolean	4
-#define TYPE_Array	5
-#define TYPE_Character	6
-#define TYPE_String	7
-#define FIRST_TYPE	8
+#define TYPE_Float	4
+#define TYPE_Boolean	5
+#define TYPE_Array	6
+#define TYPE_Character	7
+#define TYPE_String	8
+#define FIRST_TYPE	9
 
 #define FIRST_FIELD	1
 
@@ -287,7 +296,7 @@ static value_t* VAR_NAME (cljc_DOT_core_SLASH_count);
 static value_t* VAR_NAME (cljc_DOT_core_SLASH_flatten_tail);
 
 #define ARG_NIL		VAR_NAME (cljc_DOT_core_DOT_List_SLASH_EMPTY)
-#define ARG_CONS(a,d)	FUNCALL2 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_Cons), (a), (d))
+#define ARG_CONS(a,d)	FUNCALL3 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_Cons), (a), (d), value_nil)
 #define ARG_FIRST(c)	FUNCALL1 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_first), (c))
 #define ARG_NEXT(c)	FUNCALL1 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_next), (c))
 #define ARG_COUNT(c)	integer_get (FUNCALL1 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_count), (c)))
@@ -351,6 +360,7 @@ make_closure (function_t fn, environment_t *env)
 
 static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Nil) = NULL;
 static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Integer) = NULL;
+static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Float) = NULL;
 static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Boolean) = NULL;
 static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Array) = NULL;
 static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Character) = NULL;
@@ -370,6 +380,22 @@ integer_get (value_t *v)
 	integer_t *i = (integer_t*)v;
 	assert (v->ptable->type == TYPE_Integer);
 	return i->x;
+}
+
+static value_t*
+make_float (double x)
+{
+	float_t *f = (float_t*) alloc_value (PTABLE_NAME (cljc_DOT_core_SLASH_Float), sizeof (float_t));
+	f->x = x;
+	return &f->val;
+}
+
+static double
+float_get (value_t *v)
+{
+	float_t *f = (float_t*)v;
+	assert (v->ptable->type == TYPE_Float);
+	return f->x;
 }
 
 static value_t*
@@ -478,6 +504,16 @@ string_get_utf8 (value_t *v)
 	return s->utf8;
 }
 
+static uint32_t
+string_hash_code(value_t *v)
+{
+        size_t len;
+        string_t *s = (string_t*)v;
+        assert (v->ptable->type == TYPE_String);
+        len = strlen (s->utf8);
+        return hashmurmur3_32(s->utf8, len);
+}
+
 static value_t*
 make_vtable_value (closure_t **vtable)
 {
@@ -514,6 +550,11 @@ cljc_core_print (int nargs, closure_t *closure, value_t *arg1, value_t *arg2, va
 		case TYPE_Integer: {
 			integer_t *i = (integer_t*)arg1;
 			printf ("%ld", i->x);
+			break;
+		}
+		case TYPE_Float: {
+			float_t *f = (float_t*)arg1;
+			printf ("%f", f->x);
 			break;
 		}
 		case TYPE_Boolean:
@@ -553,6 +594,65 @@ truth (value_t *v)
 	if (v == value_false)
 		return false;
 	return true;
+}
+
+
+/**
+ *  MurmurHash3 was created by Austin Appleby  in 2008. The cannonical
+ *  implementations are in C++ and placed in the public.
+ *
+ *    https://sites.google.com/site/murmurhash/
+ *
+ */
+static uint32_t 
+hashmurmur3_32(const void *data, size_t nbytes)
+{
+        if (data == NULL || nbytes == 0) return 0;
+        const uint32_t c1 = 0xcc9e2d51;
+        const uint32_t c2 = 0x1b873593;
+
+        const int nblocks = nbytes / 4;
+        const uint32_t *blocks = (const uint32_t *)(data);
+        const uint8_t *tail = (const uint8_t *)(data + (nblocks * 4));
+
+        uint32_t h = 0;
+
+        int i;
+        uint32_t k;
+        for (i = 0; i < nblocks; i++) {
+                k = blocks[i];
+
+                k *= c1;
+                k = (k << 15) | (k >> (32 - 15));
+                k *= c2;
+
+                h ^= k;
+                h = (h << 13) | (h >> (32 - 13));
+                h = (h * 5) + 0xe6546b64;
+        }
+
+        k = 0;
+        switch (nbytes & 3) {
+                case 3:
+                        k ^= tail[2] << 16;
+                case 2:
+                        k ^= tail[1] << 8;
+                case 1:
+                        k ^= tail[0];
+                        k *= c1;
+                        k = (k << 13) | (k >> (32 - 15));
+                        k *= c2;
+                        h ^= k;
+        };
+
+        h ^= nbytes;
+
+        h ^= h >> 16;
+        h *= 0x85ebca6b;
+        h ^= h >> 13;
+        h *= 0xc2b2ae35;
+        h ^= h >> 16;
+        return h;
 }
 
 static value_t*
@@ -698,6 +798,7 @@ cljc_init (void)
 
 	PTABLE_NAME (cljc_DOT_core_SLASH_Nil) = alloc_ptable (TYPE_Nil, NULL);
 	PTABLE_NAME (cljc_DOT_core_SLASH_Integer) = alloc_ptable (TYPE_Integer, NULL);
+	PTABLE_NAME (cljc_DOT_core_SLASH_Float) = alloc_ptable (TYPE_Float, NULL);
 	PTABLE_NAME (cljc_DOT_core_SLASH_Boolean) = alloc_ptable (TYPE_Boolean, NULL);
 	PTABLE_NAME (cljc_DOT_core_SLASH_Array) = alloc_ptable (TYPE_Array, NULL);
 	PTABLE_NAME (cljc_DOT_core_SLASH_Character) = alloc_ptable (TYPE_Character, NULL);
