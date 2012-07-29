@@ -80,7 +80,10 @@
   (binding [*build-options* (assoc default-build-options
                               :host :ios
                               :with-makefile false)]
-    (run-expr 'my-test true '(do (cljc.core/print (+ 2 3)))))
+    (run-expr 'my-test true '(map #(cljc.core/pr %)
+                                  ["Hi from iOS ClojureC!\n"
+                                   "(+ 2.0 3) == " (+ 2.0 3)
+                                   "\nThe END\n"])))
 
   ;; for Android build
   (binding [*build-options* (assoc default-build-options
