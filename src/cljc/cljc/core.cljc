@@ -1660,7 +1660,7 @@ reduces them without incurring seq initialization"
         (do (aset tail (bit-and cnt 0x01f) o)
             (set! cnt (inc cnt))
             tcoll)
-        (let [tail-node (VectorNode (.-edit root) tail)
+        (let [tail-node (VectorNode. (.-edit root) tail)
               new-tail  (make-array 32)]
           (aset new-tail 0 o)
           (set! tail new-tail)
@@ -1670,7 +1670,7 @@ reduces them without incurring seq initialization"
                   new-shift      (+ shift 5)]
               (aset new-root-array 0 root)
               (aset new-root-array 1 (new-path (.-edit root) shift tail-node))
-              (set! root  (VectorNode (.-edit root) new-root-array))
+              (set! root  (VectorNode. (.-edit root) new-root-array))
               (set! shift new-shift)
               (set! cnt   (inc cnt))
               tcoll)
@@ -1682,12 +1682,12 @@ reduces them without incurring seq initialization"
 
   (-persistent! [tcoll]
     (if (.-edit root)
-      (let [persistent-root (VectorNode nil (.-arr root))
+      (let [persistent-root (VectorNode. nil (.-arr root))
             len (- cnt (tail-off tcoll))
             trimmed-tail (make-array len)]
         (set! root persistent-root)
         (array-copy tail trimmed-tail len)
-        (PersistentVector nil cnt shift root trimmed-tail))
+        (PersistentVector. nil cnt shift root trimmed-tail))
       (error "persistent! called twice")))
 
   ITransientAssociative
@@ -1732,7 +1732,7 @@ reduces them without incurring seq initialization"
               new-root (let [nr (tv-pop-tail tcoll shift root)]
                          (if-not (nil? nr)
                            nr
-                           (VectorNode (.-edit root) (make-array 32))))]
+                           (VectorNode. (.-edit root) (make-array 32))))]
           (if (and (< 5 shift) (nil? (pv-aget new-root 1)))
             (let [new-root (tv-ensure-editable (.-edit root) (pv-aget new-root 0))]
               (set! root  new-root)
@@ -1778,10 +1778,10 @@ reduces them without incurring seq initialization"
 (defn- tv-ensure-editable [edit node]
   (if (identical? edit (.-edit node))
     node
-    (VectorNode edit (aclone (.-arr node)))))
+    (VectorNode. edit (aclone (.-arr node)))))
 
 (defn- tv-editable-root [node]
-  (VectorNode true (aclone (.-arr node))))
+  (VectorNode. true (aclone (.-arr node))))
 
 (defn- tv-editable-tail [tl]
   (let [ret (make-array 32)]
