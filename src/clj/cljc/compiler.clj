@@ -587,7 +587,8 @@
 	(emitln "environment_t *new_env = alloc_env (env, " num-vals ");")
 	(emitln "{")
 	(when rest-val-init
-	  (emitln "value_t *rest = " rest-val-init ";"))
+	  (emitln "value_t **rest = " rest-val-init ";")
+          (emitln "int rest_index = 0;"))
 	(emitln "environment_t *env = new_env;")
 	(loop [indexes (range num-direct-vals)
 	       val-inits val-inits]
@@ -598,8 +599,7 @@
 		  (emitln "env_set (new_env, " index ", " (first val-inits) ");")
 		  (recur (rest indexes) (rest val-inits)))
 		(do
-		  (emitln "env_set (new_env, " index ", ARG_FIRST (rest));")
-		  (emitln "rest = ARG_NEXT (rest);")
+		  (emitln "env_set (new_env, " index ", rest [rest_index++]);")
 		  (recur (rest indexes) nil))))))
 	(when variadic
 	  (letfn [(emit-cons-inits [inits tail]
@@ -620,7 +620,8 @@
 		(recur (drop-last val-inits))))
 	    (emitln "default:")
 	    (emitln "env_set (new_env, " num-direct-vals ", ")
-	    (emit-cons-inits (drop num-direct-vals val-inits) "rest")
+	    (emit-cons-inits (drop num-direct-vals val-inits)
+                             (str "make_array_from (nargs - rest_index - " (- (count val-inits) num-non-args) ", rest + rest_index)"))
 	    (emitln "); break;")
 	    (emitln "}")))
 	(emitter)
@@ -666,7 +667,7 @@
       (when return
         (emitln ";"))
       (emit-declaration
-       (emitln "static value_t* FN_NAME (" cname ") (int nargs, closure_t *closure, value_t *arg0, value_t *arg1, value_t *arg2, value_t *argrest) {")
+       (emitln "static value_t* FN_NAME (" cname ") (int nargs, closure_t *closure, value_t *arg0, value_t *arg1, value_t *arg2, value_t **argrest) {")
        (emitln "environment_t *env = closure->env;")
        (when name
          (emitln "value_t *this_fn = &closure->val;"))
@@ -830,15 +831,13 @@
     (when-not (empty? register-args)
       (emits ", " (comma-sep register-args)))
     (when-not (empty? rest-args)
-      (emits ", ")
-      (letfn [(emit-rest [as]
-		 (if (seq as)
-		   (do
-		     (emits "ARG_CONS (" (first as) ", ")
-		     (emit-rest (rest as))
-		     (emits ")"))
-		   (emits "ARG_NIL")))]
-	(emit-rest rest-args)))))
+      (emits ", (value_t*[]) {")
+      (loop [as rest-args]
+        (if (seq as)
+          (do
+            (emits (first as) ", ")
+            (recur (rest as)))
+          (emits "}"))))))
 
 (defmethod emit :invoke
   [{:keys [f args env] :as expr}]

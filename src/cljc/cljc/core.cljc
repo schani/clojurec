@@ -423,6 +423,9 @@ reduces them without incurring seq initialization"
   ISeqable
   (-seq [array] (array-seq array 0))
 
+  ICollection
+  (-conj [coll o] (Cons. o coll nil))
+
   ICounted
   (-count [a] (alength a))
 

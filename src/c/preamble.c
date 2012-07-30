@@ -33,7 +33,7 @@ typedef struct environment {
 
 typedef struct closure closure_t;
 
-typedef value_t* (*function_t) (int nargs, closure_t *closure, value_t *arg1, value_t *arg2, value_t *arg3, value_t *argrest);
+typedef value_t* (*function_t) (int nargs, closure_t *closure, value_t *arg1, value_t *arg2, value_t *arg3, value_t **argrest);
 
 typedef struct {
 	value_t val;
@@ -150,10 +150,10 @@ value_satisfies_protocol (value_t *val, int protocol_num)
 	return false;
 }
 
-#define FUNCALL0(c)			((c)->fn (0, (c), VALUE_NONE, VALUE_NONE, VALUE_NONE, VALUE_NONE))
-#define FUNCALL1(c,a1)			((c)->fn (1, (c), (a1), VALUE_NONE, VALUE_NONE, VALUE_NONE))
-#define FUNCALL2(c,a1,a2)		((c)->fn (2, (c), (a1), (a2), VALUE_NONE, VALUE_NONE))
-#define FUNCALL3(c,a1,a2,a3)		((c)->fn (3, (c), (a1), (a2), (a3), VALUE_NONE))
+#define FUNCALL0(c)			((c)->fn (0, (c), VALUE_NONE, VALUE_NONE, VALUE_NONE, NULL))
+#define FUNCALL1(c,a1)			((c)->fn (1, (c), (a1), VALUE_NONE, VALUE_NONE, NULL))
+#define FUNCALL2(c,a1,a2)		((c)->fn (2, (c), (a1), (a2), VALUE_NONE, NULL))
+#define FUNCALL3(c,a1,a2,a3)		((c)->fn (3, (c), (a1), (a2), (a3), NULL))
 #define FUNCALLn(c,n,a1,a2,a3,ar)	((c)->fn ((n), (c), (a1), (a2), (a3), (ar)))
 
 static value_t*
@@ -175,7 +175,7 @@ protcall2 (value_t *target, int protocol_num, int fn_index, value_t *a1, value_t
 }
 
 static value_t*
-protcalln (value_t *target, int protocol_num, int fn_index, int nargs, value_t *a1, value_t *a2, value_t *ar)
+protcalln (value_t *target, int protocol_num, int fn_index, int nargs, value_t *a1, value_t *a2, value_t **ar)
 {
 	return FUNCALLn (get_protocol (target, protocol_num, fn_index), nargs + 1, target, a1, a2, ar);
 }
@@ -199,7 +199,7 @@ invoke2 (value_t *f, value_t *a1, value_t *a2)
 }
 
 static value_t*
-invoken (value_t *f, int nargs, value_t *a1, value_t *a2, value_t *ar)
+invoken (value_t *f, int nargs, value_t *a1, value_t *a2, value_t **ar)
 {
 	return FUNCALLn (get_protocol (f, PROTOCOL_cljc_DOT_core_SLASH_IFn, MEMBER__invoke), nargs + 1, f, a1, a2, ar);
 }
@@ -293,27 +293,25 @@ static value_t* VAR_NAME (cljc_DOT_core_SLASH_Cons);
 static value_t* VAR_NAME (cljc_DOT_core_SLASH_first);
 static value_t* VAR_NAME (cljc_DOT_core_SLASH_next);
 static value_t* VAR_NAME (cljc_DOT_core_SLASH_count);
-static value_t* VAR_NAME (cljc_DOT_core_SLASH_flatten_tail);
 
 #define ARG_NIL		VAR_NAME (cljc_DOT_core_DOT_List_SLASH_EMPTY)
 #define ARG_CONS(a,d)	FUNCALL3 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_Cons), (a), (d), value_nil)
-#define ARG_FIRST(c)	FUNCALL1 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_first), (c))
-#define ARG_NEXT(c)	FUNCALL1 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_next), (c))
-#define ARG_COUNT(c)	integer_get (FUNCALL1 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_count), (c)))
-#define ARG_FLATTEN_TAIL(c)	FUNCALL1 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_flatten_tail), (c))
+#define SEQ_FIRST(c)	FUNCALL1 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_first), (c))
+#define SEQ_NEXT(c)	FUNCALL1 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_next), (c))
+#define SEQ_COUNT(c)	integer_get (FUNCALL1 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_count), (c)))
 
 static value_t*
-Closure_IFn_invoke (int nargs, closure_t *closure, value_t *arg1, value_t *arg2, value_t *arg3, value_t *argrest)
+Closure_IFn_invoke (int nargs, closure_t *closure, value_t *arg1, value_t *arg2, value_t *arg3, value_t **argrest)
 {
 	closure_t *c = (closure_t*)arg1;
 
 	assert (nargs >= 1);
 	assert (arg1->ptable->type == TYPE_Closure);
 
-	if (argrest == VALUE_NONE)
-		return c->fn (nargs - 1, c, arg2, arg3, VALUE_NONE, VALUE_NONE);
+	if (argrest == NULL)
+		return c->fn (nargs - 1, c, arg2, arg3, VALUE_NONE, NULL);
 	else
-		return c->fn (nargs - 1, c, arg2, arg3, ARG_FIRST (argrest), ARG_NEXT (argrest));
+		return c->fn (nargs - 1, c, arg2, arg3, argrest [0], argrest + 1);
 }
 
 static ptable_t*
@@ -399,14 +397,24 @@ float_get (value_t *v)
 }
 
 static value_t*
-make_array (long len)
+make_array_from (long len, value_t **src)
 {
 	array_t *array = (array_t*) alloc_value (PTABLE_NAME (cljc_DOT_core_SLASH_Array),  sizeof (array_t) + len * sizeof (value_t*));
 	long i;
 	array->len = len;
-	for (i = 0; i < len; ++i)
-		array->elems [i] = value_nil;
+	if (src) {
+		memcpy (array->elems, src, sizeof (value_t*) * len);
+	} else {
+		for (i = 0; i < len; ++i)
+			array->elems [i] = value_nil;
+	}
 	return &array->val;
+}
+
+static value_t*
+make_array (long len)
+{
+	return make_array_from (len, NULL);
 }
 
 static long
@@ -534,7 +542,7 @@ make_boolean (bool x)
 }
 
 static value_t*
-cljc_core_print (int nargs, closure_t *closure, value_t *arg1, value_t *arg2, value_t *arg3, value_t *argrest)
+cljc_core_print (int nargs, closure_t *closure, value_t *arg1, value_t *arg2, value_t *arg3, value_t **argrest)
 {
 	assert (nargs == 1);
 
@@ -570,7 +578,7 @@ cljc_core_print (int nargs, closure_t *closure, value_t *arg1, value_t *arg2, va
 			long i;
 			printf ("[");
 			for (i = 0; i < a->len; ++i) {
-				cljc_core_print (1, NULL, a->elems [i], VALUE_NONE, VALUE_NONE, VALUE_NONE);
+				cljc_core_print (1, NULL, a->elems [i], VALUE_NONE, VALUE_NONE, NULL);
 				if (i < a->len - 1)
 					printf (" ");
 			}
@@ -656,84 +664,52 @@ hashmurmur3_32(const void *data, size_t nbytes)
 }
 
 static value_t*
-cljc_core_apply (int nargs, closure_t *closure, value_t *f, value_t *arg1, value_t *arg2, value_t *argrest)
+cljc_core_apply (int nargs, closure_t *closure, value_t *f, value_t *arg1, value_t *arg2, value_t **argrest)
 {
-	int ndirect = 0;
-	int nrest;
+	int ndirect, nrest, nrest_seq;
+	value_t *rest_seq;
+	value_t **args;
+	int i, j;
 
 	assert (nargs > 1);
 
 	switch (nargs) {
 		case 2:
 			ndirect = 0;
-			argrest = arg1;
+			nrest = 0;
+			rest_seq = arg1;
 			break;
 		case 3:
 			ndirect = 1;
-			argrest = arg2;
+			nrest = 0;
+			rest_seq = arg2;
 			break;
 		default:
 			ndirect = 2;
-			argrest = ARG_FLATTEN_TAIL (argrest);
+			nrest = nargs - 4;
+			rest_seq = argrest [nrest];
 			break;
 	}
 
-	nrest = ARG_COUNT (argrest);
+	nrest_seq = SEQ_COUNT (rest_seq);
 
+	nargs = ndirect + nrest + nrest_seq;
+	args = alloca (sizeof (value_t*) * (nargs > 2 ? nargs : 2));
+	args [0] = args [1] = VALUE_NONE;
+	i = 0;
 	switch (ndirect) {
-		case 0:
-			switch (nrest) {
-				case 0:
-					arg1 = arg2 = argrest = VALUE_NONE;
-					break;
-				case 1:
-					arg1 = ARG_FIRST (argrest);
-					arg2 = argrest = VALUE_NONE;
-					break;
-				case 2:
-					arg1 = ARG_FIRST (argrest);
-					argrest = ARG_NEXT (argrest);
-					arg2 = ARG_FIRST (argrest);
-					argrest = VALUE_NONE;
-					break;
-				default:
-					arg1 = ARG_FIRST (argrest);
-					argrest = ARG_NEXT (argrest);
-					arg2 = ARG_FIRST (argrest);
-					argrest = ARG_NEXT (argrest);
-					break;
-			}
-			break;
-		case 1:
-			switch (nrest) {
-				case 0:
-					arg2 = argrest = VALUE_NONE;
-					break;
-				case 1:
-					arg2 = ARG_FIRST (argrest);
-					argrest = VALUE_NONE;
-					break;
-				default:
-					arg2 = ARG_FIRST (argrest);
-					argrest = ARG_NEXT (argrest);
-					break;
-			}
-			break;
-		case 2:
-			switch (nrest) {
-				case 0:
-					argrest = VALUE_NONE;
-					break;
-				default:
-					argrest = argrest;
-					break;
-			}
-			break;
-		default:
-			assert (false);
+		case 2: args [1] = arg2; ++i;
+		case 1: args [0] = arg1; ++i;
 	}
+	for (j = 0; j < nrest; ++j)
+		args [i++] = argrest [j];
+	for (j = 0; j < nrest_seq; ++j) {
+		args [i++] = SEQ_FIRST (rest_seq);
+		rest_seq = SEQ_NEXT (rest_seq);
+	}
+	assert (i == nargs);
 
-	return invoken (f, ndirect + nrest, arg1, arg2, argrest);
+	return invoken (f, nargs, args [0], args [1], args + 2);
 }
 
 static value_t *VAR_NAME (cljc_DOT_core_SLASH_apply) = VALUE_NONE;
