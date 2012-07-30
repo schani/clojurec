@@ -268,6 +268,24 @@
 		     (cljc.core/print x))))
 	   [3628800]))))
 
+(deftest dynamic
+  (testing "dynamic vars and binding"
+    (is (= (core-run '(do
+                        (def ^:dynamic *x* 1)
+                        (defn print-x []
+                          (cljc.core/print *x*))
+                        (print-x)
+                        (try
+                          (binding [*x* (+ *x* 1)]
+                            (print-x)
+                            (binding [*x* (+ *x* 1)]
+                              (print-x)
+                              (throw (Exception. "bla"))))
+                          (catch Exception _
+                            (print-x)))
+                        (print-x)))
+           [1 2 3 1 1]))))
+
 (deftest exceptions
   (testing "exception handling"
     (is (= (run '(cljc.core/print (try

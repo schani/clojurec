@@ -121,6 +121,32 @@
   (let [p (:name (cljc.compiler/resolve-var (dissoc &env :locals) psym))]
     (list 'c* "make_boolean (value_satisfies_protocol (~{}, PROTOCOL_NAME (~{str})))" x (core/str p))))
 
+(defmacro binding
+  "binding => var-symbol init-expr
+
+  Creates new bindings for the (already-existing) vars, with the
+  supplied initial values, executes the exprs in an implicit do, then
+  re-establishes the bindings that existed before.  The new bindings
+  are made in parallel (unlike let); all init-exprs are evaluated
+  before the vars are bound to their new values."
+  [bindings & body]
+  (let [names (take-nth 2 bindings)
+        vals (take-nth 2 (drop 1 bindings))
+        tempnames (map (comp gensym name) names)
+        binds (map vector names vals)
+        resets (reverse (map vector names tempnames))]
+    (cljc.compiler/confirm-bindings &env names)
+    `(let [~@(interleave tempnames names)]
+       (try
+        ~@(map
+           (fn [[k v]] (list 'set! k v))
+           binds)
+        ~@body
+        (finally
+         ~@(map
+            (fn [[k v]] (list 'set! k v))
+            resets))))))
+
 (defmacro deftype [t fields & impls]
   (let [adorn-params (fn [[_ & meths]]
                        (let [meths (if (vector? (first meths))
