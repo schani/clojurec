@@ -11,13 +11,14 @@
 
 (defn analyze [ns-name with-core expr]
   (cljc/reset-namespaces!)
-  (let [ns (if-let [ns (@cljc/namespaces ns-name)]
-	     ns
-	     {:name ns-name})
-	env {:ns ns :context :statement :locals {}}]
-    (if with-core
-      (conj (cljc/analyze-file "cljc/core.cljc")
-	    (cljc/analyze env expr))
+  (if with-core
+    (cljc/analyze-file "cljc/core.cljc"
+                       (list (list 'ns ns-name)
+                             expr))
+    (let [ns (if-let [ns (@cljc/namespaces ns-name)]
+               ns
+               {:name ns-name})
+          env {:ns ns :context :statement :locals {}}]
       [(cljc/analyze env expr)])))
 
 (defn inspect-ast [ast]

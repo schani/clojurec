@@ -1768,22 +1768,30 @@
         :else {:op :constant :env env :form form}))))
 
 (defn analyze-file
-  [f]
-  (let [res (if (= \/ (first f)) f (io/resource f))]
-    (assert res (str "Can't find " f " in classpath"))
-    (binding [*cljs-ns* 'cljs.user
-              *cljs-file* (.getPath ^java.net.URL res)]
-      (with-open [r (io/reader res)]
-        (let [env {:ns (@namespaces *cljs-ns*) :context :statement :locals {}}
-              pbr (clojure.lang.LineNumberingPushbackReader. r)
-              eof (Object.)]
-          (loop [asts []
-		 r (read pbr false eof false)]
-            (let [env (assoc env :ns (@namespaces *cljs-ns*))]
-              (if (identical? eof r)
-		asts
-                (recur (conj asts (analyze env r))
-		       (read pbr false eof false))))))))))
+  ([f others]
+     (let [res (if (= \/ (first f)) f (io/resource f))]
+       (assert res (str "Can't find " f " in classpath"))
+       (binding [*cljs-ns* 'cljs.user
+                 *cljs-file* (.getPath ^java.net.URL res)]
+         (with-open [r (io/reader res)]
+           (let [env {:ns (@namespaces *cljs-ns*) :context :statement :locals {}}
+                 pbr (clojure.lang.LineNumberingPushbackReader. r)
+                 eof (Object.)]
+             (loop [asts []
+                    r (read pbr false eof false)
+                    others others]
+               (let [env (assoc env :ns (@namespaces *cljs-ns*))]
+                 (if (identical? eof r)
+                   (if (seq others)
+                     (recur (conj asts (analyze env (first others)))
+                            eof
+                            (rest others))
+                     asts)
+                   (recur (conj asts (analyze env r))
+                          (read pbr false eof false)
+                          others)))))))))
+  ([f]
+     (analyze-file f nil)))
 
 (defn forms-seq
   "Seq of forms in a Clojure or ClojureScript file."
