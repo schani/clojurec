@@ -263,13 +263,20 @@
            [1 2 1000 18761 1024 true true true false true]))))
 
 (deftest symbols
-  (testing "symbols"
+  (testing "symbols and keywords"
     (is (= (run-and-print (identical? 'a 'a)
-                          (identical? 'a 'b))
-           [true false]))
+                          (identical? 'a 'b)
+                          (identical? :a :a)
+                          (identical? :a :b)
+                          (identical? :a 'a))
+           [true false true false false]))
     (is (= (core-run-and-print (symbol? 'a)
-                               (symbol? "a"))
-           [true false]))))
+                               (symbol? :a)
+                               (symbol? "a")
+                               (keyword? :a)
+                               (keyword? 'a)
+                               (keyword? ":a"))
+           [true false false true false false]))))
 
 (deftest loops
   (testing "simple loops"

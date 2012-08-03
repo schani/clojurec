@@ -83,6 +83,11 @@ typedef struct {
 } symbol_t;
 
 typedef struct {
+	value_t val;
+	const gchar *utf8;
+} keyword_t;
+
+typedef struct {
 	int num;		/* the protocol number, or -1 for termination */
 	closure_t **vtable;
 } ptable_entry_t;
@@ -129,7 +134,8 @@ typedef struct {
 #define TYPE_Character	7
 #define TYPE_String	8
 #define TYPE_Symbol	9
-#define FIRST_TYPE	10
+#define TYPE_Keyword	10
+#define FIRST_TYPE	11
 
 #define FIRST_FIELD	1
 
@@ -372,6 +378,7 @@ static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Array) = NULL;
 static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Character) = NULL;
 static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_String) = NULL;
 static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Symbol) = NULL;
+static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Keyword) = NULL;
 
 static value_t*
 make_integer (long x)
@@ -566,6 +573,43 @@ symbol_get_utf8 (value_t *v)
 	symbol_t *s = (symbol_t*)v;
 	assert (v->ptable->type == TYPE_Symbol);
 	return s->utf8;
+}
+
+KHASH_MAP_INIT_STR (KEYWORDS, keyword_t);
+static khash_t(KEYWORDS) *keyword_hash = NULL;
+
+static value_t*
+intern_keyword (const gchar *utf8, bool copy)
+{
+	khiter_t iter;
+	int ret;
+
+	if (keyword_hash == NULL) {
+		keyword_hash = kh_init (KEYWORDS);
+		assert (keyword_hash != NULL);
+	}
+
+	iter = kh_put (KEYWORDS, keyword_hash, utf8, &ret);
+	if (ret != 0) {
+		keyword_t kw;
+		kw.val.ptable = PTABLE_NAME (cljc_DOT_core_SLASH_Keyword);
+		if (copy)
+			kw.utf8 = strdup (utf8);
+		else
+			kw.utf8 = utf8;
+		kh_value (keyword_hash, iter) = kw;
+	} else {
+		assert (strcmp (kh_value (keyword_hash, iter).utf8, utf8) == 0);
+	}
+	return &kh_value (keyword_hash, iter).val;
+}
+
+static const gchar*
+keyword_get_utf8 (value_t *v)
+{
+	keyword_t *k = (keyword_t*)v;
+	assert (v->ptable->type == TYPE_Keyword);
+	return k->utf8;
 }
 
 static value_t*
@@ -826,6 +870,7 @@ cljc_init (void)
 	PTABLE_NAME (cljc_DOT_core_SLASH_Character) = alloc_ptable (TYPE_Character, NULL);
 	PTABLE_NAME (cljc_DOT_core_SLASH_String) = alloc_ptable (TYPE_String, NULL);
 	PTABLE_NAME (cljc_DOT_core_SLASH_Symbol) = alloc_ptable (TYPE_Symbol, NULL);
+	PTABLE_NAME (cljc_DOT_core_SLASH_Keyword) = alloc_ptable (TYPE_Keyword, NULL);
 
 	value_nil = alloc_value (PTABLE_NAME (cljc_DOT_core_SLASH_Nil), sizeof (value_t));
 

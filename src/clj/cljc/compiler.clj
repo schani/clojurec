@@ -277,11 +277,11 @@
     (emits \/ (.replaceAll (re-matcher #"/" pattern) "\\\\/") \/ flags)))
 
 (defmethod emit-constant clojure.lang.Keyword [x]
-           (emits \" "\\uFDD0" \'
+           (emits "intern_keyword (\""
                   (if (namespace x)
                     (str (namespace x) "/") "")
                   (name x)
-                  \"))
+                  "\", false)"))
 
 (defmethod emit-constant clojure.lang.Symbol [x]
            (emits "intern_symbol (\""
