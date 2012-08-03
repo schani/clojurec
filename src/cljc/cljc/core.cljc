@@ -747,6 +747,10 @@ reduces them without incurring seq initialization"
   [s]
   (satisfies? ISeqable s))
 
+(defn ^boolean symbol?
+  [s]
+  (has-type? s Symbol))
+
 (defn ^boolean contains?
   "Returns true if key is present in the given collection, otherwise
   returns false.  Note that for numerically indexed collections like

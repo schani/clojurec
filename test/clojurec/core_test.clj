@@ -9,6 +9,9 @@
 (defn- core-run [x]
   (run-expr 'clojurec.core-test true x))
 
+(defmacro run-and-print [& exprs]
+  `(run '(do ~@(map #(list 'cljc.core/print %) exprs))))
+
 (defmacro core-run-and-print [& exprs]
   `(core-run '(do ~@(map #(list 'print %) exprs))))
 
@@ -258,6 +261,15 @@
                                (bit-test 16713 11)
                                (bit-test 1024 10))
            [1 2 1000 18761 1024 true true true false true]))))
+
+(deftest symbols
+  (testing "symbols"
+    (is (= (run-and-print (identical? 'a 'a)
+                          (identical? 'a 'b))
+           [true false]))
+    (is (= (core-run-and-print (symbol? 'a)
+                               (symbol? "a"))
+           [true false]))))
 
 (deftest loops
   (testing "simple loops"

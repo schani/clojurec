@@ -8,6 +8,8 @@
 #include <stdlib.h>
 #include <setjmp.h>
 
+#include "khash.h"
+
 #define assert_not_reached()	(assert (0))
 
 #ifndef MAIN_FUNCTION_NAME
@@ -76,6 +78,11 @@ typedef struct {
 } string_t;
 
 typedef struct {
+	value_t val;
+	const gchar *utf8;
+} symbol_t;
+
+typedef struct {
 	int num;		/* the protocol number, or -1 for termination */
 	closure_t **vtable;
 } ptable_entry_t;
@@ -121,7 +128,8 @@ typedef struct {
 #define TYPE_Array	6
 #define TYPE_Character	7
 #define TYPE_String	8
-#define FIRST_TYPE	9
+#define TYPE_Symbol	9
+#define FIRST_TYPE	10
 
 #define FIRST_FIELD	1
 
@@ -363,6 +371,7 @@ static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Boolean) = NULL;
 static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Array) = NULL;
 static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Character) = NULL;
 static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_String) = NULL;
+static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Symbol) = NULL;
 
 static value_t*
 make_integer (long x)
@@ -520,6 +529,43 @@ string_hash_code(value_t *v)
         assert (v->ptable->type == TYPE_String);
         len = strlen (s->utf8);
         return hashmurmur3_32(s->utf8, len);
+}
+
+KHASH_MAP_INIT_STR (SYMBOLS, symbol_t);
+static khash_t(SYMBOLS) *symbol_hash = NULL;
+
+static value_t*
+intern_symbol (const gchar *utf8, bool copy)
+{
+	khiter_t iter;
+	int ret;
+
+	if (symbol_hash == NULL) {
+		symbol_hash = kh_init (SYMBOLS);
+		assert (symbol_hash != NULL);
+	}
+
+	iter = kh_put (SYMBOLS, symbol_hash, utf8, &ret);
+	if (ret != 0) {
+		symbol_t sym;
+		sym.val.ptable = PTABLE_NAME (cljc_DOT_core_SLASH_Symbol);
+		if (copy)
+			sym.utf8 = strdup (utf8);
+		else
+			sym.utf8 = utf8;
+		kh_value (symbol_hash, iter) = sym;
+	} else {
+		assert (strcmp (kh_value (symbol_hash, iter).utf8, utf8) == 0);
+	}
+	return &kh_value (symbol_hash, iter).val;
+}
+
+static const gchar*
+symbol_get_utf8 (value_t *v)
+{
+	symbol_t *s = (symbol_t*)v;
+	assert (v->ptable->type == TYPE_Symbol);
+	return s->utf8;
 }
 
 static value_t*
@@ -779,6 +825,7 @@ cljc_init (void)
 	PTABLE_NAME (cljc_DOT_core_SLASH_Array) = alloc_ptable (TYPE_Array, NULL);
 	PTABLE_NAME (cljc_DOT_core_SLASH_Character) = alloc_ptable (TYPE_Character, NULL);
 	PTABLE_NAME (cljc_DOT_core_SLASH_String) = alloc_ptable (TYPE_String, NULL);
+	PTABLE_NAME (cljc_DOT_core_SLASH_Symbol) = alloc_ptable (TYPE_Symbol, NULL);
 
 	value_nil = alloc_value (PTABLE_NAME (cljc_DOT_core_SLASH_Nil), sizeof (value_t));
 

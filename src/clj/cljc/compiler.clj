@@ -284,11 +284,11 @@
                   \"))
 
 (defmethod emit-constant clojure.lang.Symbol [x]
-           (emits \" "\\uFDD1" \'
+           (emits "intern_symbol (\""
                   (if (namespace x)
                     (str (namespace x) "/") "")
                   (name x)
-                  \"))
+                  "\", false)"))
 
 (defn- emit-meta-constant [x & body]
   ;; FIXME: implement
