@@ -465,7 +465,7 @@ reduces them without incurring seq initialization"
 
   IHash
   (-hash [s]
-    (c* "make_integer (string_hash_code(~{}))" s))
+    (c* "make_integer (string_hash_code (string_get_utf8 (~{})))" s))
 
   ISeqable
   (-seq [string] (prim-seq string 0))

@@ -529,13 +529,11 @@ string_get_utf8 (value_t *v)
 }
 
 static uint32_t
-string_hash_code(value_t *v)
+string_hash_code (const gchar *utf8)
 {
         size_t len;
-        string_t *s = (string_t*)v;
-        assert (v->ptable->type == TYPE_String);
-        len = strlen (s->utf8);
-        return hashmurmur3_32(s->utf8, len);
+        len = strlen (utf8);
+        return hashmurmur3_32(utf8, len);
 }
 
 KHASH_MAP_INIT_STR (SYMBOLS, symbol_t);
