@@ -747,6 +747,14 @@ reduces them without incurring seq initialization"
   [s]
   (satisfies? ISeqable s))
 
+(defn ^boolean char?
+  [s]
+  (has-type? s Character))
+
+(defn ^boolean string?
+  [s]
+  (has-type? s String))
+
 (defn ^boolean keyword?
   [s]
   (has-type? s Keyword))

@@ -428,11 +428,18 @@
            [3]))))
 
 (deftest strings
-  (testing "strings"
+  (testing "strings and chars"
     (is (= (run '(c* "puts (string_get_utf8 (~{}))" "abc"))
            ['abc]))
     (is (= (core-run '(pr (seq "abc")))
-           ['(\a \b \c)]))))
+           ['(\a \b \c)]))
+    (is (= (core-run-and-print (string? "abc")
+                               (string? 'abc)
+                               (string? :abc)
+                               (string? \a)
+                               (char? \a)
+                               (char? "a"))
+           [true false false false true false]))))
 
 (deftest printing
   (testing "printing"
