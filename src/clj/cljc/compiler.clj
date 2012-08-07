@@ -197,7 +197,6 @@
 
 (def ^:dynamic *env-stack* nil)
 (def ^:dynamic *gthis-ups* nil)
-(def ^:dynamic *loop-try-nest* nil)
 
 (defn- comma-sep [xs]
   (interpose "," xs))
@@ -260,117 +259,106 @@
                         [(inc line) 0])))
   nil)
 
+(defmacro emit-value-wrap [prefix env & body]
+  `(letfn [(emit-fn# [] ~@body)]
+     (if (= (:context ~env) :statement)
+       (do
+         (emit-fn#)
+         (emitln ";")
+         nil)
+       (let [name# (munge (gensym ~prefix))]
+         (emits "value_t *" name# " = ")
+         (emit-fn#)
+         (emitln ";")
+         name#))))
+
+(defn FIXME-IMPLEMENT []
+  (throw (UnsupportedOperationException.)))
+
 (defmulti emit-constant class)
-(defmethod emit-constant nil [x] (emits "value_nil"))
+(defmethod emit-constant nil [x] (emit-value-wrap :nil nil (emits "value_nil")))
 ;; FIXME: allocate these only once, not every time!
-(defmethod emit-constant Long [x] (emits "make_integer (" x "L)"))
-(defmethod emit-constant Integer [x] (emits "make_integer (" x "L)")) ; reader puts Integers in metadata
-(defmethod emit-constant Character [x] (emits "make_character ((gunichar)'" (escape-char x) "')"))
-(defmethod emit-constant Float [x] (emits "make_float (" x ")"))
-(defmethod emit-constant Double [x] (emits "make_float (" x ")"))
+(defmethod emit-constant Long [x] (emit-value-wrap :long-const nil (emits "make_integer (" x "L)")))
+(defmethod emit-constant Integer [x] (emit-value-wrap :int-const nil (emits "make_integer (" x "L)"))) ; reader puts Integers in metadata
+(defmethod emit-constant Character [x] (emit-value-wrap :char-const nil (emits "make_character ((gunichar)'" (escape-char x) "')")))
+(defmethod emit-constant Float [x] (emit-value-wrap :float-const nil (emits "make_float (" x ")")))
+(defmethod emit-constant Double [x] (emit-value-wrap :double-const nil (emits "make_float (" x ")")))
 (defmethod emit-constant String [x]
-  (emits "make_string (" (wrap-in-double-quotes (escape-string x)) ")"))
-(defmethod emit-constant Boolean [x] (emits (if x "value_true" "value_false")))
+  (emit-value-wrap :string-const nil
+                   (emits "make_string (" (wrap-in-double-quotes (escape-string x)) ")")))
+(defmethod emit-constant Boolean [x] (emit-value-wrap :bool-const nil (emits (if x "value_true" "value_false"))))
 
 (defmethod emit-constant java.util.regex.Pattern [x]
-  (let [[_ flags pattern] (re-find #"^(?:\(\?([idmsux]*)\))?(.*)" (str x))]
-    (emits \/ (.replaceAll (re-matcher #"/" pattern) "\\\\/") \/ flags)))
+  (FIXME-IMPLEMENT))
 
 (defmethod emit-constant clojure.lang.Keyword [x]
-           (emits "intern_keyword (\""
-                  (if (namespace x)
-                    (str (namespace x) "/") "")
-                  (name x)
-                  "\", false)"))
+  (emit-value-wrap :keyword nil
+                   (emits "intern_keyword (\""
+                          (if (namespace x)
+                            (str (namespace x) "/") "")
+                          (name x)
+                          "\", false)")))
 
 (defmethod emit-constant clojure.lang.Symbol [x]
-           (emits "intern_symbol (\""
-                  (if (namespace x)
-                    (str (namespace x) "/") "")
-                  (name x)
-                  "\", false)"))
+  (emit-value-wrap :symbol nil
+                   (emits "intern_symbol (\""
+                          (if (namespace x)
+                            (str (namespace x) "/") "")
+                          (name x)
+                          "\", false)")))
 
 (defn- emit-meta-constant [x & body]
   ;; FIXME: implement
   (emits body))
 
 (defmethod emit-constant clojure.lang.PersistentList$EmptyList [x]
-  (emits "VAR_NAME (cljc_DOT_core_DOT_List_SLASH_EMPTY)"))
+  (emit-value-wrap :empty-list nil
+                   (emits "VAR_NAME (cljc_DOT_core_DOT_List_SLASH_EMPTY)")))
 
 (defmethod emit-constant clojure.lang.PersistentList [x]
-  (emit-meta-constant x
-		      (emits "FUNCALL3 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_Cons), ")
-		      (emit-constant (first x))
-		      (emits ", ")
-		      (emit-constant (rest x))
-                      (emits ", ")
-		      (emits "value_nil")
-		      (emits ")")))
+  (let [first-name (emit-constant (first x))
+        rest-name (emit-constant (rest x))]
+    (emit-value-wrap :const-list nil
+                     (emit-meta-constant x
+                                         (emits "FUNCALL3 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_Cons), "
+                                                first-name ", " rest-name ", value_nil)")))))
 
 (defmethod emit-constant clojure.lang.Cons [x]
-  (emit-meta-constant x
-    (concat ["cljs.core.list("]
-            (comma-sep (map #(fn [] (emit-constant %)) x))
-            [")"])))
+  (FIXME-IMPLEMENT))
 
 (defn- persistent-vector-emit-seq [items]
-  (let [emit-conj
-        (fn emit-conj [xs]
-          (if (empty? xs)
-            (list "VAR_NAME (cljc_DOT_core_DOT_PersistentVector_SLASH_EMPTY)")
-            (lazy-seq
-             (concat ["FUNCALL2 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH__conj), "]
-                     (emit-conj (rest xs))
-                     [", " (first xs) ")"]))))]
+  (letfn [(emit-conj [xs]
+            (if (empty? xs)
+              (emits "VAR_NAME (cljc_DOT_core_DOT_PersistentVector_SLASH_EMPTY)")
+              (do
+                (emits "FUNCALL2 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH__conj), ")
+                (emit-conj (rest xs))
+                (emits ", " (first xs) ")"))))]
     (emit-conj (reverse items))))
 
 (defmethod emit-constant clojure.lang.IPersistentVector [x]
-  (emit-meta-constant x
-    (persistent-vector-emit-seq (map #(fn [] (emit-constant %)) x))))
+  (let [names (doall (map emit-constant x))]
+    (emit-value-wrap :const-vector nil
+                     (emit-meta-constant x
+                                         (persistent-vector-emit-seq names)))))
 
 (defmethod emit-constant clojure.lang.IPersistentMap [x]
-  (emit-meta-constant x
-    (concat ["cljs.core.hash_map("]
-            (comma-sep (map #(fn [] (emit-constant %))
-                            (apply concat x)))
-            [")"])))
+  (FIXME-IMPLEMENT))
 
 (defmethod emit-constant clojure.lang.PersistentHashSet [x]
-  (emit-meta-constant x
-    (concat ["cljs.core.set(["]
-            (comma-sep (map #(fn [] (emit-constant %)) x))
-            ["])"])))
-
-(defmacro emit-wrap [env & body]
-  `(let [env# ~env]
-     (when (= :return (:context env#)) (emits "return "))
-     ~@body
-     (when-not (= :expr (:context env#)) (emitln ";"))))
+  (FIXME-IMPLEMENT))
 
 (defmacro emit-declaration [& body]
   `(swap! declarations conj (with-out-str ~@body)))
 
 (defn emit-block
-  [context statements ret]
-  (let [ret-context (:context (:env ret))]
-    (if (or (and statements (not (= :statement context)))
-            (not (= context ret-context)))
-      (let [fn-name (munge (gensym :block))]
-        (emit-wrap {:context context}
-                   (emits "(" fn-name " (env))"))
-        (emit-declaration
-         (emitln "static value_t* " fn-name " (environment_t *env) {")
-         (when statements
-           (emits statements))
-         (emit ret)
-         (emitln "}")))
-      (do
-        (when statements
-          (emits statements))
-        (emit ret)))))
+  [statements ret]
+  (when statements
+    (emits statements))
+  (emit ret))
 
 (defmethod emit :no-op
-  [m] (emits ";"))
+  [m] (emitln ";"))
 
 (defn some-indexed [pred coll]
   (loop [coll coll
@@ -395,66 +383,41 @@
   (let [name (:name info)
 	field (:field info)
 	local (:local info)]
-    (emit-wrap env
-	       (cond
-		local (let [[num-ups index] (env-stack-lookup name)]
-			(assert (and num-ups index))
-			(emits "/* " name " */ env_fetch (env, " num-ups ", " index ")"))
-		field (do
-			(assert *gthis-ups*)
-			(emits "/* " name " */ DEFTYPE_GET_FIELD (env_fetch (env, " *gthis-ups* ", 0), " (:index info) ")"))
-		:else (emits "VAR_NAME (" name ")")))))
+    (emit-value-wrap name env
+                     (cond
+                      local (let [[num-ups index] (env-stack-lookup name)]
+                              (assert (and num-ups index))
+                              (emits "env_fetch (env, " num-ups ", " index ")"))
+                      field (do
+                              (assert *gthis-ups*)
+                              (emits "DEFTYPE_GET_FIELD (env_fetch (env, " *gthis-ups* ", 0), " (:index info) ")"))
+                      :else (emits "VAR_NAME (" name ")")))))
 
 (defmethod emit :meta
   [{:keys [expr meta env]}]
-  (emit-wrap env
-    (emits "cljs.core.with_meta(" expr "," meta ")")))
+  (FIXME-IMPLEMENT))
 
 (def ^:private array-map-threshold 16)
 (def ^:private obj-map-threshold 32)
 
 (defmethod emit :map
   [{:keys [env simple-keys? keys vals]}]
-  (emit-wrap env
-    (cond
-      (and simple-keys? (<= (count keys) obj-map-threshold))
-      (emits "cljs.core.ObjMap.fromObject(["
-             (comma-sep keys) ; keys
-             "],{"
-             (comma-sep (map (fn [k v]
-                               (with-out-str (emit k) (print ":") (emit v)))
-                             keys vals)) ; js obj
-             "})")
-
-      (<= (count keys) array-map-threshold)
-      (emits "cljs.core.PersistentArrayMap.fromArrays(["
-             (comma-sep keys)
-             "],["
-             (comma-sep vals)
-             "])")
-
-      :else
-      (emits "cljs.core.PersistentHashMap.fromArrays(["
-             (comma-sep keys)
-             "],["
-             (comma-sep vals)
-             "])"))))
+  (FIXME-IMPLEMENT))
 
 (defmethod emit :vector
   [{:keys [items env]}]
-  (emit-wrap env
-    (emits (persistent-vector-emit-seq items))))
+  (let [item-names (doall (map emit items))]
+    (emit-value-wrap :vector env
+                     (emits (persistent-vector-emit-seq item-names)))))
 
 (defmethod emit :set
   [{:keys [items env]}]
-  (emit-wrap env
-    (emits "cljs.core.set(["
-           (comma-sep items) "])")))
+  (FIXME-IMPLEMENT))
 
 (defmethod emit :constant
   [{:keys [form env]}]
   (when-not (= :statement (:context env))
-    (emit-wrap env (emit-constant form))))
+    (emit-constant form)))
 
 (defn get-tag [e]
   (or (-> e :tag)
@@ -485,21 +448,27 @@
 
 (defmethod emit :if
   [{:keys [test then else env]}]
-  (let [context (:context env)]
-    (if (= :expr context)
-      (emits "(truth (" test ") ? " then " : " else ")")
-      (do
-        (emitln "if (truth (" test ")) {")
-        (emitln then)
-        (emitln "} else {")
-        (emitln else)
-        (emitln "}")))))
+  (let [name (munge (gensym :if))
+        test-name (emit test)]
+    (assert (not (nil? test-name)))
+    ;; this variable might remain unused
+    (emitln "value_t *" name " = value_nil;")
+    (emitln "if (truth (" test-name ")) {")
+    (let [then-name (emit then)]
+      (when then-name
+        (emitln name " = " then-name ";")))
+    (emitln "} else {")
+    (let [else-name (emit else)]
+      (when else-name
+        (emitln name " = " else-name ";")))
+    (emitln "}")
+    name))
 
 (defmethod emit :throw
   [{:keys [throw env]}]
-  (emits "throw_exception (" throw ")")
-  (when-not (= :expr (:context env))
-    (emitln ";")))
+  (let [throw-name (emit throw)]
+    (emitln "throw_exception (" throw-name ");"))
+  "value_nil")
 
 (defn emit-comment
   "Emit a nicely formatted comment string."
@@ -518,72 +487,38 @@
 
 (defmethod emit :def
   [{:keys [name init env]}]
-  (if init
-    (do
-      (emit-declaration
-       (emitln "static value_t *VAR_NAME (" name ") = VALUE_NONE;"))
-      (let [expr (= :expr (:context env))]
-        (when expr
-          (emits "("))
-        (emits "VAR_NAME (" name ") = " init)
-        (if expr
-            (emits ")")
-            (emitln ";"))))
-    (do
-      (emit-declaration
-       (emitln "static value_t *VAR_NAME (" name ");"))
-      (emitln ";"))))
+  (emit-declaration
+   ;; FIXME: This should really init to VALUE_NONE, but we have
+   ;; defining inits in preamble.c for apply and print, which would
+   ;; conflict with core.cljc.  It's probably better to make them
+   ;; non-defining.
+   (emitln "static value_t *VAR_NAME (" name ");"))
+  (when init
+    (let [init-name (emit init)]
+      (emitln "VAR_NAME (" name ") = " init-name ";")
+      init-name)))
 
-(comment
-(defmethod emit :def
-  [{:keys [name init env doc export]}]
-  (if init
+(defn- emit-val-init [vi]
+  (if (string? vi)
+    vi
     (do
-      (emit-comment doc (:jsdoc init))
-      (emits name)
-      (emits " = " init)
-      (when-not (= :expr (:context env)) (emitln ";"))
-      (when export
-        (emitln "goog.exportSymbol('" export "', " name ");")))
-    (emitln "void 0;")))
-)
-
-(defn emit-apply-to
-  [{:keys [name params env]}]
-  (let [arglist (gensym "arglist__")
-        delegate-name (str name "__delegate")]
-    (emitln "(function (" arglist "){")
-    (doseq [[i param] (map-indexed vector (butlast params))]
-      (emits "var " param " = cljs.core.first(")
-      (dotimes [_ i] (emits "cljs.core.next("))
-      (emits arglist ")")
-      (dotimes [_ i] (emits ")"))
-      (emitln ";"))
-    (if (< 1 (count params))
-      (do
-        (emits "var " (last params) " = cljs.core.rest(")
-        (dotimes [_ (- (count params) 2)] (emits "cljs.core.next("))
-        (emits arglist)
-        (dotimes [_ (- (count params) 2)] (emits ")"))
-        (emitln ");")
-        (emitln "return " delegate-name "(" (string/join ", " params) ");"))
-      (do
-        (emits "var " (last params) " = ")
-        (emits "cljs.core.seq(" arglist ");")
-        (emitln ";")
-        (emitln "return " delegate-name "(" (string/join ", " params) ");")))
-    (emits "})")))
+      (assert (contains? vi :op))
+      (emit vi))))
 
 (defn emit-in-new-env [bindings variadic reset-gthis-ups val-inits num-non-args rest-val-init emitter]
   (if (seq bindings)
     (let [num-vals (count bindings)
 	  num-direct-vals (if variadic
 			    (dec num-vals)
-			    num-vals)]
+			    num-vals)
+          result-name (munge (gensym :new-env))]
       (binding [*env-stack* (cons bindings *env-stack*)
 		*gthis-ups* (if reset-gthis-ups
 			      0
 			      (and *gthis-ups* (inc *gthis-ups*)))]
+        ;; this variable might remain unused
+        (emitln "value_t *" result-name ";")
+        (emitln "{")
 	(emitln "environment_t *new_env = alloc_env (env, " num-vals ");")
 	(emitln "{")
 	(when rest-val-init
@@ -595,8 +530,8 @@
 	  (when (seq indexes)
 	    (let [index (first indexes)]
 	      (if (seq val-inits)
-		(do
-		  (emitln "env_set (new_env, " index ", " (first val-inits) ");")
+		(let [val-init-name (emit-val-init (first val-inits))]
+		  (emitln "env_set (new_env, " index ", " val-init-name ");")
 		  (recur (rest indexes) (rest val-inits)))
 		(do
 		  (emitln "env_set (new_env, " index ", rest [rest_index++]);")
@@ -612,20 +547,27 @@
 	    (assert rest-val-init)
 	    (emitln "switch (nargs) {")
 	    (loop [val-inits (drop num-direct-vals val-inits)]
-	      (emitln "case " (- (+ num-direct-vals (count val-inits)) num-non-args) ":")
-	      (emits "env_set (new_env, " num-direct-vals ", ")
-	      (emit-cons-inits val-inits "ARG_NIL")
-	      (emitln "); break;")
-	      (when (seq val-inits)
-		(recur (drop-last val-inits))))
+              (let [val-init-names (doall (map emit-val-init val-inits))]
+                (emitln "case " (- (+ num-direct-vals (count val-inits)) num-non-args) ":")
+                (emits "env_set (new_env, " num-direct-vals ", ")
+                (emit-cons-inits val-init-names "ARG_NIL")
+                (emitln "); break;")
+                (when (seq val-inits)
+                  (recur (drop-last val-inits)))))
 	    (emitln "default:")
-	    (emitln "env_set (new_env, " num-direct-vals ", ")
-	    (emit-cons-inits (drop num-direct-vals val-inits)
-                             (str "make_array_from (nargs - rest_index - " (- (count val-inits) num-non-args) ", rest + rest_index)"))
-	    (emitln "); break;")
-	    (emitln "}")))
-	(emitter)
-	(emitln "}")))
+            (let [val-init-names (doall (map emit-val-init (drop num-direct-vals val-inits)))]
+              (emitln "env_set (new_env, " num-direct-vals ", ")
+              (emit-cons-inits val-init-names
+                               (str "make_array_from (nargs - rest_index - " (- (count val-inits) num-non-args) ", rest + rest_index)"))
+              (emitln "); break;"))
+            (emitln "}")))
+        (let [emitted-name (emitter)]
+          (when emitted-name
+            (emitln result-name " = " emitted-name ";"))
+          (emitln "}")
+          (emitln "}")
+          (when emitted-name
+            result-name))))
     (emitter)))
 
 (defmacro with-new-env [bindings & body]
@@ -649,23 +591,23 @@
 		   (if (or variadic (> (count params) 3))
 		     "argrest")
 		   (fn []
-		     (when recurs
-		       (emitln "while (1) {"))
-		     (emit-block :return statements ret)
-		     (when recurs
-		       (emitln "break;")
-		       (emitln "}")))))
+                     (let [result-name (munge (gensym :fn-method))]
+                       (when recurs
+                         (emitln "value_t *" result-name ";")
+                         (emitln "while (1) {"))
+                       (let [block-name (emit-block statements ret)]
+                         (if recurs
+                           (do
+                             (emitln result-name " = " block-name ";")
+                             (emitln "break;")
+                             (emitln "}")
+                             result-name)
+                           block-name))))))
 
 (defmethod emit :fn
   [{:keys [name env methods variadic]}]
   (when-not (= :statement (:context env))
-    (let [cname (gensym)
-          return (= :return (:context env))]
-      (when return
-        (emits "return "))
-      (emits "make_closure (FN_NAME (" cname "), env)")
-      (when return
-        (emitln ";"))
+    (let [cname (if name (gensym name) (gensym))]
       (emit-declaration
        (emitln "static value_t* FN_NAME (" cname ") (int nargs, closure_t *closure, value_t *arg0, value_t *arg1, value_t *arg2, value_t **argrest) {")
        (emitln "environment_t *env = closure->env;")
@@ -676,7 +618,8 @@
            (when-not variadic
              (emitln "assert (nargs == " (count (:params (first methods))) ");")
              (emitln "{"))
-           (emit-fn-method (first methods) variadic (when name [name "this_fn"]))
+           (let [result-name (emit-fn-method (first methods) variadic (when name [name "this_fn"]))]
+             (emitln "return " result-name ";"))
            (when-not variadic
              (emitln "}")))
          (do
@@ -685,138 +628,92 @@
              (if (:variadic meth)
                (emitln "default: {")
                (emitln "case " (count (:params meth)) ": {"))
-             (emit-fn-method meth (:variadic meth) (when name [name "this_fn"]))
+             (let [result-name (emit-fn-method meth (:variadic meth) (when name [name "this_fn"]))]
+               (emitln "return " result-name ";"))
              (emitln "}")
              (emitln "break;"))
            (when-not variadic
              (emitln "default: assert_not_reached ();"))
            (emitln "}")))
-       (emitln "}")))))
+       (emitln "}"))
+      (emit-value-wrap :fn env
+                       (emits "make_closure (FN_NAME (" cname "), env)")))))
 
 (defmethod emit :do
   [{:keys [statements ret env]}]
-  ;; FIXME: Just use emit-block for this.  Right now we cannot do this
-  ;; because we will sometimes emit a function where it isn't strictly
-  ;; necessary (when a throw is in a :return position, in which case
-  ;; it doesn't have a :return context).  That triggers the bug where
-  ;; a recur within an expr-function doesn't work.
-  (let [context (:context env)]
-    (if (and statements (= :expr context))
-      (let [fn-name (munge (gensym :do))]
-        (emit-wrap env
-                   (emits "(" fn-name " (env))"))
-        (emit-declaration
-         (emitln "static value_t* " fn-name " (environment_t *env) {")
-         (emits statements)
-         (emit ret)
-         (emitln "}")))
-      (do
-        (when statements
-          (emits statements))
-        (emit ret)))))
-
-(defn- emit-continue []
-  (emitln (if (and (seq *loop-try-nest*) (not (zero? (first *loop-try-nest*))))
-            "return VALUE_RECUR;"
-            "continue;")))
+  (emit-block statements ret))
 
 (defmethod emit :try*
   [{:keys [env try catch name finally]}]
-  (let [context (:context env)
-        subcontext (if (= :expr context) :return context)]
-    (if (or name finally)
-      (let [fn-name (munge (gensym :try))]
-        (if *loop-try-nest*
-          (do
-            (assert (not (= :expr context)))
-            (emitln "{")
-            (emitln "value_t *result = (" fn-name " (env));")
-            (emitln "if (result == VALUE_RECUR) {")
-            (emit-continue)
-            (emitln "}")
-            (emit-wrap env "result")
-            (emitln "}"))
-          (emit-wrap env
-                     (emits "(" fn-name " (env))")))
-        (binding [*loop-try-nest* (when *loop-try-nest*
-                                    (cons (inc (first *loop-try-nest*)) (rest *loop-try-nest*)))]
-          (emit-declaration
-           (emitln "static value_t* " fn-name " (environment_t *env) {")
-           (emitln "int setjmp_result;")
-           (emitln "value_t *result;")
-           (emitln "jmp_buf buf, *last_topmost = topmost_jmp_buf;")
-           (emitln "topmost_jmp_buf = &buf;")
-           (emitln "if (!(setjmp_result = _setjmp (buf))) {")
-           (emits "result = ")
-           (let [{:keys [statements ret]} try]
-             (emit-block :expr statements ret))
-           (emitln ";")
-           (emitln "topmost_jmp_buf = last_topmost;")
-           (emitln "} else {")
-           (when name
-             (emitln "if (!(setjmp_result = _setjmp (buf))) {")
-             (with-new-env [{:name name :init "get_exception ()"}]
-               (if catch
-                 (let [{:keys [statements ret]} catch]
-                   (emits "result = ")
-                   (emit-block :expr statements ret)
-                   (emitln ";"))
-                 (emitln "result = value_nil;")))
-             (emitln "}"))
-           (emitln "topmost_jmp_buf = last_topmost;")
-           (emitln "}")
-           (when finally
-             (let [{:keys [statements ret]} finally]
-               (assert (not= :constant (:op ret)) "finally block cannot contain constant")
-               (emit-block :statement statements ret)))
-           (emitln "if (setjmp_result) { rethrow_exception (); }")
-           (emitln "return result;")
-           (emitln "}"))))
-      (let [{:keys [statements ret]} try]
-        (emit {:op :do :statements statements :ret ret :env env})))))
+  (if (or name finally)
+    (let [fn-name (munge (gensym :try))]
+      (emit-declaration
+       (emitln "static value_t* " fn-name " (environment_t *env) {")
+       (emitln "int setjmp_result;")
+       ;; this variable might not be assigned to
+       (emitln "value_t *result = value_nil;")
+       (emitln "jmp_buf buf, *last_topmost = topmost_jmp_buf;")
+       (emitln "topmost_jmp_buf = &buf;")
+       (emitln "if (!(setjmp_result = _setjmp (buf))) {")
+       (let [result-name (emit-block (:statements try) (:ret try))]
+         (when result-name
+           (emitln "result = " result-name ";")))
+       (emitln "topmost_jmp_buf = last_topmost;")
+       (emitln "} else {")
+       (when name
+         (emitln "if (!(setjmp_result = _setjmp (buf))) {")
+         (with-new-env [{:name name :init "get_exception ()"}]
+           (if catch
+             (let [result-name (emit-block (:statements catch) (:ret catch))]
+               (emitln "result = " result-name ";"))
+             (emitln "result = value_nil;")))
+         (emitln "}"))
+       (emitln "topmost_jmp_buf = last_topmost;")
+       (emitln "}")
+       (when finally
+         (let [{:keys [statements ret]} finally]
+           (assert (not= :constant (:op ret)) "finally block cannot contain constant")
+           (emit-block statements ret)))
+       (emitln "if (setjmp_result) { rethrow_exception (); }")
+       (emitln "return result;")
+       (emitln "}"))
+      (emit-value-wrap :try env
+                       (emits fn-name " (env)")))
+    (emit-block (:statements try) (:ret try))))
 
 (defmethod emit :let
   [{:keys [bindings statements ret env loop]}]
-  (let [context (:context env)]
-    (binding [*loop-try-nest* (if loop
-                                (cons 0 *loop-try-nest*)
-                                *loop-try-nest*)]
-      (if (= :expr context)
-        (let [fn-name (munge (gensym :let-fn))]
-          (emits "assert_not_recur (" fn-name " (env))")
-          (emit-declaration
-           (emitln "static value_t* " fn-name " (environment_t *env) {")
-           (with-new-env bindings
-             (when loop
-               (emitln "for (;;) {"))
-             (emit-block :return statements ret)
-             (when loop
-               (emitln "break;")
-               (emitln "}")))
-           (emitln "}")))
-        (do
-          (emitln "{")
-          (with-new-env bindings
-            (when loop
-              (emitln "for (;;) {"))
-            (emit-block context statements ret)
-            (when loop
-              (emitln "break;")
-              (emitln "}")))
-          (emitln "}"))))))
+  (with-new-env bindings
+    (let [result-name (munge (gensym :let))]
+      ;; this variable might remain unused
+      (emitln "value_t *" result-name ";")
+      (emitln "{")
+      (when loop
+        (emitln "for (;;) {"))
+      (let [block-name (emit-block statements ret)]
+        (when block-name
+          (emitln result-name " = " block-name ";"))
+        (when loop
+          (emitln "break;")
+          (emitln "}"))
+        (emitln "}")
+        (when block-name
+          result-name)))))
 
 (defmethod emit :recur
   [{:keys [frame exprs env]}]
-  (let [temps (vec (take (count exprs) (repeatedly gensym)))
-        names (:names frame)]
-    (emitln "{")
-    (dotimes [i (count exprs)]
-      (emitln "value_t *" (temps i) " = " (exprs i) ";"))
-    (dotimes [i (count exprs)]
-      (let [[num-ups index] (env-stack-lookup (names i))]
-	(emitln "env_set (env_up (env, " num-ups "), " index ", " (temps i) ");")))
-    (emit-continue)
-    (emitln "}")))
+  ;; FIXME: Report recurs within try as errors.  We currently produce
+  ;; non-compiling C code for this.  We probably should catch this in
+  ;; the analyze phase.
+  (emitln "{")
+  (let [names (:names frame)
+        expr-names (doall (map emit exprs))]
+    (doseq [[name expr-name] (map vector names expr-names)]
+      (let [[num-ups index] (env-stack-lookup name)]
+	(emitln "env_set (env_up (env, " num-ups "), " index ", " expr-name ");")))
+    (emitln "continue;"))
+  (emitln "}")
+  nil)
 
 (defmethod emit :letfn
   [{:keys [bindings statements ret env]}]
@@ -841,77 +738,15 @@
 
 (defmethod emit :invoke
   [{:keys [f args env] :as expr}]
-  (let [arity (count args)]
-    (emit-wrap env
-               (emits "invoke")
-               (emits (if (< arity 3) arity "n"))
-               (emits " (" f)
-	       (emit-arglist args 2)
-	       (emits ")"))))
-
-(comment
-(defmethod emit :invoke
-  [{:keys [f args env] :as expr}]
-  (let [info (:info f)
-        fn? (and *cljs-static-fns*
-                 (not (:dynamic info))
-                 (:fn-var info))
-        opt-not? (and (= (:name-sym info) 'cljc.core/not)
-                      (= (infer-tag (first (:args expr))) 'boolean))
-        ns (:ns info)
-        js? (= ns 'js)
-        goog? (when ns
-                (or (= ns 'goog)
-                    (when-let [ns-str (str ns)]
-                      (= (get (string/split ns-str #"\.") 0 nil) "goog"))))
-        keyword? (and (= (-> f :op) :constant)
-                      (keyword? (-> f :form)))
-        [f variadic-invoke]
-        (if fn?
-          (let [arity (count args)
-                variadic? (:variadic info)
-                mps (:method-params info)
-                mfa (:max-fixed-arity info)]
-            (cond
-             ;; if only one method, no renaming needed
-             (and (not variadic?)
-                  (= (count mps) 1))
-             [f nil]
-
-             ;; direct dispatch to variadic case
-             (and variadic? (> arity mfa))
-             [(update-in f [:info :name]
-                             (fn [name] (symbol (str name ".cljs$lang$arity$variadic"))))
-              {:max-fixed-arity mfa}]
-
-             ;; direct dispatch to specific arity case
-             :else
-             (let [arities (map count mps)]
-               (if (some #{arity} arities)
-                 [(update-in f [:info :name]
-                             (fn [name] (symbol (str name ".cljs$lang$arity$" arity)))) nil]
-                 [f nil]))))
-          [f nil])]
-    (emit-wrap env
-      (cond
-       opt-not?
-       (emits "!(" (first args) ")")
-
-       keyword?
-       (emits "(new cljs.core.Keyword(" f ")).call(" (comma-sep (cons "null" args)) ")")
-       
-       variadic-invoke
-       (let [mfa (:max-fixed-arity variadic-invoke)]
-        (emits f "(" (comma-sep (take mfa args))
-               (when-not (zero? mfa) ",")
-               "cljs.core.array_seq([" (comma-sep (drop mfa args)) "], 0))"))
-       
-       (or fn? js? goog?)
-       (emits f "(" (comma-sep args)  ")")
-       
-       :else
-       (emits f ".call(" (comma-sep (cons "null" args)) ")")))))
-)
+  (let [arity (count args)
+        f-name (emit f)
+        arg-names (doall (map emit args))]
+    (emit-value-wrap :invoke env
+                     (emits "invoke")
+                     (emits (if (< arity 3) arity "n"))
+                     (emits " (" f-name)
+                     (emit-arglist arg-names 2)
+                     (emits ")"))))
 
 (defmethod emit :new
   [{:keys [ctor args env]}]
@@ -919,19 +754,28 @@
 
 (defmethod emit :set!
   [{:keys [target val env]}]
-  (let [info (:info target)]
-    (emit-wrap env
-               (cond
-                (:field info)
-                (emits "DEFTYPE_SET_FIELD (env_fetch (env, " *gthis-ups* ", 0), " (:index info) ", " val ")")
+  (let [info (:info target)
+        val-name (emit val)]
+    (cond
+     (:field info)
+     (emit-value-wrap :set! env
+                      (emits "DEFTYPE_SET_FIELD (env_fetch (env, " *gthis-ups* ", 0), " (:index info) ", " val-name ")"))
 
-                (= (:op target) :dot)
-                (do
-                  (assert (:field target))
-                  (emits "set_field (" (:target target) ", FIELD_NAME (" (:field target) "), " val ")"))
+     (= (:op target) :dot)
+     (let [target-name (emit (:target target))]
+       (assert (:field target))
+       (emit-value-wrap :set! env
+                        (emits "set_field (" target-name ", FIELD_NAME (" (:field target) "), " val-name ")")))
 
-                :else
-                (emits target " = " val)))))
+     (= (:op target) :var)
+     (let [name (:name info)]
+       (assert (and (nil? (:local info)) (nil? (:field info))))
+       (emit-value-wrap :set! env
+                        (emits "VAR_NAME (" name ") = " val-name)))
+
+     :else
+     ;; actually, this case probably shouldn't happen
+     (FIXME-IMPLEMENT))))
 
 (defmethod emit :ns
   [{:keys [name requires uses requires-macros env]}]
@@ -975,32 +819,7 @@
 
 (defmethod emit :defrecord*
   [{:keys [t fields pmasks]}]
-  (let [fields (concat (map munge fields) '[__meta __extmap])]
-    (emitln "")
-    (emitln "/**")
-    (emitln "* @constructor")
-    (doseq [fld fields]
-      (emitln "* @param {*} " fld))
-    (emitln "* @param {*=} __meta ")
-    (emitln "* @param {*=} __extmap")
-    (emitln "*/")
-    (emitln t " = (function (" (comma-sep (map str fields)) "){")
-    (doseq [fld fields]
-      (emitln "this." fld " = " fld ";"))
-    (doseq [[pno pmask] pmasks]
-      (emitln "this.cljs$lang$protocol_mask$partition" pno "$ = " pmask ";"))
-    (emitln "if(arguments.length>" (- (count fields) 2) "){")
-    (emitln "this.__meta = __meta;")
-    (emitln "this.__extmap = __extmap;")
-    (emitln "} else {")
-    (emits "this.__meta=")
-    (emit-constant nil)
-    (emitln ";")
-    (emits "this.__extmap=")
-    (emit-constant nil)
-    (emitln ";")
-    (emitln "}")
-    (emitln "})")))
+  (FIXME-IMPLEMENT))
 
 (defn lookup-protocol [method]
   (some (fn [[ns protocols]]
@@ -1012,36 +831,48 @@
 
 (defmethod emit :dot
   [{:keys [target field method args form env]}]
-  (emit-wrap env
-	     (if field
-	       (emits "get_field (" target ", FIELD_NAME (" field "))")
-	       (let [protocol (lookup-protocol method)
-		     arity (count args)]
-		 (assert protocol (str "No protocol found for method " method " in " form))
-		 (emits "protcall" (if (< arity 3) arity "n") " (" target ", PROTOCOL_NAME (" (str protocol) "), MEMBER_NAME (" (str (munge method)) ")")
-		 (emit-arglist args 2)
-		 (emits ")")))))
+  (let [target-name (emit target)]
+    (if field
+      (emit-value-wrap :dot env
+                       (emits "get_field (" target-name ", FIELD_NAME (" field "))"))
+      (let [protocol (lookup-protocol method)
+            arity (count args)
+            arg-names (doall (map emit args))]
+        (assert protocol (str "No protocol found for method " method " in " form))
+        (emit-value-wrap :dot env
+                         (emits "protcall" (if (< arity 3) arity "n") " (" target-name ", PROTOCOL_NAME (" (str protocol) "), MEMBER_NAME (" (str (munge method)) ")")
+                         (emit-arglist arg-names 2)
+                         (emits ")"))))))
 
 (defmulti emit-c-arg (fn [type env arg] type))
 (defmethod emit-c-arg :expr [_ env arg]
-  (emits arg))
+  (emit arg))
 (defmethod emit-c-arg :str [_ env arg]
-  (emits (str arg)))
+  (str arg))
 (defmethod emit-c-arg :sym [_ env arg]
-  (emits (munge (:name (resolve-var (dissoc env :locals) arg)))))
+  (munge (:name (resolve-var (dissoc env :locals) arg))))
 
 (defmethod emit :c
   [{:keys [env code segs args]}]
-  (emit-wrap env
-             (if code
-               (emits code)
-	       (loop [segs segs
-		      args args]
-		 (emits (first segs))
-		 (when (seq args)
-		   (emit-c-arg (second segs) env (first args))
-		   (recur (rest (rest segs))
-			  (rest args)))))))
+  (if code
+    (emit-value-wrap :c env
+                     (emits code))
+    (let [arg-names (loop [segs segs
+                           args args
+                           arg-names []]
+                      (if (seq args)
+                        (recur (rest (rest segs))
+                               (rest args)
+                               (conj arg-names (emit-c-arg (second segs) env (first args))))
+                        arg-names))]
+      (emit-value-wrap :c env
+                       (loop [segs segs
+                              arg-names arg-names]
+                         (emits (first segs))
+                         (when (seq arg-names)
+                           (emits (first arg-names))
+                           (recur (rest (rest segs))
+                                  (rest arg-names))))))))
 
 (declare analyze analyze-symbol analyze-seq)
 
