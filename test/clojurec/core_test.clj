@@ -270,6 +270,12 @@
                           (identical? :a :b)
                           (identical? :a 'a))
            [true false true false false]))
+    (is (= (core-run-and-print (= 'a 'a)
+                               (= 'a 'b)
+                               (= :a :a)
+                               (= :a :b)
+                               (= :a 'a))
+           [true false true false false]))
     (is (= (core-run-and-print (symbol? 'a)
                                (symbol? :a)
                                (symbol? "a")
@@ -460,20 +466,25 @@
   (testing "printing"
     (is (= (core-run '(string-print "abc"))
            ['abc]))
-    (is (= (core-run '(pr true false))
-           [true false]))
-    (is (= (core-run '(pr -1 0 1))
-           [-1 0 1]))
-    (is (= (core-run '(pr "a" "b"))
-           ['a 'b]))
-    (is (= (core-run '(pr \a \b))
-           [\a \b]))
-    (is (= (core-run '(pr '(1 2 3)))
-           ['(1 2 3)]))
-    (is (= (core-run '(pr (make-array 2)))
-           [[nil nil]]))
-    (is (= (core-run '(pr (set (list 1 2 3))))
-           [#{1 2 3}]))))
+    (is (= (core-run '(do
+                        (pr true false) (pr " ")
+                        (pr -1 0 1) (pr " ")
+                        (pr "a" "b") (pr " ")
+                        (pr :a :b) (pr " ")
+                        (pr 'a 'b) (pr " ")
+                        (pr \a \b) (pr " ")
+                        (pr '(1 2 3)) (pr " ")
+                        (pr (make-array 2)) (pr " ")
+                        (pr (set (list 1 2 3)))))
+           [true false
+            -1 0 1
+            'a 'b
+            :a :b
+            'a 'b
+            \a \b
+            '(1 2 3)
+            [nil nil]
+            #{1 2 3}]))))
 
 (deftest equality
   (testing "equality"
@@ -510,8 +521,10 @@
 			       (hash false)
 			       (hash true)
 			       (hash 0)
-			       (hash ""))
-	   [97 2354 0 0 0 1 0 0]))))
+			       (hash "")
+                               (hash :a)
+                               (hash 'a))
+           [97 2354 0 0 0 1 0 0 4093931314 4093931313]))))
 
 (deftest sets
   (testing "sets"

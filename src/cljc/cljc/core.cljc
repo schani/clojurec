@@ -488,6 +488,32 @@ reduces them without incurring seq initialization"
   (-pr-seq [s opts]
     (list s)))
 
+(extend-type Keyword
+  IEquiv
+  (-equiv [k o]
+    (identical? k o))
+
+  IHash
+  (-hash [k]
+    (c* "make_integer (string_hash_code (keyword_get_utf8 (~{})) + 2)" k))
+
+  IPrintable
+  (-pr-seq [k opts]
+    (list (str k))))
+
+(extend-type Symbol
+  IEquiv
+  (-equiv [s o]
+    (identical? s o))
+
+  IHash
+  (-hash [s]
+    (c* "make_integer (string_hash_code (symbol_get_utf8 (~{})) + 1)" s))
+
+  IPrintable
+  (-pr-seq [s opts]
+    (list (str s))))
+
 (defn seq
   "Returns a seq on the collection. If the collection is
   empty, returns nil.  (seq nil) returns nil. seq also works on
