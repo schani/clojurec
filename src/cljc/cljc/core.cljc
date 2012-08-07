@@ -230,7 +230,7 @@
   IPrintable
   (-pr-seq [coll opts] (list "()")))
 
-(set! cljc.core.List/EMPTY (cljc.core/EmptyList))
+(set! cljc.core.List/EMPTY (cljc.core/EmptyList.))
 
 ;;;;;;;;;;;;;;;;;;; fundamentals ;;;;;;;;;;;;;;;
 (defn ^boolean identical?
