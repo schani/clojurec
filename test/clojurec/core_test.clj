@@ -405,7 +405,22 @@
            [13 0 10]))
     (is (= (core-run '(print (-count nil))) [0]))
     (is (= (core-run '(pr (filter #(> % 3) (list 1 2 3 4 5))))
-           ['(4 5)]))))
+           ['(4 5)]))
+    (is (= (core-run '(do
+                        (pr "\"")
+                        (pr (str \a))
+                        (pr " ")
+                        (pr (str 'abc))
+                        (pr " ")
+                        (pr (str :abc))
+                        (pr " ")
+                        (pr (str :abc 'def \g "hi"))
+                        (pr "\"")))
+           ["a abc :abc :abcdefghi"]))
+    (is (= (core-run '(assert true))
+           []))
+    (is (= (core-run '(assert false))
+           :run-error))))
 
 (deftest arrays
   (testing "arrays"

@@ -175,7 +175,7 @@
 (defprotocol IChunkedNext
   (-chunked-next [coll]))
 
-(declare pr-sequential pr-seq list hash-coll cons inc equiv-sequential)
+(declare pr-sequential pr-seq list hash-coll cons inc equiv-sequential str)
 
 (deftype Cons [first rest ^:mutable __hash]
   ASeq
@@ -1204,8 +1204,39 @@ reduces them without incurring seq initialization"
   (*print-fn* x)
   nil)
 
-(defn str [& xs]
-  "?")
+(defn str
+  "With no args, returns the empty string. With one arg x, returns
+  x.toString().  (str nil) returns the empty string. With more than
+  one arg, returns the concatenation of the str values of the args."
+  ([] "")
+  ([x] (cond
+        (string? x) x
+        (symbol? x) (c* "make_string ((gchar*)symbol_get_utf8 (~{}))" x)
+        (keyword? x) (str ":" (c* "make_string ((gchar*)keyword_get_utf8 (~{}))" x))
+        (char? x) (c* "make_string_from_unichar (character_get (~{}))" x)
+        (nil? x) ""
+        :else (error "FIXME: not implemented yet")))
+  ([& xs]
+     (loop [xs (seq xs)
+            rstrings ()
+            bytes 0]
+       (if xs
+         (let [s (str (first xs))
+               b (c* "make_integer (strlen (string_get_utf8 (~{})))" s)]
+           (recur (next xs)
+                  (cons [s b] rstrings)
+                  (+ bytes b)))
+         (let [sb (c* "make_string_with_size (integer_get (~{}))" bytes)]
+           (loop [ss (reverse rstrings)
+                  i 0]
+             (if ss
+               (let [[s b] (first ss)]
+                 (c* "memcpy (string_get_utf8 (~{}) + integer_get (~{}), string_get_utf8 (~{}), integer_get (~{}))" sb i s b)
+                 (recur (next ss) (+ i b)))
+               (do
+                 (assert (= i bytes))
+                 (c* "string_get_utf8 (~{}) [integer_get (~{})] = '\\0'" sb i)
+                 sb))))))))
 
 (defn- pr-seq [obj opts]
   (if (satisfies? IPrintable obj)

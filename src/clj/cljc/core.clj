@@ -353,6 +353,19 @@
         ~@body
         ~@fin))))
 
+(defmacro assert
+  "Evaluates expr and throws an exception if it does not evaluate to
+  logical true."
+  ([x]
+     (when *assert*
+       `(when-not ~x
+          (throw (cljc.core/Exception. "Assert failed")))))
+  ([x message]
+     (when *assert*
+       `(when-not ~x
+          (throw (cljc.core/Exception.
+                  (cljc.core/str "Assert failed: " ~message)))))))
+
 (defmacro doseq
   "Repeatedly executes body (presumably for side-effects) with
   bindings and filtering as provided by \"for\".  Does not retain

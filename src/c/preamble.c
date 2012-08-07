@@ -74,7 +74,7 @@ typedef struct {
 
 typedef struct {
 	value_t val;
-	const gchar *utf8;
+	gchar *utf8;
 } string_t;
 
 typedef struct {
@@ -491,7 +491,7 @@ character_get (value_t *v)
 }
 
 static value_t*
-make_string (const gchar *utf8)
+make_string (gchar *utf8)
 {
 	string_t *s = (string_t*) alloc_value (PTABLE_NAME (cljc_DOT_core_SLASH_String), sizeof (string_t));
 	s->utf8 = utf8;
@@ -509,6 +509,14 @@ make_string_from_unichar (gunichar c)
 }
 
 static value_t*
+make_string_with_size (long bytes)
+{
+	gchar *buf = GC_malloc (bytes + 1);
+	buf [0] = '\0';
+	return make_string (buf);
+}
+
+static value_t*
 make_string_copy_free (gchar *utf8)
 {
 	size_t len = strlen (utf8);
@@ -520,7 +528,7 @@ make_string_copy_free (gchar *utf8)
 	return &s->val;
 }
 
-static const gchar*
+static gchar*
 string_get_utf8 (value_t *v)
 {
 	string_t *s = (string_t*)v;
