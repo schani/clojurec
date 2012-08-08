@@ -10,6 +10,15 @@ Additional documentation for the project can be found at [the wiki](https://gith
 
 ## Preparations
 
+### Submodules
+
+ClojureC includes a submodule.  To fetch it, do
+
+    git submodule init
+    git submodule update
+
+### Dependencies
+
 Before you can run anything make sure you have [GLib 2](http://developer.gnome.org/glib/) and the [Boehm-Demers-Weiser garbage collector](http://www.hpl.hp.com/personal/Hans_Boehm/gc/) installed.  If
 
     pkg-config --cflags glib-2.0
