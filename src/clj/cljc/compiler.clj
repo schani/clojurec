@@ -1597,6 +1597,15 @@
         (set? form) (analyze-set env form name)
         :else {:op :constant :env env :form form}))))
 
+(defn forms-seq
+  "Seq of forms in a Clojure or ClojureScript file."
+  ([f]
+     (forms-seq f (clojure.lang.LineNumberingPushbackReader. (io/reader f))))
+  ([f ^java.io.PushbackReader rdr]
+     (if-let [form (read rdr nil nil)]
+       (lazy-seq (cons form (forms-seq f rdr)))
+       (.close rdr))))
+
 (defn analyze-files
   ([files others]
      (letfn [(an [form]
@@ -1611,15 +1620,12 @@
                           res (if (= \/ (first f)) f (io/resource f))]
                       (assert res (str "Can't find " f " in classpath"))
                       (binding [*cljs-file* (.getPath ^java.net.URL res)]
-                        (with-open [r (io/reader res)]
-                          (let [pbr (clojure.lang.LineNumberingPushbackReader. r)
-                                eof (Object.)]
-                            (loop [asts asts
-                                   r (read pbr false eof false)]
-                              (if (identical? eof r)
-                                asts
-                                (recur (conj asts (an r))
-                                       (read pbr false eof false))))))))
+                        (loop [asts asts
+                               forms (forms-seq res)]
+                          (if (seq forms)
+                            (recur (conj asts (an (first forms)))
+                                   (rest forms))
+                            asts))))
                     (rest files)
                     others)
              (if (seq others)
@@ -1629,15 +1635,6 @@
                asts))))))
   ([files]
      (analyze-files files nil)))
-
-(defn forms-seq
-  "Seq of forms in a Clojure or ClojureScript file."
-  ([f]
-     (forms-seq f (clojure.lang.LineNumberingPushbackReader. (io/reader f))))
-  ([f ^java.io.PushbackReader rdr]
-     (if-let [form (read rdr nil nil)]
-       (lazy-seq (cons form (forms-seq f rdr)))
-       (.close rdr))))
 
 (defn rename-to-js
   "Change the file extension from .cljs to .js. Takes a File or a
