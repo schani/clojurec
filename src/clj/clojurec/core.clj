@@ -12,9 +12,9 @@
 (defn analyze [ns-name with-core expr]
   (cljc/reset-namespaces!)
   (if with-core
-    (cljc/analyze-file "cljc/core.cljc"
-                       (list (list 'ns ns-name)
-                             expr))
+    (cljc/analyze-files ["cljc/core.cljc"]
+                        (list (list 'ns ns-name)
+                              expr))
     (let [ns (if-let [ns (@cljc/namespaces ns-name)]
                ns
                {:name ns-name})

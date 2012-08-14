@@ -1229,14 +1229,14 @@
 (defn ns->relpath [s]
   (str (string/replace (munge s) \. \/) ".cljs"))
 
-(declare analyze-file)
+(declare analyze-files)
 
 (defn analyze-deps [deps]
   (doseq [dep deps]
     (when-not (:defs (@namespaces dep))
       (let [relpath (ns->relpath dep)]
         (when (io/resource relpath)
-          (analyze-file relpath))))))
+          (analyze-files [relpath]))))))
 
 (defmethod parse 'ns
   [_ env [_ name & args :as form] _]
@@ -1597,31 +1597,38 @@
         (set? form) (analyze-set env form name)
         :else {:op :constant :env env :form form}))))
 
-(defn analyze-file
-  ([f others]
-     (let [res (if (= \/ (first f)) f (io/resource f))]
-       (assert res (str "Can't find " f " in classpath"))
-       (binding [*cljs-ns* 'cljs.user
-                 *cljs-file* (.getPath ^java.net.URL res)]
-         (with-open [r (io/reader res)]
-           (let [env {:ns (@namespaces *cljs-ns*) :context :statement :locals {}}
-                 pbr (clojure.lang.LineNumberingPushbackReader. r)
-                 eof (Object.)]
-             (loop [asts []
-                    r (read pbr false eof false)
-                    others others]
-               (let [env (assoc env :ns (@namespaces *cljs-ns*))]
-                 (if (identical? eof r)
-                   (if (seq others)
-                     (recur (conj asts (analyze env (first others)))
-                            eof
-                            (rest others))
-                     asts)
-                   (recur (conj asts (analyze env r))
-                          (read pbr false eof false)
-                          others)))))))))
-  ([f]
-     (analyze-file f nil)))
+(defn analyze-files
+  ([files others]
+     (letfn [(an [form]
+               (analyze {:ns (@namespaces *cljs-ns*) :context :statement :locals {}}
+                        form))]
+       (binding [*cljs-ns* 'cljc.user]
+         (loop [asts []
+                files files
+                others others]
+           (if (seq files)
+             (recur (let [f (first files)
+                          res (if (= \/ (first f)) f (io/resource f))]
+                      (assert res (str "Can't find " f " in classpath"))
+                      (binding [*cljs-file* (.getPath ^java.net.URL res)]
+                        (with-open [r (io/reader res)]
+                          (let [pbr (clojure.lang.LineNumberingPushbackReader. r)
+                                eof (Object.)]
+                            (loop [asts asts
+                                   r (read pbr false eof false)]
+                              (if (identical? eof r)
+                                asts
+                                (recur (conj asts (an r))
+                                       (read pbr false eof false))))))))
+                    (rest files)
+                    others)
+             (if (seq others)
+               (recur (conj asts (an (first others)))
+                      nil
+                      (rest others))
+               asts))))))
+  ([files]
+     (analyze-files files nil)))
 
 (defn forms-seq
   "Seq of forms in a Clojure or ClojureScript file."
