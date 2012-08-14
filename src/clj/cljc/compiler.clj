@@ -342,6 +342,17 @@
                      (emit-meta-constant x
                                          (persistent-vector-emit-seq names)))))
 
+(defn- persistent-hash-map-emit-kv-pairs [keys vals]
+  (letfn [(emit-assoc [keys vals]
+            (if (empty? keys)
+              (emits "VAR_NAME (cljc_DOT_core_DOT_PersistentHashMap_SLASH_EMPTY)")
+              (do
+                (emits "FUNCALL3 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH__assoc), ")
+                (emit-assoc (next keys)(next vals))
+                (emits ", " (first keys))
+                (emits ", " (first vals) ")"))))]
+    (emit-assoc (reverse keys) (reverse vals))))
+
 (defmethod emit-constant clojure.lang.IPersistentMap [x]
   (FIXME-IMPLEMENT))
 
@@ -402,7 +413,10 @@
 
 (defmethod emit :map
   [{:keys [env simple-keys? keys vals]}]
-  (FIXME-IMPLEMENT))
+  (let [keys (doall (map emit keys))
+        vals (doall (map emit vals))]
+    (emit-value-wrap :map env
+                     (emits (persistent-hash-map-emit-kv-pairs keys vals)))))
 
 (defmethod emit :vector
   [{:keys [items env]}]
