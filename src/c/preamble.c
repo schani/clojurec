@@ -88,6 +88,11 @@ typedef struct {
 } keyword_t;
 
 typedef struct {
+    value_t val;
+    void *ptr;
+} raw_pointer_t;
+
+typedef struct {
 	int num;		/* the protocol number, or -1 for termination */
 	closure_t **vtable;
 } ptable_entry_t;
@@ -102,11 +107,6 @@ struct ptable {
 	field_access_fn_t field_access_fn;
 	ptable_entry_t *entries;
 };
-
-typedef struct {
-	value_t val;
-	closure_t **vtable;
-} vtable_value_t;
 
 #define FN_NAME(n)	FN_ ## n
 #define VAR_NAME(n)	VAR_ ## n
@@ -135,7 +135,8 @@ typedef struct {
 #define TYPE_String	8
 #define TYPE_Symbol	9
 #define TYPE_Keyword	10
-#define FIRST_TYPE	11
+#define TYPE_RawPointer	11
+#define FIRST_TYPE	12
 
 #define FIRST_FIELD	1
 
@@ -379,6 +380,7 @@ static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Character) = NULL;
 static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_String) = NULL;
 static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Symbol) = NULL;
 static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Keyword) = NULL;
+static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_RawPointer) = NULL;
 
 static value_t*
 make_integer (long x)
@@ -619,12 +621,22 @@ keyword_get_utf8 (value_t *v)
 }
 
 static value_t*
-make_vtable_value (closure_t **vtable)
+make_raw_pointer (void *ptr)
 {
-	vtable_value_t *val = (vtable_value_t*)alloc_value (NULL, sizeof (vtable_value_t));
-	val->vtable = vtable;
-	return &val->val;
+	raw_pointer_t *p = (raw_pointer_t*) alloc_value (PTABLE_NAME (cljc_DOT_core_SLASH_RawPointer), sizeof (raw_pointer_t));
+	p->ptr = ptr;
+	return &p->val;
 }
+
+static void*
+raw_pointer_get (value_t *v)
+{
+	raw_pointer_t *p = (raw_pointer_t*)v;
+	assert (v->ptable->type == TYPE_RawPointer);
+	return p->ptr;
+}
+
+#define RAW_POINTER_GET(v,type)	((type)raw_pointer_get ((v)))
 
 static value_t *value_true = NULL;
 static value_t *value_false = NULL;
@@ -877,6 +889,7 @@ cljc_init (void)
 	PTABLE_NAME (cljc_DOT_core_SLASH_String) = alloc_ptable (TYPE_String, NULL);
 	PTABLE_NAME (cljc_DOT_core_SLASH_Symbol) = alloc_ptable (TYPE_Symbol, NULL);
 	PTABLE_NAME (cljc_DOT_core_SLASH_Keyword) = alloc_ptable (TYPE_Keyword, NULL);
+	PTABLE_NAME (cljc_DOT_core_SLASH_RawPointer) = alloc_ptable (TYPE_RawPointer, NULL);
 
 	value_nil = alloc_value (PTABLE_NAME (cljc_DOT_core_SLASH_Nil), sizeof (value_t));
 

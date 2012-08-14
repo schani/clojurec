@@ -82,16 +82,16 @@
 	assign-impls (fn [[p sigs]]
 		       (let [[psym _] (resolve p)
 			     vtable (gensym "vtable")]
-			 `(let [~vtable (~'c* ~(core/str "make_vtable_value (alloc_vtable (PROTOCOL_VTABLE_SIZE (" psym ")))"))]
+			 `(let [~vtable (~'c* ~(core/str "make_raw_pointer (alloc_vtable (PROTOCOL_VTABLE_SIZE (" psym ")))"))]
 			    ~@(map (fn [[name & meths]]
                                      (let [meths (if (vector? (first meths))
                                                    (list meths)
                                                    meths)]
-                                       `(~'c* ~(core/str "set_vtable_entry (((vtable_value_t*)~{})->vtable, MEMBER_NAME (" (cljc.compiler/munge name) "), (closure_t*)~{})")
+                                       `(~'c* ~(core/str "set_vtable_entry (RAW_POINTER_GET (~{}, closure_t**), MEMBER_NAME (" (cljc.compiler/munge name) "), (closure_t*)~{})")
                                               ~vtable
                                               (fn ~@meths))))
                                    sigs)
-			    (~'c* ~(core/str "extend_ptable (PTABLE_NAME (" t "), PROTOCOL_NAME (" psym "), ((vtable_value_t*)~{})->vtable)") ~vtable))))]
+			    (~'c* ~(core/str "extend_ptable (PTABLE_NAME (" t "), PROTOCOL_NAME (" psym "), RAW_POINTER_GET (~{}, closure_t**))") ~vtable))))]
     (concat '(do) (map assign-impls impl-map))))
 
 (defmacro defprotocol [psym & doc+methods]
