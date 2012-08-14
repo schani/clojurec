@@ -56,11 +56,16 @@
 (defn compile-expr [ns-name with-core expr]
   (compile-asts (analyze ns-name with-core expr)))
 
-(defn run-code [code]
+(defn spit-code [out-file code]
   (let [user-dir (java.lang.System/getProperty "user.dir")
 	run-dir (io/file user-dir "run")
 	preamble (slurp (io/file user-dir "src" "c" "preamble.c"))]
-    (spit (io/file run-dir "cljc.c") (str preamble code))
+    (spit out-file (str preamble code))))
+
+(defn run-code [code]
+  (let [user-dir (java.lang.System/getProperty "user.dir")
+	run-dir (io/file user-dir "run")]
+    (spit-code (io/file run-dir "cljc.c") code)
 
     ;; iOS Specific
     (when (= :ios (:host *build-options*))
