@@ -306,6 +306,22 @@
   (list 'c* "make_integer (integer_get (~{}) | (1ul << integer_get (~{})))" x n))
 
 ;; internal
+(defmacro mask [hash shift]
+  (list 'c* "make_integer (((integer_get (~{}) >> integer_get (~{})) & 0x01f)) " hash shift))
+
+;; internal
+(defmacro bitpos [hash shift]
+  (list 'c* "make_integer ((1 << integer_get (~{})))" `(mask ~hash ~shift)))
+
+;;internal
+(defmacro bit-count [num]
+  (list 'c* "make_integer (__builtin_popcountll(integer_get (~{})))" num))
+
+;;internal
+(defmacro bit-index [bitmap bitpos]
+  (list 'c* "make_integer (__builtin_popcountll(integer_get (~{}) & (integer_get (~{}) - 1)))" bitmap bitpos))
+
+;; internal
 (defmacro caching-hash [coll hash-fn hash-key]
   `(let [h# ~hash-key]
      (if-not (nil? h#)
