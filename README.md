@@ -32,6 +32,33 @@ Make sure you're using [Leiningen 2](https://github.com/technomancy/leiningen/) 
 
 All tests should pass.
 
+## Using ClojureC
+
+Note that ClojureC is still in its experimental phase, so please don't expect a polish experience, yet.
+
+### From the command line
+
+ClojureC provides a very simple command line compiler interface.  Let's say you have the following in the file `/tmp/echo.cljc`:
+
+    (ns cljc.user)
+    (defn main [& args]
+      (doseq [arg args]
+        (pr arg "\n")))
+
+Then if you do the following in the `clojurec` directory
+
+    lein run /tmp/echo.cljc run/cljc.c cljc.user/main
+    cd run
+    make
+
+you should have a `cljc` executable in the `run` directory that acts a little like `echo`.
+
+### From the REPL
+
+The easiest way to play around with ClojureC interactively is in the namespace `clojurec.core-test`.  For example:
+
+    (core-run '(pr (+ 1 2)))
+    => [3]
 
 ## Mobile Platform Notes
 

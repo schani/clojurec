@@ -2,4 +2,5 @@
   :description "FIXME: write description"
   :url "http://example.com/FIXME"
   :dependencies [[org.clojure/clojure "1.4.0"]]
-  :source-paths ["src/clj" "src/cljc"])
+  :source-paths ["src/clj" "src/cljc"]
+  :main ^:skip-aot clojurec.core)

@@ -90,6 +90,12 @@
     (inspect-ast (last asts))
     (run-code (compile-asts asts))))
 
+(defn compile-file [src dest]
+  (cljc/reset-namespaces!)
+  (let [asts (cljc/analyze-files ["cljc/core.cljc" src])
+        code (compile-asts asts)]
+    (spit-code (io/file dest) code)))
+
 ;;(inspect-and-run-expr '(print 1))
 
 (comment
@@ -124,6 +130,10 @@
 )
 
 (defn -main
-  "I don't do a whole lot."
   [& args]
-  (println "Hello, World!"))
+  (if (= (count args) 3)
+    (let [[source dest main-name] args]
+      (binding [*build-options* (assoc default-build-options
+                                  :main-function-name (symbol main-name))]
+        (compile-file source dest)))
+    (println "Usage: cljc <source-file> <out-file> <main-fn-name>")))
