@@ -2682,3 +2682,100 @@ reduces them without incurring seq initialization"
     (TransientHashMap. (EditSentinel.) root cnt has-nil? nil-val)))
 
 (set! cljc.core.PersistentHashMap/EMPTY (PersistentHashMap. nil 0 nil false nil 0))
+
+(deftype TransientHashMap [^:mutable ^boolean edit
+                           ^:mutable root
+                           ^:mutable count
+                           ^:mutable ^boolean has-nil?
+                           ^:mutable nil-val]
+  ITransientCollection
+  (-conj! [tcoll o]
+    (if edit
+      (if (satisfies? IMapEntry o)
+        (-assoc! tcoll (-key o) (-val o))
+        (loop [es (seq o) tcoll tcoll]
+          (if-let [e (first es)]
+            (recur (next es)
+                   (-assoc! tcoll (-key e) (-val e)))
+            tcoll)))
+      (error "conj! after persistent")))
+
+  (-persistent! [tcoll]
+    (if edit
+      (do (set! edit nil)
+          (PersistentHashMap. nil count root has-nil? nil-val nil))
+      (error "persistent! called twice")))
+
+  ITransientAssociative
+  (-assoc! [tcoll k v]
+    (if edit
+      (if (nil? k)
+        (do (if (identical? nil-val v)
+              nil
+              (set! nil-val v))
+            (if has-nil?
+              nil
+              (do (set! count (inc count))
+                  (set! has-nil? true)))
+            tcoll)
+        (let [added-leaf? (Box. false)
+              node        (-> (if (nil? root)
+                                cljc.core.BitmapIndexedNode/EMPTY
+                                root)
+                              (-inode-assoc! edit 0 (hash k) k v added-leaf?))]
+          (if (identical? node root)
+            nil
+            (set! root node))
+          (if ^boolean (.-val added-leaf?)
+            (set! count (inc count)))
+          tcoll))
+      (error "assoc! after persistent!")))
+
+  ITransientHashMap
+  (-without! [tcoll k]
+    (if edit
+      (if (nil? k)
+        (if has-nil?
+          (do (set! has-nil? false)
+              (set! nil-val nil)
+              (set! count (dec count))
+              tcoll)
+          tcoll)
+        (if (nil? root)
+          tcoll
+          (let [removed-leaf? (Box. false)
+                node (-inode-without! root edit 0 (hash k) k removed-leaf?)]
+            (if (identical? node root)
+              nil
+              (set! root node))
+            (if (aget removed-leaf? 0)
+              (set! count (dec count)))
+            tcoll)))
+      (error "dissoc! after persistent!")))
+
+  ICounted
+  (-count [coll]
+    (if edit
+      count
+      (error "count after persistent!")))
+
+  ILookup
+  (-lookup [tcoll k]
+    (if (nil? k)
+      (if has-nil?
+        nil-val)
+      (if (nil? root)
+        nil
+        (-inode-lookup root 0 (hash k) k nil))))
+
+  (-lookup [tcoll k not-found]
+    (if (nil? k)
+      (if has-nil?
+        nil-val
+        not-found)
+      (if (nil? root)
+        not-found
+        (-inode-lookup root 0 (hash k) k not-found))))
+
+  ITransientMap
+  (-dissoc! [tcoll key] (-without! tcoll key)))
