@@ -30,14 +30,28 @@
 (defn compile-asts [asts]
   (let [main-code (with-out-str
 		    (doseq [ast asts]
-		      (cljc/emit ast)))]
+		      (cljc/emit ast)))
+        main-name (:main-function-name *build-options*)]
     (apply str
 	   (concat @cljc/declarations
-		   ["int MAIN_FUNCTION_NAME (void) {\n"
+		   ["int MAIN_FUNCTION_NAME ("
+                    (if main-name
+                      "int argc, char *argv[]"
+                      "void")
+                    ") {\n"
 		    "environment_t *env = NULL;\n"
 		    "cljc_init ();\n"
 		    main-code
-		    "return 0;\n}\n"]))))
+                    (if main-name
+                      (str "return integer_get (FUNCALL1 ((closure_t*)VAR_NAME ("
+                           (cljc/munge 'cljc.core/main-exit-value)
+                           "), cljc_core_apply (2, (closure_t*)VALUE_NONE, VAR_NAME ("
+                           (cljc/munge main-name)
+                           "), FUNCALL2 ((closure_t*)VAR_NAME ("
+                           (cljc/munge 'cljc.core/vector-from-c-string-array)
+                           "), make_integer (argc), make_raw_pointer (argv)), VALUE_NONE, NULL)));")
+                      "return 0;\n")
+                    "}\n"]))))
 
 (defn compile-expr [ns-name with-core expr]
   (compile-asts (analyze ns-name with-core expr)))
@@ -76,6 +90,15 @@
 (comment
   ;; default build options
   (run-expr 'my-test true '(do (cljc.core/print (+ 2 4))))
+
+  ;; simple echo command-line program
+  (binding [*build-options* (assoc default-build-options
+                              :main-function-name 'cljc.user/-main
+                              :with-makefile false)]
+    (run-expr 'cljc.user true '(defn -main [& args]
+                                 (doseq [arg args]
+                                   (pr arg)
+                                   (pr "\n")))))
 
   ;; for iOS build
   (binding [*build-options* (assoc default-build-options

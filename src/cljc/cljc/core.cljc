@@ -1912,3 +1912,22 @@ reduces them without incurring seq initialization"
   (persistent! (reduce conj! (-as-transient []) coll)))
 
 (defn vector [& args] (vec args))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; main function support ;;;;;;;;;;;;;;;;
+
+(defn vector-from-c-string-array [argc argv]
+  (loop [acc []
+         i 1]
+    (if (< i argc)
+      (let [arg (c* "make_string (RAW_POINTER_GET (~{}, gchar**) [integer_get (~{})])" argv i)]
+        (recur (conj acc arg)
+               (inc i)))
+      acc)))
+
+(defn main-exit-value [value]
+  (cond (integer? value)
+        value
+        (nil? value)
+        0
+        :else
+        1))
