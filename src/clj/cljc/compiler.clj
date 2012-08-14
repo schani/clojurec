@@ -1611,28 +1611,29 @@
      (letfn [(an [form]
                (analyze {:ns (@namespaces *cljs-ns*) :context :statement :locals {}}
                         form))]
-       (binding [*cljs-ns* 'cljc.user]
-         (loop [asts []
-                files files
-                others others]
-           (if (seq files)
-             (recur (let [f (first files)
-                          res (if (= \/ (first f)) f (io/resource f))]
-                      (assert res (str "Can't find " f " in classpath"))
-                      (binding [*cljs-file* (.getPath ^java.net.URL res)]
-                        (loop [asts asts
-                               forms (forms-seq res)]
-                          (if (seq forms)
-                            (recur (conj asts (an (first forms)))
-                                   (rest forms))
-                            asts))))
-                    (rest files)
-                    others)
-             (if (seq others)
-               (recur (conj asts (an (first others)))
-                      nil
-                      (rest others))
-               asts))))))
+       (loop [asts []
+              files files]
+         (if (seq files)
+           (recur (let [f (first files)
+                        res (if (= \/ (first f)) (.toURL (io/file f)) (io/resource f))]
+                    (assert res (str "Can't find " f " in classpath"))
+                    (binding [*cljs-ns* 'cljc.user
+                              *cljs-file* (.getPath ^java.net.URL res)]
+                      (loop [asts asts
+                             forms (forms-seq res)]
+                        (if (seq forms)
+                          (recur (conj asts (an (first forms)))
+                                 (rest forms))
+                          asts))))
+                  (rest files))
+           (binding [*cljs-ns* 'cljc.user
+                     *cljs-file* "NO-SOURCE"]
+             (loop [asts asts
+                    others others]
+               (if (seq others)
+                 (recur (conj asts (an (first others)))
+                        (rest others))
+                 asts)))))))
   ([files]
      (analyze-files files nil)))
 
