@@ -13,6 +13,11 @@
 
 (def EMPTY nil)
 
+(ns cljc.core.PersistentHashSet)
+
+(def EMPTY nil)
+(def fromArray nil)
+
 (ns cljc.core.List)
 
 (def EMPTY nil)
@@ -1001,6 +1006,15 @@ reduces them without incurring seq initialization"
                (next s)))
       h)))
 
+(defn- hash-iset [s]
+  ;; a la clojure.lang.APersistentSet
+  (loop [h 0 s (seq s)]
+    (if s
+      (let [e (first s)]
+        (recur (mod (+ h (hash e)) 4503599627370496)
+               (next s)))
+      h)))
+
 (defn ^boolean every?
   "Returns true if (pred x) is logical true for every x in coll, else
   false."
@@ -1217,6 +1231,15 @@ reduces them without incurring seq initialization"
     (if (seq in)
       (recur (next in) (conj out (first in)))
       out)))
+
+(defn hash-set
+  ([] cljc.core.PersistentHashSet/EMPTY)
+  ([& keys]
+    (loop [in (seq keys)
+           out (transient cljc.core.PersistentHashSet/EMPTY)]
+      (if (seq in)
+        (recur (next in) (conj! out (first in)))
+        (persistent! out)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Strings ;;;;;;;;;;;;;;;;
 
@@ -2778,6 +2801,143 @@ reduces them without incurring seq initialization"
 
   ITransientMap
   (-dissoc! [tcoll key] (-without! tcoll key)))
+
+(defn hash-map
+  "keyval => key val
+  Returns a new hash map with supplied mappings."
+  [& keyvals]
+  (loop [in (seq keyvals), out (transient cljc.core.PersistentHashMap/EMPTY)]
+    (if in
+      (recur (nnext in) (assoc! out (first in) (second in)))
+      (persistent! out))))
+
+(defn keys
+  "Returns a sequence of the map's keys."
+  [hash-map]
+  (seq (map first hash-map)))
+
+(defn key
+  "Returns the key of the map entry."
+  [map-entry]
+  (-key map-entry))
+
+(defn vals
+  "Returns a sequence of the map's values."
+  [hash-map]
+  (seq (map second hash-map)))
+
+(defn val
+  "Returns the value in the map entry."
+  [map-entry]
+  (-val map-entry))
+
+
+;;; PersistentHashSet
+
+(declare TransientHashSet)
+
+(deftype PersistentHashSet [meta hash-map ^:mutable __hash]
+  IWithMeta
+  (-with-meta [coll meta] (PersistentHashSet. meta hash-map __hash))
+
+  IMeta
+  (-meta [coll] meta)
+
+  ICollection
+  (-conj [coll o]
+    (PersistentHashSet. meta (assoc hash-map o nil) nil))
+
+  IEmptyableCollection
+  (-empty [coll] (-with-meta cljc.core.PersistentHashSet/EMPTY meta))
+
+  IEquiv
+  (-equiv [coll other]
+    (and
+     (set? other)
+     (== (count coll) (count other))
+     (every? #(contains? coll %)
+             other)))
+
+  IHash
+  (-hash [coll] (caching-hash coll hash-iset __hash))
+
+  ISeqable
+  (-seq [coll] (keys hash-map))
+
+  ICounted
+  (-count [coll] (count (seq coll)))
+
+  ILookup
+  (-lookup [coll v]
+    (-lookup coll v nil))
+  (-lookup [coll v not-found]
+    (if (-contains-key? hash-map v)
+      v
+      not-found))
+
+  ISet
+  (-disjoin [coll v]
+    (PersistentHashSet. meta (dissoc hash-map v) nil))
+
+  IFn
+  (-invoke [coll k]
+    (-lookup coll k))
+  (-invoke [coll k not-found]
+    (-lookup coll k not-found))
+
+  IEditableCollection
+  (-as-transient [coll] (TransientHashSet. (transient hash-map)))
+
+  IPrintable
+  (-pr-seq [coll opts] (pr-sequential pr-seq "#{" " " "}" opts coll)))
+
+(set! cljc.core.PersistentHashSet/EMPTY (PersistentHashSet. nil (hash-map) 0))
+
+(set! cljc.core.PersistentHashSet/fromArray
+      (fn [items]
+        (let [len (count items)]
+          (loop [i   0
+                 out (transient cljc.core.PersistentHashSet/EMPTY)]
+            (if (< i len)
+              (recur (inc i) (conj! out (aget items i)))
+              (persistent! out))))))
+
+(deftype TransientHashSet [^:mutable transient-map]
+  ITransientCollection
+  (-conj! [tcoll o]
+    (set! transient-map (assoc! transient-map o nil))
+    tcoll)
+
+  (-persistent! [tcoll]
+    (PersistentHashSet. nil (persistent! transient-map) nil))
+
+  ITransientSet
+  (-disjoin! [tcoll v]
+    (set! transient-map (dissoc! transient-map v))
+    tcoll)
+
+  ICounted
+  (-count [tcoll] (count transient-map))
+
+  ILookup
+  (-lookup [tcoll v]
+    (-lookup tcoll v nil))
+
+  (-lookup [tcoll v not-found]
+    (if (identical? (-lookup transient-map v lookup-sentinel) lookup-sentinel)
+      not-found
+      v))
+
+  IFn
+  (-invoke [tcoll k]
+    (if (identical? (-lookup transient-map k lookup-sentinel) lookup-sentinel)
+      nil
+      k))
+
+  (-invoke [tcoll k not-found]
+    (if (identical? (-lookup transient-map k lookup-sentinel) lookup-sentinel)
+      not-found
+      k)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; main function support ;;;;;;;;;;;;;;;;
 
