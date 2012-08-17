@@ -359,7 +359,11 @@
 			 ")"))
 
 (defmethod emit-constant clojure.lang.IPersistentMap [x]
-  (FIXME-IMPLEMENT))
+  (let [key-names (doall (map emit-constant (keys x)))
+	val-names (doall (map emit-constant (vals x)))]
+    (emit-value-wrap :const-map nil
+		     (emit-meta-constant x
+					 (persistent-hash-map-emit-kv-pairs key-names val-names)))))
 
 (defmethod emit-constant clojure.lang.PersistentHashSet [x]
   (FIXME-IMPLEMENT))

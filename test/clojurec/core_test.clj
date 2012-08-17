@@ -284,6 +284,12 @@
                                (keyword? ":a"))
            [true false false true false false]))))
 
+(deftest constants
+  (testing "constants"
+    (is (= (core-run '(pr (count '[(1 2)
+				   {3 4}])))
+	   2))))
+
 (deftest loops
   (testing "simple loops"
     (is (= (run '(loop [i 2
