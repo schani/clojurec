@@ -1450,6 +1450,8 @@ reduces them without incurring seq initialization"
   (-as-transient [coll]
     (TransientVector cnt shift (tv-editable-root root) (tv-editable-tail tail)))
 
+  IPrintable
+  (-pr-seq [coll opts] (pr-sequential pr-seq "[" " " "]" opts coll))
   ;; Not yet ported from ClojureScript
 
   ;; IHash
@@ -1633,7 +1635,10 @@ reduces them without incurring seq initialization"
 
   IEmptyableCollection
   (-empty [coll]
-    (-with-meta cljc.core.PersistentVector/EMPTY meta)))
+    (-with-meta cljc.core.PersistentVector/EMPTY meta))
+  
+  IPrintable
+  (-pr-seq [coll opts] (pr-sequential pr-seq "(" " " ")" opts coll)))
 
 (defn chunked-seq
   ([vec i off] (chunked-seq vec (array-for vec i) i off nil))
@@ -1700,6 +1705,9 @@ reduces them without incurring seq initialization"
     (-lookup coll k))
   (-invoke [coll k not-found]
     (-lookup coll k not-found))
+
+  IPrintable
+  (-pr-seq [coll opts] (pr-sequential pr-seq "[" " " "]" opts coll))
 
   ;; IHash
   ;; (-hash [coll] (caching-hash coll hash-coll __hash))
@@ -2480,7 +2488,10 @@ reduces them without incurring seq initialization"
   (-equiv [coll other] (equiv-sequential coll other))
 
   IHash
-  (-hash [coll] (caching-hash coll hash-coll __hash)))
+  (-hash [coll] (caching-hash coll hash-coll __hash))
+
+  IPrintable
+  (-pr-seq [coll opts] (pr-sequential pr-seq "(" " " ")" opts coll)))
 
 (defn- create-inode-seq
   ([nodes]
@@ -2531,7 +2542,10 @@ reduces them without incurring seq initialization"
   (-equiv [coll other] (equiv-sequential coll other))
 
   IHash
-  (-hash [coll] (caching-hash coll hash-coll __hash)))
+  (-hash [coll] (caching-hash coll hash-coll __hash))
+  
+  IPrintable
+  (-pr-seq [coll opts] (pr-sequential pr-seq "(" " " ")" opts coll)))
 
 (defn- create-array-node-seq
   ([nodes] (create-array-node-seq nil nodes 0 nil))
@@ -2635,7 +2649,12 @@ reduces them without incurring seq initialization"
 
   IEditableCollection
   (-as-transient [coll]
-    (TransientHashMap. (EditSentinel.) root cnt has-nil? nil-val)))
+    (TransientHashMap. (EditSentinel.) root cnt has-nil? nil-val))
+
+  IPrintable
+  (-pr-seq [coll opts]
+    (let [pr-pair (fn [keyval opts] (pr-sequential pr-seq "" " " "" opts keyval))]
+      (pr-sequential pr-pair "{" ", " "}" opts coll))))
 
 (set! cljc.core.PersistentHashMap/EMPTY (PersistentHashMap. nil 0 nil false nil 0))
 

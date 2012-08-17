@@ -487,6 +487,8 @@
                         (pr \a \b) (pr " ")
                         (pr '(1 2 3)) (pr " ")
                         (pr (make-array 2)) (pr " ")
+                        (pr [1 2]) (pr " ")
+                        (pr {:a 1}) (pr " ")
                         (pr #{1 2 3})))
            [true false
             -1 0 1
@@ -496,6 +498,8 @@
             \a \b
             '(1 2 3)
             [nil nil]
+            [1 2]
+            {:a 1}
             #{1 2 3}]))))
 
 (deftest equality
