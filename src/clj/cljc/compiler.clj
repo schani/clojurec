@@ -365,8 +365,18 @@
 		     (emit-meta-constant x
 					 (persistent-hash-map-emit-kv-pairs key-names val-names)))))
 
+(defn- persistent-hash-set-emit-seq [items]
+  (emit-seq-construction items
+			 "VAR_NAME (cljc_DOT_core_DOT_PersistentHashSet_SLASH_EMPTY)"
+			 "FUNCALL2 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH__conj), "
+			 #(emits ", " %)
+			 ")"))
+
 (defmethod emit-constant clojure.lang.PersistentHashSet [x]
-  (FIXME-IMPLEMENT))
+  (let [names (doall (map emit-constant x))]
+    (emit-value-wrap :const-map nil
+		     (emit-meta-constant x
+					 (persistent-hash-set-emit-seq names)))))
 
 (defmacro emit-declaration [& body]
   `(swap! declarations conj (with-out-str ~@body)))
