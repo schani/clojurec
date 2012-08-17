@@ -483,8 +483,7 @@
                         (pr \a \b) (pr " ")
                         (pr '(1 2 3)) (pr " ")
                         (pr (make-array 2)) (pr " ")
-                        (pr (set (list 1 2 3)))
-                        (pr (hash-set 1 2 3))))
+                        (pr #{1 2 3})))
            [true false
             -1 0 1
             'a 'b
@@ -493,7 +492,6 @@
             \a \b
             '(1 2 3)
             [nil nil]
-            #{1 2 3}
             #{1 2 3}]))))
 
 (deftest equality

@@ -445,7 +445,9 @@
 
 (defmethod emit :set
   [{:keys [items env]}]
-  (FIXME-IMPLEMENT))
+  (let [item-names (doall (map emit items))]
+    (emit-value-wrap :set env
+		     (emits (persistent-hash-set-emit-seq item-names)))))
 
 (defmethod emit :constant
   [{:keys [form env]}]
