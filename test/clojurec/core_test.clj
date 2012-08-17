@@ -549,22 +549,6 @@
     (is (= (core-run '(pr ((set '(1 2 3)) 1)
                           ((set '(1 2 3)) 4)
                           ((set '(1 2 3)) 4 5)))
-           [1 nil 5]))
-
-    ;;persistent hash sets
-    (is (= (core-run '(pr (conj (conj (conj (conj (hash-set ()) 1) 2) 3) 1)))
-           ;; Note -- this result differs from what ListSet gives above, but jibes
-           ;; with what jvm clojure at the REPL gives
-           [#{() 1 2 3}]))
-    (is (= (core-run '(pr (disj (hash-set 1 2 3) 2)))
-           [#{1 3}]))
-    (is (= (core-run '(pr (get (hash-set 1 2 3) 1)
-                          (get (hash-set 1 2 3) 4)
-                          (get (hash-set 1 2 3) 4 5)))
-           [1 nil 5]))
-    (is (= (core-run '(pr ((hash-set 1 2 3) 1)
-                          ((hash-set 1 2 3) 4)
-                          ((hash-set 1 2 3) 4 5)))
            [1 nil 5]))))
 
 (deftest functions

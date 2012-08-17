@@ -1166,80 +1166,14 @@ reduces them without incurring seq initialization"
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Sets ;;;;;;;;;;;;;;;;
 
-(defn- member? [coll o]
-  (not (every? #(not (= % o)) coll)))
-
-(defn- reverse-rember [coll o]
-  (loop [rev ()
-         coll (seq coll)]
-    (if coll
-      (let [f (first coll)]
-        (if (= o f)
-          (recur rev (next coll))
-          (recur (cons f rev) (next coll))))
-      rev)))
-
-(deftype ListSet [elems]
-  ICollection
-  (-conj [coll o]
-    (if (member? elems o)
-      coll
-      (ListSet. (conj elems o))))
-
-  IEquiv
-  (-equiv [coll other]
-    (and
-     (set? other)
-     (== (count coll) (count other))
-     (every? #(contains? coll %)
-             other)))
-
-  ISeqable
-  (-seq [_] elems)
-
-  ICounted
-  (-count [coll] (count (seq coll)))
-
-  ILookup
-  (-lookup [coll v]
-    (-lookup coll v nil))
-  (-lookup [coll v not-found]
-    (if (member? elems v)
-      v
-      not-found))
-
-  ISet
-  (-disjoin [coll v]
-    (if (member? elems v)
-      (ListSet. (reverse-rember elems v))
-      coll))
-
-  IFn
-  (-invoke [coll k]
-    (-lookup coll k))
-  (-invoke [coll k not-found]
-    (-lookup coll k not-found))
-
-  IPrintable
-  (-pr-seq [coll opts] (pr-sequential pr-seq "#{" " " "}" opts elems)))
-
 (defn set
   "Returns a set of the distinct elements of coll."
-  [coll]
-  (loop [in (seq coll)
-         out (ListSet. ())]
-    (if (seq in)
-      (recur (next in) (conj out (first in)))
-      out)))
-
-(defn hash-set
-  ([] cljc.core.PersistentHashSet/EMPTY)
-  ([& keys]
-    (loop [in (seq keys)
-           out (transient cljc.core.PersistentHashSet/EMPTY)]
-      (if (seq in)
-        (recur (next in) (conj! out (first in)))
-        (persistent! out)))))
+  ([coll]
+     (loop [in (seq coll)
+	    out (transient cljc.core.PersistentHashSet/EMPTY)]
+       (if (seq in)
+	 (recur (next in) (conj! out (first in)))
+	 (persistent! out)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Strings ;;;;;;;;;;;;;;;;
 
