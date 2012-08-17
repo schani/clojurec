@@ -326,15 +326,23 @@
 (defmethod emit-constant clojure.lang.Cons [x]
   (FIXME-IMPLEMENT))
 
+(defn- emit-seq-construction [items empty prefix emitter postfix]
+  (letfn [(emit-rec [xs]
+		    (if xs
+		      (do
+			(emits prefix)
+			(emit-rec (next xs))
+			(emitter (first xs))
+			(emits postfix))
+		      (emits empty)))]
+    (emit-rec (seq (reverse items)))))
+
 (defn- persistent-vector-emit-seq [items]
-  (letfn [(emit-conj [xs]
-            (if (empty? xs)
-              (emits "VAR_NAME (cljc_DOT_core_DOT_PersistentVector_SLASH_EMPTY)")
-              (do
-                (emits "FUNCALL2 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH__conj), ")
-                (emit-conj (rest xs))
-                (emits ", " (first xs) ")"))))]
-    (emit-conj (reverse items))))
+  (emit-seq-construction items
+			 "VAR_NAME (cljc_DOT_core_DOT_PersistentVector_SLASH_EMPTY)"
+			 "FUNCALL2 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH__conj), "
+			 #(emits ", " %)
+			 ")"))
 
 (defmethod emit-constant clojure.lang.IPersistentVector [x]
   (let [names (doall (map emit-constant x))]
@@ -343,15 +351,12 @@
                                          (persistent-vector-emit-seq names)))))
 
 (defn- persistent-hash-map-emit-kv-pairs [keys vals]
-  (letfn [(emit-assoc [keys vals]
-            (if (empty? keys)
-              (emits "VAR_NAME (cljc_DOT_core_DOT_PersistentHashMap_SLASH_EMPTY)")
-              (do
-                (emits "FUNCALL3 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH__assoc), ")
-                (emit-assoc (next keys)(next vals))
-                (emits ", " (first keys))
-                (emits ", " (first vals) ")"))))]
-    (emit-assoc (reverse keys) (reverse vals))))
+  (emit-seq-construction (map vector keys vals)
+			 "VAR_NAME (cljc_DOT_core_DOT_PersistentHashMap_SLASH_EMPTY)"
+			 "FUNCALL3 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH__assoc), "
+			 (fn [[k v]]
+			   (emits ", " k ", " v))
+			 ")"))
 
 (defmethod emit-constant clojure.lang.IPersistentMap [x]
   (FIXME-IMPLEMENT))
