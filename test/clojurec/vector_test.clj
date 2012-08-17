@@ -38,13 +38,13 @@
            (core-run '(let [v1 (conj [] 123)
                             v100 (loop [i 1 v v1]
                                    (if (< i 100) (recur (inc i) (conj v i)) v))]
-                        (print (-peek v1))
-                        (print (count (-pop v1)))
-                        (print (-peek v100))
-                        (print (count (-pop v100)))
+                        (print (peek v1))
+                        (print (count (pop v1)))
+                        (print (peek v100))
+                        (print (count (pop v100)))
                         (print (count (loop [i 1 v v100]
                                         (if (< i 100)
-                                          (recur (inc i) (-pop v))
+                                          (recur (inc i) (pop v))
                                           v)))))))))
 
   (testing "PersistentVector assoc"

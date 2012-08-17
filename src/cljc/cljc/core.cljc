@@ -814,17 +814,6 @@ reduces them without incurring seq initialization"
   [s]
   (has-type? s Symbol))
 
-(defn ^boolean contains?
-  "Returns true if key is present in the given collection, otherwise
-  returns false.  Note that for numerically indexed collections like
-  vectors and arrays, this tests if the numeric key is within the
-  range of indexes. 'contains?' operates constant or logarithmic time;
-  it will not perform a linear search for a value.  See also 'some'."
-  [coll v]
-  (if (identical? (-lookup coll v lookup-sentinel) lookup-sentinel)
-    false
-    true))
-
 (defn ^boolean map?
   "Return true if x satisfies IMap"
   [x]
@@ -848,6 +837,10 @@ reduces them without incurring seq initialization"
     false
     (satisfies? ISet x)))
 
+(defn ^boolean associative?
+ "Returns true if coll implements Associative"
+  [x] (satisfies? IAssociative x))
+
 (defn ^boolean sequential?
   "Returns true if coll satisfies ISequential"
   [x] (satisfies? ISequential x))
@@ -866,6 +859,42 @@ reduces them without incurring seq initialization"
 
 (defn ^boolean chunked-seq?
   [x] (satisfies? IChunkedSeq x))
+
+(defn ^boolean contains?
+  "Returns true if key is present in the given collection, otherwise
+  returns false.  Note that for numerically indexed collections like
+  vectors and arrays, this tests if the numeric key is within the
+  range of indexes. 'contains?' operates constant or logarithmic time;
+  it will not perform a linear search for a value.  See also 'some'."
+  [coll v]
+  (if (identical? (-lookup coll v lookup-sentinel) lookup-sentinel)
+    false
+    true))
+
+(defn ^boolean distinct?
+  "Returns true if no two of the arguments are ="
+  ([x] true)
+  ([x y] (not (= x y)))
+  ([x y & more]
+     (if (not (= x y))
+     (loop [s #{x y} xs more]
+       (let [x (first xs)
+             etc (next xs)]
+         (if xs
+           (if (contains? s x)
+             false
+             (recur (conj s x) etc))
+           true)))
+     false)))
+
+(defn ^boolean every?
+  "Returns true if (pred x) is logical true for every x in coll, else
+  false."
+  [pred coll]
+  (cond
+   (nil? (seq coll)) true
+   (pred (first coll)) (recur pred (next coll))
+   true false))
 
 (defn- accumulating-seq-count [coll]
   (loop [s (seq coll) acc 0]
@@ -935,6 +964,14 @@ reduces them without incurring seq initialization"
   ([o k not-found]
      (-lookup o k not-found)))
 
+(defn find
+  "Returns the map entry for key, or nil if key not present."
+  [coll k]
+  (when (and coll
+             (associative? coll)
+             (contains? coll k))
+    [k (-lookup coll k)]))
+
 (defn assoc
   "assoc[iate]. When applied to a map, returns a new map of the
    same (hashed/sorted) type, that contains the mapping of key(s) to
@@ -959,6 +996,31 @@ reduces them without incurring seq initialization"
        (if ks
          (recur ret (first ks) (next ks))
          ret))))
+
+(defn with-meta
+  "Returns an object of the same type and value as obj, with
+  map m as its metadata."
+  [o meta]
+  (-with-meta o meta))
+
+(defn meta
+  "Returns the metadata of obj, returns nil if there is no metadata."
+  [o]
+  (when (satisfies? IMeta o)
+    (-meta o)))
+
+(defn peek
+  "For a list or queue, same as first, for a vector, same as, but much
+  more efficient than, last. If the collection is empty, returns nil."
+  [coll]
+  (-peek coll))
+
+(defn pop
+  "For a list or queue, returns a new list/queue without the first
+  item, for a vector, returns a new vector without the last item.
+  Note - not the same as next/butlast."
+  [coll]
+  (-pop coll))
 
 (defn disj
   "disj[oin]. Returns a new set of the same (hashed/sorted) type, that
@@ -1014,15 +1076,6 @@ reduces them without incurring seq initialization"
         (recur (mod (+ h (hash e)) 4503599627370496)
                (next s)))
       h)))
-
-(defn ^boolean every?
-  "Returns true if (pred x) is logical true for every x in coll, else
-  false."
-  [pred coll]
-  (cond
-   (nil? (seq coll)) true
-   (pred (first coll)) (recur pred (next coll))
-   true false))
 
 (defn identity [x] x)
 
