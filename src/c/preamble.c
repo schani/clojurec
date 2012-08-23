@@ -363,6 +363,14 @@ alloc_value (ptable_t *ptable, size_t size)
 }
 
 static value_t*
+alloc_value_retired (ptable_t *ptable, size_t size)
+{
+	value_t *v = calloc (1, size);
+	v->ptable = ptable;
+	return v;
+}
+
+static value_t*
 make_closure (function_t fn, environment_t *env)
 {
 	closure_t *closure = (closure_t*) alloc_value (closure_ptable (), sizeof (closure_t));
@@ -546,7 +554,15 @@ string_hash_code (const gchar *utf8)
         return hashmurmur3_32(utf8, len);
 }
 
-KHASH_MAP_INIT_STR (SYMBOLS, symbol_t);
+static symbol_t*
+make_symbol (const gchar *utf8)
+{
+	symbol_t *sym = (symbol_t*)alloc_value_retired (PTABLE_NAME (cljc_DOT_core_SLASH_Symbol), sizeof (symbol_t));
+	sym->utf8 = utf8;
+	return sym;
+}
+
+KHASH_MAP_INIT_STR (SYMBOLS, symbol_t*);
 static khash_t(SYMBOLS) *symbol_hash = NULL;
 
 static value_t*
@@ -562,17 +578,12 @@ intern_symbol (const gchar *utf8, bool copy)
 
 	iter = kh_put (SYMBOLS, symbol_hash, utf8, &ret);
 	if (ret != 0) {
-		symbol_t sym;
-		sym.val.ptable = PTABLE_NAME (cljc_DOT_core_SLASH_Symbol);
-		if (copy)
-			sym.utf8 = strdup (utf8);
-		else
-			sym.utf8 = utf8;
+		symbol_t *sym = make_symbol (copy ? strdup (utf8) : utf8);
 		kh_value (symbol_hash, iter) = sym;
 	} else {
-		assert (strcmp (kh_value (symbol_hash, iter).utf8, utf8) == 0);
+		assert (strcmp (kh_value (symbol_hash, iter)->utf8, utf8) == 0);
 	}
-	return &kh_value (symbol_hash, iter).val;
+	return &kh_value (symbol_hash, iter)->val;
 }
 
 static const gchar*
@@ -583,7 +594,15 @@ symbol_get_utf8 (value_t *v)
 	return s->utf8;
 }
 
-KHASH_MAP_INIT_STR (KEYWORDS, keyword_t);
+static keyword_t*
+make_keyword (const gchar *utf8)
+{
+	keyword_t *kw = (keyword_t*)alloc_value_retired (PTABLE_NAME (cljc_DOT_core_SLASH_Keyword), sizeof (keyword_t));
+	kw->utf8 = utf8;
+	return kw;
+}
+
+KHASH_MAP_INIT_STR (KEYWORDS, keyword_t*);
 static khash_t(KEYWORDS) *keyword_hash = NULL;
 
 static value_t*
@@ -599,17 +618,12 @@ intern_keyword (const gchar *utf8, bool copy)
 
 	iter = kh_put (KEYWORDS, keyword_hash, utf8, &ret);
 	if (ret != 0) {
-		keyword_t kw;
-		kw.val.ptable = PTABLE_NAME (cljc_DOT_core_SLASH_Keyword);
-		if (copy)
-			kw.utf8 = strdup (utf8);
-		else
-			kw.utf8 = utf8;
+		keyword_t *kw = make_keyword (copy ? strdup (utf8) : utf8);
 		kh_value (keyword_hash, iter) = kw;
 	} else {
-		assert (strcmp (kh_value (keyword_hash, iter).utf8, utf8) == 0);
+		assert (strcmp (kh_value (keyword_hash, iter)->utf8, utf8) == 0);
 	}
-	return &kh_value (keyword_hash, iter).val;
+	return kh_value (keyword_hash, iter);
 }
 
 static const gchar*

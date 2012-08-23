@@ -282,7 +282,11 @@
                                (keyword? :a)
                                (keyword? 'a)
                                (keyword? ":a"))
-           [true false false true false false]))))
+           [true false false true false false]))
+    (is (= (core-run '(do
+			(pr (get {:a 1 :b 2 :c 3} :b)
+			    (= (assoc {} :a 1 :b 2 :c 3) (assoc {} :a 1 :b 2 :c 3)))))
+	   [2 true]))))
 
 (deftest constants
   (testing "constants"
