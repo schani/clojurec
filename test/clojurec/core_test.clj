@@ -422,6 +422,8 @@
                           (recur (rest l)))))
            [13 0 10]))
     (is (= (core-run '(print (-count nil))) [0]))
+    (is (= (core-run '(let [v ["A" "B" "C"] vm (with-meta v {:a 33})] (pr ((meta vm) :a))))
+           [33]))
     (is (= (core-run '(pr (filter #(> % 3) (list 1 2 3 4 5))))
            ['(4 5)]))
     (is (= (core-run '(do
@@ -559,7 +561,11 @@
     (is (= (core-run '(pr ((set '(1 2 3)) 1)
                           ((set '(1 2 3)) 4)
                           ((set '(1 2 3)) 4 5)))
-           [1 nil 5]))))
+           [1 nil 5]))
+    (is (= (core-run '(pr
+                       (distinct? 1 2 3 1)
+                       (distinct? 1 2 3)))
+           [false true]))))
 
 (deftest functions
   (testing "functions"

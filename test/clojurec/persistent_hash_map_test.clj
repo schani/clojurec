@@ -31,7 +31,7 @@
                    (= (get m2 f2 "NOT FOUND") "Baz")
                    (= (get m3 2 "NOT FOUND") "V2"))))))
 
-    (is (= [100 100 true true false nil false 99 true]
+    (is (= [100 100 true true true false nil 3 false 99 true]
            (clojurec.core/run-expr
             'clojurec.core-test true
             '(loop [m1 cljc.core.PersistentHashMap/EMPTY
@@ -53,9 +53,11 @@
                    (pr (count m1)
                        (count m2)
                        (= m1 m2)
+                       (associative? m1)
                        (contains? m1 3)
                        (contains? m1 333)
                        (get m1 333)
+                       (first (find m1 3))
                        (contains? (dissoc m1 3) 3)
                        (count (dissoc m1 3))
                        (every? boolean v))))))))))
