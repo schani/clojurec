@@ -994,14 +994,16 @@ reduces them without incurring seq initialization"
                    (bit-shift-right seed 2))))
 
 (defn- hash-coll [coll]
-  (reduce #(hash-combine %1 (-hash %2)) (-hash (first coll)) (next coll)))
+  (reduce #(hash-combine %1 (hash %2)) (hash (first coll)) (next coll)))
+
+(declare key val)
 
 (defn- hash-imap [m]
   ;; a la clojure.lang.APersistentMap
   (loop [h 0 s (seq m)]
     (if s
       (let [e (first s)]
-        (recur (mod (+ h (bit-xor (-hash (-key e)) (-hash (-val e))))
+        (recur (mod (+ h (bit-xor (hash (key e)) (hash (val e))))
                     4503599627370496)
                (next s)))
       h)))
@@ -1344,9 +1346,9 @@ reduces them without incurring seq initialization"
          tv-push-tail editable-array-for TransientVector tv-editable-root
          tv-editable-tail)
 
-(deftype PersistentVector [meta cnt shift root tail]
+(deftype PersistentVector [meta cnt shift root tail ^:mutable __hash]
   IWithMeta
-  (-with-meta [coll meta] (PersistentVector. meta cnt shift root tail))
+  (-with-meta [coll meta] (PersistentVector. meta cnt shift root tail __hash))
 
   IMeta
   (-meta [coll] meta)
@@ -1361,7 +1363,7 @@ reduces them without incurring seq initialization"
             new-tail (make-array (inc tail-len))]
         (array-copy tail new-tail)
         (aset new-tail tail-len o)
-        (PersistentVector. meta (inc cnt) shift root new-tail))
+        (PersistentVector. meta (inc cnt) shift root new-tail nil))
       (let [root-overflow? (> (bit-shift-right-zero-fill cnt 5) (bit-shift-left 1 shift))
             new-shift (if root-overflow? (+ shift 5) shift)
             new-root (if root-overflow?
@@ -1372,7 +1374,7 @@ reduces them without incurring seq initialization"
                        (push-tail coll shift root (VectorNode. nil tail)))
             new-tail (make-array 1)]
         (aset new-tail 0 o)
-        (PersistentVector. meta (inc cnt) new-shift new-root new-tail))))
+        (PersistentVector. meta (inc cnt) new-shift new-root new-tail nil))))
 
   IIndexed
   (-nth [coll n]
@@ -1397,14 +1399,14 @@ reduces them without incurring seq initialization"
      (< 1 (- cnt (tail-off coll))) (let [new-tail-len (dec (alength tail))
                                          new-tail (make-array new-tail-len)]
                                      (PersistentVector. meta (dec cnt) shift root
-                                                        (array-copy tail new-tail new-tail-len)))
+                                                        (array-copy tail new-tail new-tail-len) nil))
      true (let [new-tail (array-for coll (- cnt 2))
                 nr (pop-tail coll shift root)
                 new-root (if (nil? nr) cljc.core.PersistentVector/EMPTY_NODE nr)
                 cnt-1 (dec cnt)]
             (if (and (< 5 shift) (nil? (pv-aget new-root 1)))
-              (PersistentVector. meta cnt-1 (- shift 5) (pv-aget new-root 0) new-tail)
-              (PersistentVector. meta cnt-1 shift new-root new-tail)))))
+              (PersistentVector. meta cnt-1 (- shift 5) (pv-aget new-root 0) new-tail nil)
+              (PersistentVector. meta cnt-1 shift new-root new-tail nil)))))
 
   IEmptyableCollection
   (-empty [coll] (-with-meta cljc.core.PersistentVector/EMPTY meta))
@@ -1416,8 +1418,8 @@ reduces them without incurring seq initialization"
        (if (<= (tail-off coll) k)
          (let [new-tail (aclone tail)]
            (aset new-tail (bit-and k 0x01f) v)
-           (PersistentVector. meta cnt shift root new-tail))
-         (PersistentVector. meta cnt shift (do-assoc coll shift root k v) tail))
+           (PersistentVector. meta cnt shift root new-tail nil))
+         (PersistentVector. meta cnt shift (do-assoc coll shift root k v) tail nil))
        (== k cnt) (-conj coll v)
        true (error (str "Index " k " out of bounds  [0," cnt "]"))))
 
@@ -1450,18 +1452,18 @@ reduces them without incurring seq initialization"
   (-as-transient [coll]
     (TransientVector cnt shift (tv-editable-root root) (tv-editable-tail tail)))
 
+  IHash
+  (-hash [coll] (caching-hash coll hash-coll __hash))
+
+  IMapEntry
+  (-key [coll]
+    (-nth coll 0))
+  (-val [coll]
+    (-nth coll 1))
+
   IPrintable
   (-pr-seq [coll opts] (pr-sequential pr-seq "[" " " "]" opts coll))
   ;; Not yet ported from ClojureScript
-
-  ;; IHash
-  ;; (-hash [coll] (caching-hash coll hash-coll __hash))
-
-  ;; IMapEntry
-  ;; (-key [coll]
-  ;;   (-nth coll 0))
-  ;; (-val [coll]
-  ;;   (-nth coll 1))
 
   ;; IKVReduce
   ;; (-kv-reduce [v f init]
@@ -1573,7 +1575,7 @@ reduces them without incurring seq initialization"
 
 (set! cljc.core.PersistentVector/EMPTY_NODE (pv-fresh-node nil))
 (set! cljc.core.PersistentVector/EMPTY
-      (PersistentVector. nil 0 5 cljc.core.PersistentVector/EMPTY_NODE (make-array 0)))
+      (PersistentVector. nil 0 5 cljc.core.PersistentVector/EMPTY_NODE (make-array 0) 0))
 
 (deftype ChunkedSeq [vec node i off meta]
   IWithMeta
@@ -1646,9 +1648,9 @@ reduces them without incurring seq initialization"
   ([vec node i off meta]
      (ChunkedSeq. vec node i off meta)))
 
-(deftype Subvec [meta v start end]
+(deftype Subvec [meta v start end ^:mutable __hash]
   IWithMeta
-  (-with-meta [coll meta] (Subvec. meta v start end))
+  (-with-meta [coll meta] (Subvec. meta v start end __hash))
 
   IMeta
   (-meta [coll] meta)
@@ -1659,11 +1661,11 @@ reduces them without incurring seq initialization"
   (-pop [coll]
     (if (== start end)
       (error "Can't pop empty vector")
-      (Subvec. meta v start (dec end))))
+      (Subvec. meta v start (dec end) nil)))
 
   ICollection
   (-conj [coll o]
-    (Subvec. meta (-assoc-n v end o) start (inc end)))
+    (Subvec. meta (-assoc-n v end o) start (inc end) nil))
 
   IEmptyableCollection
   (-empty [coll] (-with-meta cljc.core.PersistentVector/EMPTY meta))
@@ -1689,7 +1691,8 @@ reduces them without incurring seq initialization"
   (-assoc [coll key val]
     (let [v-pos (+ start key)]
       (Subvec. meta (assoc v v-pos val)
-               start (max end (inc v-pos)))))
+               start (max end (inc v-pos))
+               nil)))
 
   IVector
   (-assoc-n [coll n val] (-assoc coll n val))
@@ -1706,15 +1709,16 @@ reduces them without incurring seq initialization"
   (-invoke [coll k not-found]
     (-lookup coll k not-found))
 
+  IHash
+  (-hash [coll] (caching-hash coll hash-coll __hash))
+
+  ISequential
+  IEquiv
+  (-equiv [coll other] (equiv-sequential coll other))
+
   IPrintable
   (-pr-seq [coll opts] (pr-sequential pr-seq "[" " " "]" opts coll))
 
-  ;; IHash
-  ;; (-hash [coll] (caching-hash coll hash-coll __hash))
-
-  ;; ISequential
-  ;; IEquiv
-  ;; (-equiv [coll other] (equiv-sequential coll other))
 
   ;; ISeqable
   ;; (-seq [coll]
@@ -1736,7 +1740,7 @@ reduces them without incurring seq initialization"
      (subvec v start (count v)))
   ([v start end]
      (if (<= start end)
-       (Subvec. nil v start end)
+       (Subvec. nil v start end nil)
        (error "Invalid subvec range"))))
 
 (deftype TransientVector [^:mutable cnt
@@ -1777,7 +1781,7 @@ reduces them without incurring seq initialization"
             trimmed-tail (make-array len)]
         (set! root persistent-root)
         (array-copy tail trimmed-tail len)
-        (PersistentVector. nil cnt shift root trimmed-tail))
+        (PersistentVector. nil cnt shift root trimmed-tail nil))
       (error "persistent! called twice")))
 
   ITransientAssociative
