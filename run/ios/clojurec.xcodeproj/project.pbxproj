@@ -34,6 +34,7 @@
 		879981E215AC8872006D4036 /* AppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
 		87C3AAD915B30C9000252CC4 /* cljc.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = cljc.m; path = ../../cljc.m; sourceTree = "<group>"; };
 		87C3AADF15B30E8700252CC4 /* cljc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = cljc.c; path = ../../cljc.c; sourceTree = "<group>"; };
+		87E5A2AF15E80BDE00357E4B /* khash.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = khash.h; path = ../thirdparty/klib/khash.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -58,6 +59,7 @@
 				871D5A6815B514A900442173 /* libcord.a */,
 				871D5A6915B514A900442173 /* libgc.a */,
 				879981D815AC8872006D4036 /* clojurec */,
+				87E5A2A815E80BB200357E4B /* klib */,
 				879981D115AC8872006D4036 /* Frameworks */,
 				879981CF15AC8872006D4036 /* Products */,
 			);
@@ -102,6 +104,14 @@
 				879981E015AC8872006D4036 /* clojurec-Prefix.pch */,
 			);
 			name = "Supporting Files";
+			sourceTree = "<group>";
+		};
+		87E5A2A815E80BB200357E4B /* klib */ = {
+			isa = PBXGroup;
+			children = (
+				87E5A2AF15E80BDE00357E4B /* khash.h */,
+			);
+			name = klib;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
