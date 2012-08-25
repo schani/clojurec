@@ -686,6 +686,14 @@
 	    1 2 3 4 0 -1 1 2 3 4 0 5 -1 1 2 3 4 0 5 6 -1
 	    1 2 3 4 5 0 -1 1 2 3 4 5 0 6 -1]))))
 
+(deftest meta-stuff
+  (testing "meta"
+    (is (= (core-run '(do
+			(pr (meta ^:foo {:a 1}))
+			(pr (meta '^:bar {:a 1}))))
+	   [{:foo true}
+	    {:bar true}]))))
+
 (deftest io
   (testing "I/O"
     (let [filename (.getAbsolutePath (io/file (java.lang.System/getProperty "user.dir") "test" "words.txt"))]

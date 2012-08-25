@@ -307,9 +307,13 @@
                           (name x)
                           "\", false)")))
 
-(defn- emit-meta-constant [x & body]
-  ;; FIXME: implement
-  (emits body))
+(defn- emit-meta-constant [x expr-name]
+  (if (meta x)
+    (let [meta-name (emit-constant (meta x))]
+      (emit-value-wrap :meta nil
+		       (emits "FUNCALL2 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH__with_meta), "
+			      expr-name ", " meta-name ")")))
+    expr-name))
 
 (defmethod emit-constant clojure.lang.PersistentList$EmptyList [x]
   (emit-value-wrap :empty-list nil
@@ -318,8 +322,8 @@
 (defmethod emit-constant clojure.lang.PersistentList [x]
   (let [first-name (emit-constant (first x))
         rest-name (emit-constant (rest x))]
-    (emit-value-wrap :const-list nil
-		     (emit-meta-constant x
+    (emit-meta-constant x
+			(emit-value-wrap :const-list nil
                                          (emits "FUNCALLn ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_Cons), 4, value_nil, "
                                                 first-name ", " rest-name ", (value_t*[]) { value_nil })")))))
 
@@ -346,8 +350,8 @@
 
 (defmethod emit-constant clojure.lang.IPersistentVector [x]
   (let [names (doall (map emit-constant x))]
-    (emit-value-wrap :const-vector nil
-                     (emit-meta-constant x
+    (emit-meta-constant x
+			(emit-value-wrap :const-vector nil
                                          (persistent-vector-emit-seq names)))))
 
 (defn- persistent-hash-map-emit-kv-pairs [keys vals]
@@ -361,8 +365,8 @@
 (defmethod emit-constant clojure.lang.IPersistentMap [x]
   (let [key-names (doall (map emit-constant (keys x)))
 	val-names (doall (map emit-constant (vals x)))]
-    (emit-value-wrap :const-map nil
-		     (emit-meta-constant x
+    (emit-meta-constant x
+			(emit-value-wrap :const-map nil
 					 (persistent-hash-map-emit-kv-pairs key-names val-names)))))
 
 (defn- persistent-hash-set-emit-seq [items]
@@ -374,8 +378,8 @@
 
 (defmethod emit-constant clojure.lang.PersistentHashSet [x]
   (let [names (doall (map emit-constant x))]
-    (emit-value-wrap :const-map nil
-		     (emit-meta-constant x
+    (emit-meta-constant x
+			(emit-value-wrap :const-map nil
 					 (persistent-hash-set-emit-seq names)))))
 
 (defmacro emit-declaration [& body]
@@ -425,7 +429,11 @@
 
 (defmethod emit :meta
   [{:keys [expr meta env]}]
-  (FIXME-IMPLEMENT))
+  (let [expr-name (emit expr)
+	meta-name (emit meta)]
+    (emit-value-wrap :meta env
+		     (emits "FUNCALL2 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH__with_meta), "
+			    expr-name ", " meta-name ")"))))
 
 (def ^:private array-map-threshold 16)
 (def ^:private obj-map-threshold 32)
