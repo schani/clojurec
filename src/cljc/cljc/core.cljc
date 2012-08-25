@@ -198,7 +198,13 @@
 
 (declare pr-sequential pr-seq list hash-coll cons inc equiv-sequential str)
 
-(deftype Cons [first rest ^:mutable __hash]
+(deftype Cons [meta first rest ^:mutable __hash]
+  IWithMeta
+  (-with-meta [coll meta] (Cons. meta first rest __hash))
+
+  IMeta
+  (-meta [coll] meta)
+
   ASeq
   ISeq
   (-first [coll] first)
@@ -215,7 +221,7 @@
   (-seq [coll] coll)
 
   ICollection
-  (-conj [coll o] (Cons. o coll nil))
+  (-conj [coll o] (Cons. nil o coll nil))
 
   IHash
   (-hash [coll]
@@ -236,7 +242,7 @@
   (-seq [coll] nil)
 
   ICollection
-  (-conj [coll o] (Cons. o nil nil))
+  (-conj [coll o] (Cons. nil o nil nil))
 
   ISequential
   IEquiv
@@ -445,7 +451,7 @@ reduces them without incurring seq initialization"
   (-seq [array] (array-seq array 0))
 
   ICollection
-  (-conj [coll o] (Cons. o coll nil))
+  (-conj [coll o] (Cons. nil o coll nil))
 
   ICounted
   (-count [a] (alength a))
@@ -945,8 +951,8 @@ reduces them without incurring seq initialization"
   [x coll]
   (if (or (nil? coll)
           (satisfies? ISeq coll))
-    (Cons. x coll nil)
-    (Cons. x (seq coll) nil)))
+    (Cons. nil x coll nil)
+    (Cons. nil x (seq coll) nil)))
 
 (defn get
   "Returns the value mapped to key, not-found or nil if key not present."
@@ -1253,7 +1259,7 @@ reduces them without incurring seq initialization"
   (-seq [coll] coll)
 
   ICollection
-  (-conj [coll o] (Cons. o coll nil))
+  (-conj [coll o] (Cons. nil o coll nil))
 
   IPrintable
   (-pr-seq [coll opts]

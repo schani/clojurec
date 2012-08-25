@@ -361,7 +361,7 @@
 
 (deftest core
   (testing "cljc.core"
-    (is (= (core-run '(let [c (Cons. 1 2 nil)]
+    (is (= (core-run '(let [c (Cons. nil 1 2 nil)]
 			(print (. c -first))
 			(print (. c -rest))))
 	   [1 2]))

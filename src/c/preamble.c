@@ -310,7 +310,7 @@ static value_t* VAR_NAME (cljc_DOT_core_SLASH_next);
 static value_t* VAR_NAME (cljc_DOT_core_SLASH_count);
 
 #define ARG_NIL		VAR_NAME (cljc_DOT_core_DOT_List_SLASH_EMPTY)
-#define ARG_CONS(a,d)	FUNCALL3 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_Cons), (a), (d), value_nil)
+#define ARG_CONS(a,d)	FUNCALLn ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_Cons), 4, value_nil, (a), (d), (value_t*[]) { value_nil })
 #define SEQ_FIRST(c)	FUNCALL1 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_first), (c))
 #define SEQ_NEXT(c)	FUNCALL1 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_next), (c))
 #define SEQ_COUNT(c)	integer_get (FUNCALL1 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_count), (c)))

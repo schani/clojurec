@@ -319,9 +319,9 @@
   (let [first-name (emit-constant (first x))
         rest-name (emit-constant (rest x))]
     (emit-value-wrap :const-list nil
-                     (emit-meta-constant x
-                                         (emits "FUNCALL3 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_Cons), "
-                                                first-name ", " rest-name ", value_nil)")))))
+		     (emit-meta-constant x
+                                         (emits "FUNCALLn ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_Cons), 4, value_nil, "
+                                                first-name ", " rest-name ", (value_t*[]) { value_nil })")))))
 
 (defmethod emit-constant clojure.lang.Cons [x]
   (FIXME-IMPLEMENT))
