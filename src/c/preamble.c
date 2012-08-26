@@ -536,15 +536,26 @@ make_string_with_size (long bytes)
 }
 
 static value_t*
+make_string_from_buf (const gchar *start, const gchar *end)
+{
+	assert (start <= end);
+
+	size_t len = end - start;
+	gchar *copy = GC_malloc (len + 1);
+	string_t *s = (string_t*) alloc_value (PTABLE_NAME (cljc_DOT_core_SLASH_String), sizeof (string_t));
+	memcpy (copy, start, len);
+	copy [len] = '\0';
+	s->utf8 = copy;
+	return &s->val;
+}
+
+static value_t*
 make_string_copy_free (gchar *utf8)
 {
 	size_t len = strlen (utf8);
-	gchar *copy = GC_malloc (len + 1);
-	string_t *s = (string_t*) alloc_value (PTABLE_NAME (cljc_DOT_core_SLASH_String), sizeof (string_t));
-	strcpy (copy, utf8);
+	value_t *s = make_string_from_buf (utf8, utf8 + len);
 	free (utf8);
-	s->utf8 = copy;
-	return &s->val;
+	return s;
 }
 
 static gchar*

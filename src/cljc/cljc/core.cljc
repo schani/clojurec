@@ -1371,6 +1371,18 @@ reduces them without incurring seq initialization"
 		   (c* "make_string (g_utf8_next_char (raw_pointer_get (~{})))" ptr)))
    :else (error (str "Doesn't support name: " x))))
 
+(defn namespace
+  "Returns the namespace String of a symbol or keyword, or nil if not present."
+  [x]
+  (cond
+   (keyword? x) (let [ptr (c* "make_raw_pointer (g_utf8_strrchr (keyword_get_utf8 (~{}), -1, '/'))" x)]
+		  (when (c* "make_boolean (raw_pointer_get (~{}) != NULL)" ptr)
+		    (c* "make_string_from_buf (keyword_get_utf8 (~{}), raw_pointer_get (~{}))" x ptr)))
+   (symbol? x) (let [ptr (c* "make_raw_pointer (g_utf8_strrchr (symbol_get_utf8 (~{}), -1, '/'))" x)]
+		 (when (c* "make_boolean (raw_pointer_get (~{}) != NULL)" ptr)
+		   (c* "make_string_from_buf (symbol_get_utf8 (~{}), raw_pointer_get (~{}))" x ptr)))
+   :else (error (str "Doesn't support namespace: " x))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Printing ;;;;;;;;;;;;;;;;
 
 (defn pr-sequential [print-one begin sep end opts coll]
