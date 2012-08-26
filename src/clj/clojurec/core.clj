@@ -41,6 +41,7 @@
                     ") {\n"
 		    "environment_t *env = NULL;\n"
 		    "cljc_init ();\n"
+		    "BEGIN_MAIN_CODE;\n"
 		    main-code
                     (if main-name
                       (str "return integer_get (FUNCALL1 ((closure_t*)VAR_NAME ("
@@ -51,6 +52,7 @@
                            (cljc/munge 'cljc.core/vector-from-c-string-array)
                            "), make_integer (argc), make_raw_pointer (argv)), VALUE_NONE, NULL)));")
                       "return 0;\n")
+		    "END_MAIN_CODE;\n"
                     "}\n"]))))
 
 (defn compile-expr [ns-name with-core expr]

@@ -913,3 +913,14 @@ cljc_init (void)
 	VAR_NAME (cljc_DOT_core_SLASH_print) = make_closure (cljc_core_print, NULL);
 	VAR_NAME (cljc_DOT_core_SLASH_apply) = make_closure (cljc_core_apply, NULL);
 }
+
+#define BEGIN_MAIN_CODE						\
+	jmp_buf main_jmp_buf;					\
+	int main_setjmp_result;					\
+	topmost_jmp_buf = &main_jmp_buf;			\
+	if ((main_setjmp_result = _setjmp (main_jmp_buf))) {	\
+	fprintf (stderr, "Error: Uncaught exception.\n");	\
+	return 1;						\
+	}
+#define END_MAIN_CODE				\
+	topmost_jmp_buf = NULL
