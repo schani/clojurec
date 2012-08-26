@@ -87,6 +87,19 @@
   [array-like]
   (array-copy array-like (make-array (alength array-like))))
 
+(declare inc seq first next count)
+
+(defn array [& args]
+  (let [n (count args)
+	a (make-array n)]
+    (if-let [args (seq args)]
+      (loop [i 0
+	     args args]
+	(aset a i (first args))
+	(if-let [args (next args)]
+	  (recur (inc i) args))))
+    a))
+
 (comment
 (defprotocol IFn
   (-invoke [& args]))
