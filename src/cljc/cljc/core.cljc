@@ -1077,7 +1077,7 @@ reduces them without incurring seq initialization"
 (defn- hash-coll [coll]
   (reduce #(hash-combine %1 (hash %2)) (hash (first coll)) (next coll)))
 
-(declare key val)
+(declare key val transient persistent!)
 
 (defn- hash-imap [m]
   ;; a la clojure.lang.APersistentMap
@@ -1121,6 +1121,14 @@ reduces them without incurring seq initialization"
              (recur (cons f rev) r)
              (recur rev r)))
          (reverse rev)))))
+
+(defn into
+  "Returns a new coll consisting of to-coll with all of the items of
+  from-coll conjoined."
+  [to from]
+  (if (satisfies? IEditableCollection to)
+    (persistent! (reduce -conj! (transient to) from))
+    (reduce -conj to from)))
 
 (defn flatten-tail
   [coll]
