@@ -623,7 +623,7 @@ intern_keyword (const gchar *utf8, bool copy)
 	} else {
 		assert (strcmp (kh_value (keyword_hash, iter)->utf8, utf8) == 0);
 	}
-	return kh_value (keyword_hash, iter);
+	return &kh_value (keyword_hash, iter)->val;
 }
 
 static const gchar*
