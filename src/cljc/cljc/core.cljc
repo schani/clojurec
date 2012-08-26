@@ -537,6 +537,11 @@ reduces them without incurring seq initialization"
   (-equiv [k o]
     (identical? k o))
 
+  IFn
+  (-invoke [k coll]
+	   (when-not (nil? coll)
+	     (-lookup coll k nil)))
+
   IHash
   (-hash [k]
     (c* "make_integer (string_hash_code (keyword_get_utf8 (~{})) + 2)" k))
