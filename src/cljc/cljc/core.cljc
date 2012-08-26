@@ -283,7 +283,7 @@
          (= y (first more)))
        false)))
 
-(declare reduce)
+(declare reduce hash-map)
 
 (defn conj
   "conj[oin]. Returns a new collection with the xs
@@ -338,11 +338,28 @@
     ([o k] nil)
     ([o k not-found] not-found))
 
+  IAssociative
+  (-assoc [_ k v] (hash-map k v))
+
+  IMap
+  (-dissoc [_ k] nil)
+
   ISet
   (-disjoin [_ v] nil)
 
+  IMeta
+  (-meta [_] nil)
+
+  IWithMeta
+  (-with-meta [_ meta] nil)
+
   IHash
   (-hash [o] 0)
+
+  IReduce
+  (-reduce
+    ([_ f] (f))
+    ([_ f start] start))
 
   IPrintable
   (-pr-seq [o opts] (list "nil")))
