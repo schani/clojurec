@@ -866,10 +866,6 @@
     (do
       (emitln "PTABLE_NAME (" t ") = alloc_ptable (TYPE_NAME (" t "), FIELD_ACCESS_FN_NAME (" t "));"))))
 
-(defmethod emit :defrecord*
-  [{:keys [t fields pmasks]}]
-  (FIXME-IMPLEMENT))
-
 (defn lookup-protocol [method]
   (some (fn [[ns protocols]]
 	  (some (fn [[p {:keys [name methods]}]]
@@ -925,7 +921,7 @@
 
 (declare analyze analyze-symbol analyze-seq)
 
-(def specials '#{if def fn* do let* loop* letfn* throw try* recur new set! ns defprotocol* deftype* defrecord* . c* & quote})
+(def specials '#{if def fn* do let* loop* letfn* throw try* recur new set! ns defprotocol* deftype* . c* & quote})
 
 (def ^:dynamic *recur-frames* nil)
 (def ^:dynamic *loop-lets* nil)
@@ -1230,9 +1226,15 @@
    (let [enve (assoc env :context :expr)
          ctorexpr (analyze enve ctor)
          argexprs (vec (map #(analyze enve %) args))
-         known-num-fields (:num-fields (resolve-existing-var env ctor))
+	 resolved-var (resolve-existing-var env ctor)
+         known-num-fields (:num-fields resolved-var)
+	 is-defrecord (:defrecord resolved-var)
+	 allowed-argcs (when known-num-fields
+			 (if is-defrecord
+			   #{(- known-num-fields 3) (- known-num-fields 1)}
+			   #{known-num-fields}))
          argc (count args)]
-     (when (and known-num-fields (not= known-num-fields argc))
+     (when (and allowed-argcs (not (allowed-argcs argc)))
        (warning env
          (str "WARNING: Wrong number of args (" argc ") passed to " ctor)))
      
@@ -1368,6 +1370,7 @@
            (fn [m]
              (let [m (assoc (or m {})
                        :name t
+		       :defrecord (:defrecord (meta tsym))
 		       :fields fields
                        :num-fields (count fields))]
                (if-let [line (:line env)]
@@ -1376,19 +1379,6 @@
                      (assoc :line line))
                  m))))
     {:env env :op :deftype* :as form :t t :fields fields :pmasks pmasks :index index}))
-
-(defmethod parse 'defrecord*
-  [_ env [_ tsym fields pmasks :as form] _]
-  (let [t (munge (:name (resolve-var (dissoc env :locals) tsym)))]
-    (swap! namespaces update-in [(-> env :ns :name) :defs tsym]
-           (fn [m]
-             (let [m (assoc (or m {}) :name t)]
-               (if-let [line (:line env)]
-                 (-> m
-                     (assoc :file *cljs-file*)
-                     (assoc :line line))
-                 m))))
-    {:env env :op :defrecord* :form form :t t :fields fields :pmasks pmasks}))
 
 ;; dot accessor code
 

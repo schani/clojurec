@@ -696,6 +696,29 @@
 	   [{:foo true}
 	    {:bar true}]))))
 
+(deftest defrecord-tests
+  (testing "defrecord"
+    (is (= (core-run '(do
+			(defrecord Foo [a b])
+			(let [a (->Foo 1 2)
+			      b (assoc a :c 3 :d 4)
+			      c (dissoc b :c)
+			      d (conj c [:e 5])
+			      e (map->Foo {:a 6 :b 7 :c 8})]
+			  (pr (into {} a))
+			  (pr (into {} b))
+			  (pr (into {} c))
+			  (pr (into {} d))
+			  (pr (into {} e))
+			  (pr (count e) (hash e)))))
+	   [{:b 2, :a 1}
+	    {:b 2, :d 4, :a 1, :c 3}
+	    {:b 2, :d 4, :a 1}
+	    {:b 2, :d 4, :e 5, :a 1}
+	    {:b 7, :a 6, :c 8}
+	    3
+	    10960786196]))))
+
 (deftest io
   (testing "I/O"
     (let [filename (.getAbsolutePath (io/file (java.lang.System/getProperty "user.dir") "test" "words.txt"))]

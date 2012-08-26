@@ -225,6 +225,136 @@
 	     ())
 	 ~t))))
 
+(defn- unmeta [v]
+  (vec (map #(with-meta % nil) v)))
+
+(defn- emit-defrecord
+   "Do not use this directly - use defrecord"
+  [env tagname rname hinted-base-fields impls]
+  (let [base-fields (unmeta hinted-base-fields)
+	hinted-meta-ext-fields (conj hinted-base-fields '__meta '__extmap)
+	hinted-fields (conj hinted-meta-ext-fields (with-meta '__hash {:mutable true}))
+	meta-ext-fields (unmeta hinted-meta-ext-fields)
+	fields (unmeta hinted-fields)
+	adorn-params (fn [sig]
+                       (cons (vary-meta (second sig) assoc :cljc.compiler/fields hinted-fields)
+                             (nnext sig)))
+        ;;reshape for extend-type
+        dt->et (fn [specs]
+                 (loop [ret [] s specs]
+                   (if (seq s)
+                     (recur (-> ret
+                                (conj (first s))
+                                (into
+                                 (reduce (fn [v [f sigs]]
+                                           (conj v (cons f (map adorn-params sigs))))
+                                         []
+                                         (group-by first (take-while seq? (next s))))))
+                            (drop-while seq? (next s)))
+                     ret)))]
+    (let [gs (gensym)
+          ksym (gensym "k")
+	  impls (concat
+		 impls
+		 ['IRecord
+		  'IHash
+		  `(~'-hash [this#] (caching-hash this# ~'hash-imap ~'__hash))
+		  'IEquiv
+		  `(~'-equiv [this# other#]
+			     (if (and (has-type? other# ~rname)
+				      (equiv-map this# other#))
+			       true
+			       false))
+		  'IMeta
+		  `(~'-meta [this#] ~'__meta)
+		  'IWithMeta
+		  `(~'-with-meta [this# ~gs] (new ~tagname ~@(replace {'__meta gs} (butlast fields))))
+		  'ILookup
+		  `(~'-lookup [this# k#] (-lookup this# k# nil))
+		  `(~'-lookup [this# ~ksym else#]
+         (cond
+           ~@(mapcat (fn [f] [`(identical? ~ksym ~(keyword f)) f]) base-fields)
+           :else (get ~'__extmap ~ksym else#)))
+		  'ICounted
+		  `(~'-count [this#] (+ ~(count base-fields) (count ~'__extmap)))
+		  'ICollection
+		  `(~'-conj [this# entry#]
+      		       (if (vector? entry#)
+      			 (-assoc this# (-nth entry# 0) (-nth entry# 1))
+      			 (reduce -conj
+      				 this#
+      				 entry#)))
+		  'IAssociative
+		  `(~'-assoc [this# k# ~gs]
+                     (condp identical? k#
+                       ~@(mapcat (fn [fld]
+                                   [(keyword fld) (list* `new tagname (replace {fld gs} (butlast fields)))])
+                                 base-fields)
+                       (new ~tagname ~@(remove #{'__extmap '__hash} fields) (assoc ~'__extmap k# ~gs))))
+		  'IMap
+		  `(~'-dissoc [this# k#] (if (contains? #{~@(map keyword base-fields)} k#)
+                                            (dissoc (with-meta (into {} this#) ~'__meta) k#)
+                                            (new ~tagname ~@(remove #{'__extmap '__hash} fields)
+                                                 (not-empty (dissoc ~'__extmap k#)))))
+		  'ISeqable
+		  `(~'-seq [this#] (seq (concat [~@(map #(list `vector (keyword %) %) base-fields)]
+                                              ~'__extmap)))
+		  'IPrintable
+		  `(~'-pr-seq [this# opts#]
+			      (let [pr-pair# (fn [keyval# pair-opts#] (pr-sequential pr-seq "" " " "" pair-opts# keyval#))]
+				(pr-sequential
+				 pr-pair# (core/str "#" ~(name rname) "{") ", " "}" opts#
+				 (concat [~@(map #(list `vector (keyword %) %) base-fields)]
+					 ~'__extmap))))
+		  ])
+          [fpps pmasks] nil]
+      (let [val (gensym "val")
+	    num-base-fields (count base-fields)]
+	`(do
+	   (~'deftype* ~(with-meta tagname {:defrecord true}) ~hinted-fields ~pmasks)
+	   (defn ~tagname
+	     (~base-fields
+	      (let [~val (~'c* "alloc_value (PTABLE_NAME (~{sym}), sizeof (deftype_t) + sizeof (value_t*) * ~{str})"
+			       ~tagname ~(count fields))]
+		~@(map-indexed (fn [i fld]
+				 (list 'c* "DEFTYPE_SET_FIELD (~{}, ~{str}, ~{})" val i fld))
+			       base-fields)
+		~@(map (fn [i]
+			 (list 'c* "DEFTYPE_SET_FIELD (~{}, ~{str}, value_nil)" val i))
+		       (range num-base-fields (count fields)))
+		~val))
+	     (~meta-ext-fields
+	      (let [~val (~tagname ~@base-fields)]
+		(~'c* "DEFTYPE_SET_FIELD (~{}, ~{str}, ~{})" ~val ~num-base-fields ~'__meta)
+		(~'c* "DEFTYPE_SET_FIELD (~{}, ~{str}, ~{})" ~val ~(core/inc num-base-fields) ~'__extmap)
+		~val)))
+	   (extend-type ~(with-meta tagname {:skip-protocol-flag fpps}) ~@(dt->et impls)))))))
+
+(defn- build-positional-factory
+  [rsym rname fields]
+  (let [fn-name (symbol (core/str '-> rsym))]
+    `(defn ~fn-name
+       [~@fields]
+       (new ~rsym ~@fields))))
+
+(defn- build-map-factory
+  [rsym rname fields]
+  (let [fn-name (symbol (core/str 'map-> rsym))
+	ms (gensym)
+	ks (map keyword fields)
+	getters (map (fn [k] `(~k ~ms)) ks)]
+    `(defn ~fn-name
+       [~ms]
+       (new ~rsym ~@getters nil (dissoc ~ms ~@ks)))))
+
+(defmacro defrecord [rsym fields & impls]
+  (let [r (:name (cljc.compiler/resolve-var (dissoc &env :locals) rsym))]
+    `(let []
+       ~(emit-defrecord &env rsym r fields impls)
+       ~(build-positional-factory rsym r fields)
+       ~(build-map-factory rsym r fields)
+       ~rsym)))
+
 (defmacro math-op [op x y]
   `(let [x# ~x
          y# ~y]

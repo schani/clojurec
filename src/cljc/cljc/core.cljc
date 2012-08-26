@@ -138,6 +138,9 @@
 (defprotocol ISequential
   "Marker interface indicating a persistent collection of sequential items")
 
+(defprotocol IRecord
+  "Marker interface indicating a record object")
+
 (defprotocol ICollection
   (-conj [coll o]))
 
