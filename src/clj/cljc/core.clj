@@ -210,7 +210,6 @@
                                          (group-by first (take-while seq? (next s))))))
                             (drop-while seq? (next s)))
                      ret)))
-        r (:name (cljc.compiler/resolve-var (dissoc &env :locals) t))
         [fpps pmasks] nil]
     (let [val (gensym "val")]
       `(do
