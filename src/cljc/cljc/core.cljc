@@ -1098,6 +1098,10 @@ reduces them without incurring seq initialization"
                (next s)))
       h)))
 
+(defn not-empty
+  "If coll is empty, returns nil, else coll"
+  [coll] (when (seq coll) coll))
+
 (defn ^boolean every?
   "Returns true if (pred x) is logical true for every x in coll, else
   false."
