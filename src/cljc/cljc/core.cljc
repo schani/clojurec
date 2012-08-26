@@ -982,13 +982,13 @@ reduces them without incurring seq initialization"
   ([coll n]
      (when-not (nil? coll)
        (if (satisfies? IIndexed coll)
-         (-nth coll n)
-         (linear-traversal-nth coll n))))
+         (-nth coll (int n))
+         (linear-traversal-nth coll (int n)))))
   ([coll n not-found]
      (if-not (nil? coll)
        (if (satisfies? IIndexed coll)
-         (-nth coll n not-found)
-         (linear-traversal-nth coll n not-found))
+         (-nth coll (int n) not-found)
+         (linear-traversal-nth coll (int n) not-found))
        not-found)))
 
 (defn cons
