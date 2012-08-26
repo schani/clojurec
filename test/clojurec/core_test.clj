@@ -290,11 +290,13 @@
 
 (deftest constants
   (testing "constants"
-    (is (= (core-run '(pr '(1 2)
-			  (let [m '{3 4 5 6}]
-			    (list (keys m) (vals m)))
-			  (map identity '#{7 8})))
-	   '[(1 2) ((3 5) (4 6)) (7 8)]))))
+    (is (= (let [x (cons 1 '(2))]
+	     (core-run `(pr '(1 2)
+			    (let [~'m '{3 4 5 6}]
+			      (list (keys ~'m) (vals ~'m)))
+			    (map identity '#{9 10})
+			    '~x)))
+	   '[(1 2) ((3 5) (4 6)) (7 8) (9 10)]))))
 
 (deftest loops
   (testing "simple loops"

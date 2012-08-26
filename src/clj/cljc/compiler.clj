@@ -319,7 +319,7 @@
   (emit-value-wrap :empty-list nil
                    (emits "VAR_NAME (cljc_DOT_core_DOT_List_SLASH_EMPTY)")))
 
-(defmethod emit-constant clojure.lang.PersistentList [x]
+(defn- emit-list-constant [x]
   (let [first-name (emit-constant (first x))
         rest-name (emit-constant (rest x))]
     (emit-meta-constant x
@@ -327,8 +327,14 @@
                                          (emits "FUNCALLn ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_Cons), 4, value_nil, "
                                                 first-name ", " rest-name ", (value_t*[]) { value_nil })")))))
 
+(defmethod emit-constant clojure.lang.PersistentList [x]
+  (emit-list-constant x))
+
 (defmethod emit-constant clojure.lang.Cons [x]
-  (FIXME-IMPLEMENT))
+  (emit-list-constant x))
+
+(defmethod emit-constant clojure.lang.LazySeq [x]
+  (emit-list-constant x))
 
 (defn- emit-seq-construction [items empty prefix emitter postfix]
   (letfn [(emit-rec [xs]
