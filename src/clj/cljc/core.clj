@@ -44,10 +44,9 @@
   `(identical? ~x nil))
 
 (defmacro has-type? [val t]
-  (bool-expr `(let [x# ~val]
-		(if (nil? x#)
-		  ~'false
-		  (~'c* ~(core/str "(make_boolean (~{}->ptable->type == TYPE_" (core/str t) "))") x#)))))
+  ;; FIXME: This is a horrible hack - it can't cope with user types
+  ;; because they need to be resolved to get their namespaces.
+  (bool-expr `(~'c* ~(core/str "(make_boolean (~{}->ptable->type == TYPE_" (core/str t) "))") ~val)))
 
 (defmacro integer? [x]
   `(has-type? ~x "Integer"))
