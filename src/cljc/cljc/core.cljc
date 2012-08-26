@@ -1354,6 +1354,23 @@ reduces them without incurring seq initialization"
   ([s start] (subs s start (count s)))
   ([s start end] (checked-substring s start end)))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn name
+  "Returns the name String of a string, symbol or keyword."
+  [x]
+  (cond
+   (string? x) x
+   (keyword? x) (let [ptr (c* "make_raw_pointer (g_utf8_strrchr (keyword_get_utf8 (~{}), -1, '/'))" x)]
+		  (if (c* "make_boolean (raw_pointer_get (~{}) == NULL)" ptr)
+		    (c* "make_string ((gchar*)keyword_get_utf8 (~{}))" x)
+		    (c* "make_string (g_utf8_next_char (raw_pointer_get (~{})))" ptr)))
+   (symbol? x) (let [ptr (c* "make_raw_pointer (g_utf8_strrchr (symbol_get_utf8 (~{}), -1, '/'))" x)]
+		 (if (c* "make_boolean (raw_pointer_get (~{}) == NULL)" ptr)
+		   (c* "make_string ((gchar*)symbol_get_utf8 (~{}))" x)
+		   (c* "make_string (g_utf8_next_char (raw_pointer_get (~{})))" ptr)))
+   :else (error (str "Doesn't support name: " x))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Printing ;;;;;;;;;;;;;;;;
 
 (defn pr-sequential [print-one begin sep end opts coll]
