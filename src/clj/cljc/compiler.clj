@@ -641,7 +641,9 @@
                      (let [result-name (munge (gensym :fn-method))]
                        (when recurs
                          (emitln "value_t *" result-name ";")
-                         (emitln "while (1) {"))
+			 (emitln "environment_t *loop_env = env;")
+                         (emitln "while (1) {")
+			 (emitln "env = loop_env;"))
                        (let [block-name (emit-block statements ret)]
                          (if recurs
                            (do
@@ -736,13 +738,17 @@
       (emitln "value_t *" result-name ";")
       (emitln "{")
       (when loop
-        (emitln "for (;;) {"))
+	(emitln "{")
+	(emitln "environment_t *loop_env = env;")
+        (emitln "for (;;) {")
+	(emitln "env = loop_env;"))
       (let [block-name (emit-block statements ret)]
         (when block-name
           (emitln result-name " = " block-name ";"))
         (when loop
           (emitln "break;")
-          (emitln "}"))
+          (emitln "}")
+	  (emitln "}"))
         (emitln "}")
         (when block-name
           result-name)))))
@@ -752,14 +758,19 @@
   ;; FIXME: Report recurs within try as errors.  We currently produce
   ;; non-compiling C code for this.  We probably should catch this in
   ;; the analyze phase.
-  (emitln "{")
   (let [names (:names frame)
         expr-names (doall (map emit exprs))]
-    (doseq [[name expr-name] (map vector names expr-names)]
-      (let [[num-ups index] (env-stack-lookup name)]
-	(emitln "env_set (env_up (env, " num-ups "), " index ", " expr-name ");")))
-    (emitln "continue;"))
-  (emitln "}")
+    (if (seq names)
+      (do
+	(emitln "{")
+	(assert (apply = (map #(first (env-stack-lookup %)) names)))
+	(emitln "loop_env = copy_env (loop_env);")
+	(doseq [[name expr-name] (map vector names expr-names)]
+	  (let [index (second (env-stack-lookup name))]
+	    (emitln "env_set (loop_env, " index ", " expr-name ");")))
+	(emitln "continue;")
+	(emitln "}"))
+      (emitln "continue;")))
   nil)
 
 (defmethod emit :letfn

@@ -305,7 +305,12 @@
 		   (if (< i 11)
 		     (recur (+ i 1) (* x i))
 		     (cljc.core/print x))))
-	   [3628800]))))
+	   [3628800]))
+    (is (= (core-run '(pr (loop [i 0 j ()]
+			    (if (< i 5)
+			      (recur (inc i) (conj j (fn [] i)))
+			      (map #(%) j)))))
+	   '[(4 3 2 1 0)]))))
 
 (deftest dynamic
   (testing "dynamic vars and binding"

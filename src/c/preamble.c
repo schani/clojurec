@@ -281,6 +281,15 @@ alloc_env (environment_t *up, int num_bindings)
 	return env;
 }
 
+static environment_t*
+copy_env (environment_t *env)
+{
+	size_t size = sizeof (environment_t) + env->num_bindings * sizeof (value_t*);
+	environment_t *new_env = GC_malloc (size);
+	memcpy (new_env, env, size);
+	return new_env;
+}
+
 static void
 env_set (environment_t *env, int index, value_t *val)
 {
