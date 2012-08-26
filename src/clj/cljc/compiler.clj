@@ -276,7 +276,7 @@
   (throw (UnsupportedOperationException.)))
 
 (defmulti emit-constant class)
-(defmethod emit-constant nil [x] (emit-value-wrap :nil nil (emits "value_nil")))
+(defmethod emit-constant nil [x] "value_nil")
 ;; FIXME: allocate these only once, not every time!
 (defmethod emit-constant Long [x] (emit-value-wrap :long-const nil (emits "make_integer (" x "L)")))
 (defmethod emit-constant Integer [x] (emit-value-wrap :int-const nil (emits "make_integer (" x "L)"))) ; reader puts Integers in metadata
@@ -286,7 +286,7 @@
 (defmethod emit-constant String [x]
   (emit-value-wrap :string-const nil
                    (emits "make_string (" (wrap-in-double-quotes (escape-string x)) ")")))
-(defmethod emit-constant Boolean [x] (emit-value-wrap :bool-const nil (emits (if x "value_true" "value_false"))))
+(defmethod emit-constant Boolean [x] (if x "value_true" "value_false"))
 
 (defmethod emit-constant java.util.regex.Pattern [x]
   (FIXME-IMPLEMENT))
@@ -316,8 +316,7 @@
     expr-name))
 
 (defmethod emit-constant clojure.lang.PersistentList$EmptyList [x]
-  (emit-value-wrap :empty-list nil
-                   (emits "VAR_NAME (cljc_DOT_core_DOT_List_SLASH_EMPTY)")))
+	   "VAR_NAME (cljc_DOT_core_DOT_List_SLASH_EMPTY)")
 
 (defn- emit-list-constant [x]
   (let [first-name (emit-constant (first x))
@@ -423,15 +422,14 @@
   (let [name (:name info)
 	field (:field info)
 	local (:local info)]
-    (emit-value-wrap name env
-                     (cond
-                      local (let [[num-ups index] (env-stack-lookup name)]
-                              (assert (and num-ups index))
-                              (emits "env_fetch (env, " num-ups ", " index ")"))
-                      field (do
-                              (assert *gthis-ups*)
-                              (emits "DEFTYPE_GET_FIELD (env_fetch (env, " *gthis-ups* ", 0), " (:index info) ")"))
-                      :else (emits "VAR_NAME (" name ")")))))
+    (cond
+     local (let [[num-ups index] (env-stack-lookup name)]
+	     (assert (and num-ups index))
+	     (str "env_fetch (env, " num-ups ", " index ")"))
+     field (do
+	     (assert *gthis-ups*)
+	     (str "DEFTYPE_GET_FIELD (env_fetch (env, " *gthis-ups* ", 0), " (:index info) ")"))
+     :else (str "VAR_NAME (" name ")"))))
 
 (defmethod emit :meta
   [{:keys [expr meta env]}]
