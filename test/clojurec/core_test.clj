@@ -481,7 +481,12 @@
                                (string? \a)
                                (char? \a)
                                (char? "a"))
-           [true false false false true false]))))
+           [true false false false true false]))
+    (is (= (core-run '(pr (subs "abcd" 0)
+			  (subs "abcd" 2)
+			  (subs "abcd" 1 3)
+			  (subs "abcd" 5 10)))
+	   [abcd cd bc]))))
 
 (deftest printing
   (testing "printing"

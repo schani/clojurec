@@ -1342,6 +1342,18 @@ reduces them without incurring seq initialization"
 			    char
 			    0))
 
+(defn- checked-substring [s start end]
+  (let [len (count s)
+	end (min end len)
+	start (min start end)]
+    (c* "make_string_copy_free (g_utf8_substring (string_get_utf8 (~{}), integer_get (~{}), integer_get (~{})))" s start end)))
+
+(defn subs
+  "Returns the substring of s beginning at start inclusive, and ending
+  at end (defaults to length of string), exclusive."
+  ([s start] (subs s start (count s)))
+  ([s start end] (checked-substring s start end)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Printing ;;;;;;;;;;;;;;;;
 
 (defn pr-sequential [print-one begin sep end opts coll]
