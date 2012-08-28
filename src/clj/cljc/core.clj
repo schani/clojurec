@@ -120,6 +120,9 @@
   (let [p (:name (cljc.compiler/resolve-var (dissoc &env :locals) psym))]
     (list 'c* "make_boolean (value_satisfies_protocol (~{}, PROTOCOL_NAME (~{str})))" x (core/str p))))
 
+(defmacro lazy-seq [& body]
+  `(cljc.core/LazySeq. nil false (fn [] ~@body) nil))
+
 (defmacro binding
   "binding => var-symbol init-expr
 
