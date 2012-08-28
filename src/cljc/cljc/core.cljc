@@ -1208,6 +1208,148 @@ reduces them without incurring seq initialization"
        (-reduce coll f val)
        (seq-reduce f val coll))))
 
+;;; LazySeq ;;;
+(declare ArrayChunk lazy-seq-value)
+
+(deftype LazySeq [meta ^:mutable realized ^:mutable x ^:mutable __hash]
+  IWithMeta
+  (-with-meta [coll meta] (LazySeq. meta realized x __hash))
+
+  IMeta
+  (-meta [coll] meta)
+
+  ISeq
+  (-first [coll] (first (lazy-seq-value coll)))
+  (-rest [coll] (rest (lazy-seq-value coll)))
+
+  INext
+  (-next [coll] (-seq (-rest coll)))
+
+  ICollection
+  (-conj [coll o] (cons o coll))
+
+  IEmptyableCollection
+  (-empty [coll] (with-meta cljc.core.List/EMPTY meta))
+
+  ISequential
+  IEquiv
+  (-equiv [coll other] (equiv-sequential coll other))
+
+  IHash
+  (-hash [coll] (caching-hash coll hash-coll __hash))
+
+  ISeqable
+  (-seq [coll] (seq (lazy-seq-value coll)))
+
+  IPrintable
+  (-pr-seq [coll opts] (pr-sequential pr-seq "(" " " ")" opts coll)))
+
+(defn- lazy-seq-value [lazy-seq]
+  (let [x (.-x lazy-seq)]
+    (if ^boolean (.-realized lazy-seq)
+      x
+      (do
+        (set! (.-x lazy-seq) (x))
+        (set! (.-realized lazy-seq) true)
+        (.-x lazy-seq)))))
+
+(defprotocol IChunkBuffer
+  (-add [_ o])
+  (-chunk [_ o]))
+
+(deftype ChunkBuffer [^:mutable buf ^:mutable end]
+  IChunkBuffer
+  (-add [_ o]
+    (if (> (alength buf) (inc end))
+      (aset buf end o)
+      ;;Fixme -- is this the correct growth behavior?
+      (let [newbuf (make-array (* 2 end))]
+        (array-copy buf newbuf)
+        (aset newbuf end o)
+        (set! buf newbuf)))
+    (set! end (inc end)))
+
+  (-chunk [_ o]
+    (let [ret (ArrayChunk. buf 0 end)]
+      (set! buf nil)
+      ret))
+
+  ICounted
+  (-count [_] end))
+
+(defn chunk-buffer [capacity]
+  (ChunkBuffer. (make-array capacity) 0))
+
+(deftype ChunkedCons [chunk more meta ^:mutable __hash]
+  IWithMeta
+  (-with-meta [coll m]
+    (ChunkedCons. chunk more m __hash))
+
+  IMeta
+  (-meta [coll] meta)
+
+  ISequential
+  IEquiv
+  (-equiv [coll other] (equiv-sequential coll other))
+
+  ISeqable
+  (-seq [coll] coll)
+
+  ASeq
+  ISeq
+  (-first [coll] (-nth chunk 0))
+  (-rest [coll]
+    (if (> (-count chunk) 1)
+      (ChunkedCons. (-drop-first chunk) more meta nil)
+      (if (nil? more)
+        ()
+        more)))
+
+  IChunkedSeq
+  (-chunked-first [coll] chunk)
+  (-chunked-rest [coll]
+    (if (nil? more)
+      ()
+      more))
+
+  IChunkedNext
+  (-chunked-next [coll]
+    (if (nil? more)
+      nil
+      more))
+
+  ICollection
+  (-conj [this o]
+    (cons o this))
+
+  IHash
+  (-hash [coll] (caching-hash coll hash-coll __hash))
+
+  IPrintable
+  (-pr-seq [coll opts] (pr-sequential pr-seq "(" " " ")" opts coll)))
+
+(defn chunk-cons [chunk rest]
+  (if (zero? (-count chunk))
+    rest
+    (ChunkedCons. chunk rest nil nil)))
+
+(defn chunk-append [b x]
+  (-add b x))
+
+(defn chunk [b]
+  (-chunk b nil))
+
+(defn chunk-first [s]
+  (-chunked-first s))
+
+(defn chunk-rest [s]
+  (-chunked-rest s))
+
+(defn chunk-next [s]
+  (if (satisfies? IChunkedNext s)
+    (-chunked-next s)
+    (seq (-chunked-rest s))))
+
 (defn concat
   "Returns a lazy seq representing the concatenation of the elements in the supplied colls."
   ([] nil)

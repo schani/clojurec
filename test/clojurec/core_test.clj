@@ -894,3 +894,21 @@
                         (print (reduce + 0 ac))
                         (print (reduce + ac3))
                         (print (reduce + 0 ac3))))))))
+
+(deftest lazy-seq-test
+  (testing "LazySeq"
+    (is (= (core-run
+            '(let [lseq (lazy-seq
+                         (cons 1
+                               (lazy-seq
+                                (cons 2
+                                      (lazy-seq (cons 3 nil))))))
+                   rst (rest lseq)]
+               (pr
+                (first lseq)
+                (.-realized lseq)
+                (.-realized rst)
+                (next lseq)
+                (next (next lseq)))))
+           [1 true false '(2 3) '(3)]))))
+
