@@ -3,4 +3,5 @@
   :url "http://example.com/FIXME"
   :dependencies [[org.clojure/clojure "1.4.0"]]
   :source-paths ["src/clj" "src/cljc"]
+  :test-paths ["test/clj"]
   :main ^:skip-aot clojurec.core)
