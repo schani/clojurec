@@ -912,3 +912,12 @@
                 (next (next lseq)))))
            [1 true false '(2 3) '(3)]))))
 
+(deftest string-builder-test
+  (testing "StringBuilder"
+    (is (= (core-run
+            '(pr (loop [sb (sb-make "abc")
+                        i 0]
+                   (if (< i 20)
+                     (recur (-append! sb (first (-pr-seq i nil))) (inc i))
+                     (str sb)))))
+           ['abc012345678910111213141516171819]))))

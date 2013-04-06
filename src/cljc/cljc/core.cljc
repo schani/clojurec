@@ -1509,6 +1509,39 @@ reduces them without incurring seq initialization"
   ([s start] (subs s start (count s)))
   ([s start end] (checked-substring s start end)))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; String builders ;;;;;;;;;;;;;;;;
+
+(defprotocol IStringBuilder
+  (-append! [sb appendee])
+  (-to-string [sb]))
+
+(deftype StringBuilder [string size used]
+  IStringBuilder
+  (-append! [sb appendee]
+    (let [len (c* "make_integer (strlen (string_get_utf8 (~{})))" appendee)
+          new-used (+ used len)
+          new-sb (if (<= new-used size)
+                   (StringBuilder. string size new-used)
+                   (let [new-size (loop [size (if (< size 16)
+                                                32
+                                                (* size 2))]
+                                    (if (<= new-used size)
+                                      size
+                                      (recur (* size 2))))
+                         new-string (c* "make_string_with_size (integer_get (~{}))" new-size)]
+                     (c* "memcpy (string_get_utf8 (~{}), string_get_utf8 (~{}), integer_get (~{}))"
+                         new-string string used)
+                     (StringBuilder. new-string new-size new-used)))]
+      (c* "memcpy (string_get_utf8 (~{}) + integer_get (~{}), string_get_utf8 (~{}), integer_get (~{}))"
+          (.-string new-sb) used appendee len)
+      new-sb))
+  (-to-string [sb]
+    string))
+
+(defn- sb-make [string]
+  (let [len (c* "make_integer (strlen (string_get_utf8 (~{})))" string)]
+    (StringBuilder. string len len)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn name
@@ -1561,6 +1594,7 @@ reduces them without incurring seq initialization"
         (keyword? x) (str ":" (c* "make_string ((gchar*)keyword_get_utf8 (~{}))" x))
         (char? x) (c* "make_string_from_unichar (character_get (~{}))" x)
         (nil? x) ""
+        (satisfies? IStringBuilder x) (-to-string x)
         :else (error "FIXME: not implemented yet")))
   ([& xs]
      (loop [xs (seq xs)
