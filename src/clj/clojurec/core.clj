@@ -64,6 +64,20 @@
 	preamble (slurp (io/file user-dir "src" "c" "preamble.c"))]
     (spit out-file (str preamble code))))
 
+(defn make-and-run [run-dir]
+  (when (:with-makefile *build-options*)
+    (println "*** makeing")
+    (shell/sh "make" "clean" :dir run-dir)
+    (let [{:keys [exit out err]} (shell/sh "make" :dir run-dir)]
+      (if (= exit 0)
+        (do
+          (println "*** running")
+          (let [{:keys [exit out]} (shell/sh "./cljc" :dir run-dir)]
+            (if (= exit 0)
+              (read-string (str \[ out \]))
+              :run-error)))
+        {:compile-error "Makefile ERROR"}))))
+
 (defn run-code [code]
   (let [user-dir (java.lang.System/getProperty "user.dir")
 	run-dir (io/file user-dir "run")]
@@ -74,15 +88,7 @@
       (let [ios (slurp (io/file user-dir "src" "c" "support_ios.m"))]
         (spit (io/file run-dir "cljc.m") (str ios))))
 
-    (when (:with-makefile *build-options*)
-      (shell/sh "make" "clean" :dir run-dir)
-      (let [{:keys [exit out err]} (shell/sh "make" :dir run-dir)]
-        (if (= exit 0)
-          (let [{:keys [exit out]} (shell/sh "./cljc" :dir run-dir)]
-            (if (= exit 0)
-              (read-string (str \[ out \]))
-              :run-error))
-          {:compile-error (str "Makefile ERROR: " err)})))))
+    (make-and-run run-dir)))
 
 (defn run-expr [ns-name with-core expr]
   (run-code (compile-expr ns-name with-core expr)))
