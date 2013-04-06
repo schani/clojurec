@@ -167,10 +167,10 @@
                    (recur (inc i) (conj j (fn [] i)))
                    (map #(%) j)))))
 
-  (comment
   (assert (= [[1 1] [1 2] [1 3] [2 1] [2 2] [2 3]]
              (map #(%) (for [i [1 2] j [1 2 3]] (fn [] [i j])))))
 
+  (comment
   (assert (= 42 (int 42.5)))
   (assert (integer? (int 42.5)))
 

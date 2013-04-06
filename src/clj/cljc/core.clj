@@ -12,7 +12,9 @@
                             aget aset
                             + - * / < <= > >= == zero? pos? neg? inc dec max min mod
                             bit-and bit-and-not bit-clear bit-flip bit-not bit-or bit-set
-                            bit-test bit-shift-left bit-shift-right bit-xor]))
+                            bit-test bit-shift-left bit-shift-right bit-xor
+
+                            unchecked-inc]))
 
 (alias 'core 'clojure.core)
 
@@ -591,3 +593,9 @@
                                        (when-let [~seqsym (next ~seqsym)]
                                         ~@(when needrec [recform])))))]))))]
     (nth (step nil (seq seq-exprs)) 1)))
+
+;; FIXME: we need these for the `for` macro to work
+(defmacro .nth [coll idx & rest]
+  `(-nth ~coll ~idx ~@rest))
+(defmacro unchecked-inc [x]
+  `(inc ~x))
