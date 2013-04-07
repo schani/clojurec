@@ -1521,6 +1521,16 @@ reduces them without incurring seq initialization"
      (when-let [s (seq coll)]
       (cons (first s) (take (dec n) (rest s)))))))
 
+(defn drop
+  "Returns a lazy sequence of all but the first n items in coll."
+  [n coll]
+  (let [step (fn [n coll]
+               (let [s (seq coll)]
+                 (if (and (pos? n) s)
+                   (recur (dec n) (rest s))
+                   s)))]
+    (lazy-seq (step n coll))))
+
 (defn interpose
   "Returns a lazy seq of the elements of coll separated by sep"
   [sep coll]
@@ -1674,6 +1684,57 @@ reduces them without incurring seq initialization"
 		 (when (c* "make_boolean (raw_pointer_get (~{}) != NULL)" ptr)
 		   (c* "make_string_from_buf (symbol_get_utf8 (~{}), raw_pointer_get (~{}))" x ptr)))
    :else (error (str "Doesn't support namespace: " x))))
+
+(defn max-key
+  "Returns the x for which (k x), a number, is greatest."
+  ([k x] x)
+  ([k x y] (if (> (k x) (k y)) x y))
+  ([k x y & more]
+   (reduce #(max-key k %1 %2) (max-key k x y) more)))
+
+(defn min-key
+  "Returns the x for which (k x), a number, is least."
+  ([k x] x)
+  ([k x y] (if (< (k x) (k y)) x y))
+  ([k x y & more]
+     (reduce #(min-key k %1 %2) (min-key k x y) more)))
+
+(defn partition-all
+  "Returns a lazy sequence of lists like partition, but may include
+  partitions with fewer than n items at the end."
+  ([n coll]
+     (partition-all n n coll))
+  ([n step coll]
+     (lazy-seq
+      (when-let [s (seq coll)]
+        (cons (take n s) (partition-all n step (drop step s)))))))
+
+(defn take-while
+  "Returns a lazy sequence of successive items from coll while
+  (pred item) returns true. pred must be free of side-effects."
+  [pred coll]
+  (lazy-seq
+   (when-let [s (seq coll)]
+     (when (pred (first s))
+       (cons (first s) (take-while pred (rest s)))))))
+
+(defn take-nth
+  "Returns a lazy seq of every nth item in coll."
+  [n coll]
+  (lazy-seq
+   (when-let [s (seq coll)]
+     (cons (first s) (take-nth n (drop n s))))))
+
+(defn partition-by
+  "Applies f to each value in coll, splitting it each time f returns
+   a new value.  Returns a lazy seq of partitions."
+  [f coll]
+  (lazy-seq
+   (when-let [s (seq coll)]
+     (let [fst (first s)
+           fv (f fst)
+           run (cons fst (take-while #(= fv (f %)) (next s)))]
+       (cons run (partition-by f (seq (drop (count run) s))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Printing ;;;;;;;;;;;;;;;;
 
