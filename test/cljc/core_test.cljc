@@ -471,7 +471,6 @@
     (assert (= 4 (n4 [1 2 3 4 5 6 7])))
     (assert (= 5 (n5 [1 2 3 4 5 6 7])))
     (assert (= 6 (n6 [1 2 3 4 5 6 7]))))
-  (comment
   (let [sf (some-fn number? keyword? symbol?)]
     (assert (sf :foo 1))
     (assert (sf :foo))
@@ -480,6 +479,7 @@
   (let [ep (every-pred number? zero?)]
     (assert (ep 0 0 0))
     (assert (not (ep 1 2 3 0))))
+  (comment
   (assert ((complement number?) :foo))
   (assert (= [1 [2 3] [1 2 3]] ((juxt first rest seq) [1 2 3])))
   (assert (= 5 (max 1 2 3 4 5)))
