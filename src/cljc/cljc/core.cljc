@@ -1520,6 +1520,20 @@ reduces them without incurring seq initialization"
     (-chunked-next s)
     (seq (-chunked-rest s))))
 
+;;;;;;;;;;;;;;;;
+
+(defn to-array
+  "Naive impl of to-array as a start."
+  [s]
+  (let [ary (make-array (count s))]
+    (loop [s (seq s)
+           i 0]
+      (if s
+        (do
+          (aset ary i (first s))
+          (recur (next s) (inc i)))
+        ary))))
+
 (defn spread
   [arglist]
   (cond

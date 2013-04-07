@@ -525,7 +525,6 @@
   (assert (contains? [5 6 7] 1))
   (assert (contains? [5 6 7] 2))
   (assert (not (contains? [5 6 7] 3)))
-  (comment
   (assert (contains? (to-array [5 6 7]) 1))
   (assert (contains? (to-array [5 6 7]) 2))
   (assert (not (contains? (to-array [5 6 7]) 3)))
@@ -535,6 +534,7 @@
   (assert (distinct? 1 2 3))
   (assert (not (distinct? 1 2 3 1)))
 
+  (comment
   ;; distinct
   (assert (= (distinct ()) ()))
   (assert (= (distinct '(1)) '(1)))

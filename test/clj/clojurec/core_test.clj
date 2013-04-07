@@ -479,6 +479,10 @@
                         (println (aget a 1))
                         (println (aget a 2))))
            [1 2 3]))
+    (is (= (core-run '(let [a (to-array [1 2 3])]
+                        (doseq [x a]
+                          (println x))))
+           [1 2 3]))
     (is (= (core-run '(print (-count (make-array 3))))
            [3]))))
 
