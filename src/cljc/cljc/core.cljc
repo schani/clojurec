@@ -1217,6 +1217,13 @@ reduces them without incurring seq initialization"
                (next s)))
       h)))
 
+(defn ^boolean not=
+  "Same as (not (= obj1 obj2))"
+  ([x] false)
+  ([x y] (not (= x y)))
+  ([x y & more]
+   (not (apply = x y more))))
+
 (defn not-empty
   "If coll is empty, returns nil, else coll"
   [coll] (when (seq coll) coll))

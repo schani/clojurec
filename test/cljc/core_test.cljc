@@ -437,11 +437,11 @@
     (assert (= [1 2] (for [e v :while (< e 3)] e)))
     (assert (= [3] (for [e v :when (> e 2)] e)))
     (assert (= [[1 1] [2 4]] (for [e v :while (< e 3) :let [m (* e e)]] [e m]))))
-  (comment
   (assert (not= 1 2))
   (assert (not (not= 1 1)))
   (assert (not (not-empty [])))
   (assert (boolean (not-empty [1 2 3])))
+  (comment
   (assert (= "joel" (min-key count "joel" "tom servo" "crooooooooow")))
   (assert (= "crooooooooow" (max-key count "joel" "tom servo" "crooooooooow")))
   (assert (= (partition-all 4 [1 2 3 4 5 6 7 8 9])
