@@ -840,6 +840,16 @@ reduces them without incurring seq initialization"
   "Returns true if num is less than zero, else false"
   [n] (< n 0))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; protocols for host types ;;;;;;
+
+(defn nthnext
+  "Returns the nth next of coll, (seq coll) when n is 0."
+  [coll n]
+  (loop [n n xs (seq coll)]
+    (if (and xs (pos? n))
+      (recur (dec n) (next xs))
+      xs)))
+
 (defn bit-xor
   "Bitwise exclusive or"
   [x y] (cljc.core/bit-xor x y))
