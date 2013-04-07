@@ -302,7 +302,6 @@
               (true? false)
               (false? false)
               (false? true)]))
-  (comment
   ;; apply
   (assert (= 0 (apply + nil)))
   (assert (= 0 (apply + (list))))
@@ -317,6 +316,7 @@
   (assert (= () (apply list [])))
   (assert (= [1 2 3] (apply list [1 2 3])))
   (assert (= 6 (apply apply [+ [1 2 3]])))
+  (comment
   ;; apply with infinite sequence
   (assert (= 3 (apply (fn [& args]
                         (+ (nth args 0)

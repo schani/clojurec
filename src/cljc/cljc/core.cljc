@@ -1429,6 +1429,11 @@ reduces them without incurring seq initialization"
 (defn disj! [tcoll val]
   (-disjoin! tcoll val))
 
+(defn iterate
+  "Returns a lazy sequence of x, (f x), (f (f x)) etc. f must be free of side-effects"
+  {:added "1.0"}
+  [f x] (cons x (lazy-seq (iterate f (f x)))))
+
 (defn map
   "Returns a lazy sequence consisting of the result of applying f to the
   set of first items of each coll, followed by applying f to the set
@@ -1454,6 +1459,15 @@ reduces them without incurring seq initialization"
                   (when (every? identity ss)
                     (cons (map first ss) (step (map rest ss))))))]
      (map #(apply f %) (step (conj colls c3 c2 c1))))))
+
+(defn take
+  "Returns a lazy sequence of the first n items in coll, or all items if
+  there are fewer than n."
+  [n coll]
+  (lazy-seq
+   (when (pos? n)
+     (when-let [s (seq coll)]
+      (cons (first s) (take (dec n) (rest s)))))))
 
 (defn interpose
   "Returns a lazy seq of the elements of coll separated by sep"
