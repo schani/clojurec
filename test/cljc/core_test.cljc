@@ -394,7 +394,6 @@
   (let [e-list (empty '^{:b :c} (1 2 3))]
     (assert (seq? e-list))
     (assert (empty? e-list)))
-  (comment
   (let [e-elist (empty '^{:b :c} ())]
     (assert (seq? e-elist))
     (assert (empty? e-elist))
@@ -417,7 +416,7 @@
     (assert (= {:b :c} (meta e-hmap))))
 
   ;;this fails in v8 advanced mode - what's e?
-  #_(let [a (atom nil)]
+  (let [a (atom nil)]
     (assert (= 1 (try* 1)))
     (assert (= 2 (try* 1 (throw 3) (catch e 2))))
     (assert (= 3 (try* 1 (throw 3) (catch e e))))
@@ -426,11 +425,12 @@
 
   (let [a (atom nil)]
     (assert (= 1 (try 1)))
-    (assert (= 2 (try 1 (throw (js/Error.)) (catch js/Error e 2))))
-    (assert (= 2 (try 1 (throw (js/Error.)) (catch js/Error e 1 2))))
+    (assert (= 2 (try 1 (throw (Exception. nil)) (catch Exception e 2))))
+    (assert (= 2 (try 1 (throw (Exception. nil)) (catch Exception e 1 2))))
     (assert (= 1 (try 1 (finally (reset! a 42)))))
     (assert (= 42 (deref a))))
 
+  (comment
   (assert (= [3] (nthnext [1 2 3] 2)))
   (let [v [1 2 3]]
     (assert (= v (for [e v] e)))

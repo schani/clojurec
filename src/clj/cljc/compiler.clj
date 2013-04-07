@@ -316,7 +316,9 @@
     expr-name))
 
 (defmethod emit-constant clojure.lang.PersistentList$EmptyList [x]
-	   "VAR_NAME (cljc_DOT_core_DOT_List_SLASH_EMPTY)")
+  (emit-meta-constant x
+                      (emit-value-wrap :empty-list nil
+                                       (emits "VAR_NAME (cljc_DOT_core_DOT_List_SLASH_EMPTY)"))))
 
 (defn- emit-list-constant [x]
   (let [first-name (emit-constant (first x))
