@@ -643,6 +643,20 @@
          (recur (inc ~idx) ~expr)
          ~ret))))
 
+(defmacro dotimes
+  "bindings => name n
+
+  Repeatedly executes body (presumably for side-effects) with name
+  bound to integers from 0 through n-1."
+  [bindings & body]
+  (let [i (first bindings)
+        n (second bindings)]
+    `(let [n# ~n]
+       (loop [~i 0]
+         (when (< ~i n#)
+           ~@body
+           (recur (inc ~i)))))))
+
 ;; FIXME: we need these for the `for` macro to work
 (defmacro .nth [coll idx & rest]
   `(-nth ~coll ~idx ~@rest))

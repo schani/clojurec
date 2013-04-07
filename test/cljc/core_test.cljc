@@ -641,7 +641,6 @@
         shuffles (filter #(not= coll %) (take 100 (iterate shuffle coll)))]
     (assert (not (empty? shuffles))))
 
-  (comment
   ;; last
   (assert (= nil (last nil)))
   (assert (= 3 (last [1 2 3])))
@@ -658,6 +657,7 @@
     (doseq [n v] (swap! s conj n))
     (assert (= @s (reverse v))))
 
+  (comment
   ;; delay
   (let [a (atom 0)
         d (delay (swap! a inc))]
