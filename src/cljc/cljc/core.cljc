@@ -505,6 +505,13 @@ reduces them without incurring seq initialization"
     ([array k not-found]
        (-nth array k not-found)))
 
+  IReduce
+  (-reduce
+    ([array f]
+       (ci-reduce array f))
+    ([array f start]
+       (ci-reduce array f start)))
+
   IPrintable
   (-pr-seq [a opts]
     (pr-sequential pr-seq "#<Array [" ", " "]>" opts a)))
@@ -557,6 +564,13 @@ reduces them without incurring seq initialization"
        (-nth string k))
     ([string k not_found]
        (-nth string k not_found)))
+
+  IReduce
+  (-reduce
+    ([string f]
+       (ci-reduce string f))
+    ([string f start]
+       (ci-reduce string f start)))
 
   IPrintable
   (-pr-seq [s opts]

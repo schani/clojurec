@@ -241,7 +241,6 @@
   (assert (= "harriet" (-lookup "abcd" 4 "harriet")))
   (assert (= 4 (-lookup (array 1 2 3 4) 3)))
   (assert (= "zot" (-lookup (array 1 2 3 4) 4 "zot")))
-  (comment
   (assert (= 10 (-reduce (array 1 2 3 4) +)))
   (assert (= 20 (-reduce (array 1 2 3 4) + 10)))
   (assert (= "cabd" (let
@@ -298,13 +297,12 @@
                 (bit-test 1000 3)
                 (bit-test 16713 11)
                 (bit-test 1024 10)]))
-  (assert (= [true false true false false false]
+  (comment
+  (assert (= [true false true false]
              [(true? true)
               (true? false)
               (false? false)
-              (false? true)
-              (true? js/undefined)
-              (false? js/undefined)]))
+              (false? true)]))
   ;; apply
   (assert (= 0 (apply + nil)))
   (assert (= 0 (apply + (list))))
