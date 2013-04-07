@@ -380,6 +380,11 @@
        (~'c* ~(core/str "make_boolean (integer_get (~{}) " (name op) " integer_get (~{}))") x# y#)
        (~'c* ~(core/str "make_boolean (float_get (~{}) " (name op) " float_get (~{}))") (float x#) (float y#)))))
 
+(defmacro aset [a i v]
+  `(let [v# ~v]
+     (~'c* "array_set (~{}, integer_get (~{}), ~{})" ~a ~i v#)
+     v#))
+
 (defmacro +
   ([] 0)
   ([x] x)
@@ -599,6 +604,41 @@
                                        (when-let [~seqsym (next ~seqsym)]
                                         ~@(when needrec [recform])))))]))))]
     (nth (step nil (seq seq-exprs)) 1)))
+
+(defmacro alength [array]
+  (list 'c* "make_integer (array_length (~{}))" array))
+
+(defmacro aclone [array]
+  `(let [a# ~array
+         c# (~'c* "make_array (array_length (~{}))" a#)]
+     (~'c* "memcpy (((array_t*)~{})->elems, ((array_t*)~{})->elems, sizeof (value_t*) * array_length (~{}))" c# a# a#)
+     c#))
+
+(defmacro amap
+  "Maps an expression across an array a, using an index named idx, and
+  return value named ret, initialized to a clone of a, then setting 
+  each element of ret to the evaluation of expr, returning the new 
+  array ret."
+  [a idx ret expr]
+  `(let [a# ~a
+         ~ret (aclone a#)]
+     (loop  [~idx 0]
+       (if (< ~idx  (alength a#))
+         (do
+           (aset ~ret ~idx ~expr)
+           (recur (inc ~idx)))
+         ~ret))))
+
+(defmacro areduce
+  "Reduces an expression across an array a, using an index named idx,
+  and return value named ret, initialized to init, setting ret to the 
+  evaluation of expr at each step, returning ret."
+  [a idx ret init expr]
+  `(let [a# ~a]
+     (loop  [~idx 0 ~ret ~init]
+       (if (< ~idx  (alength a#))
+         (recur (inc ~idx) ~expr)
+         ~ret))))
 
 ;; FIXME: we need these for the `for` macro to work
 (defmacro .nth [coll idx & rest]

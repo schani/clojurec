@@ -610,7 +610,6 @@
   (assert (= 4 (get-in [{:foo 1 :bar [{:baz 1}, {:buzz 2}]}, {:foo 3 :bar [{:baz 3}, {:buzz 4}]}]
                        [1 :bar 1 :buzz])))
 
-  (comment
   ;; arrays
   (let [a (to-array [1 2 3])]
     (assert (= [10 20 30] (seq (amap a i ret (* 10 (aget a i))))))
@@ -626,6 +625,7 @@
     (assert (= (aget a 1 1) 5))
     (assert (= (apply aget a [1 1]) 5)))
 
+  (comment
   ;; sort
   (assert (= [1 2 3 4 5] (sort [5 3 1 4 2])))
   (assert (= [1 2 3 4 5] (sort < [5 3 1 4 2])))

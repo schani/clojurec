@@ -45,6 +45,13 @@
   "Returns true if x is logical false, false otherwise."
   [x] (if x false true))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; arrays ;;;;;;;;;;;;;;;;
+
+(defn aclone
+  "Returns a array, cloned from the passed in array"
+  [array]
+  (cljc.core/aclone array))
+
 (defn make-array [size]
   (c* "make_array (integer_get (~{}))" size))
 
@@ -58,13 +65,12 @@
 (defn aset
   "Sets the value at the index."
   [array i val]
-  (c* "array_set (~{}, integer_get (~{}), ~{})" array i val)
-  nil)
+  (cljc.core/aset array i val))
 
 (defn alength
   "Returns the length of the array. Works on arrays of all types."
   [array]
-  (c* "make_integer (array_length (~{}))" array))
+  (cljc.core/alength array))
 
 (defn array-copy
   "Copies n elements from src array, beginning at position specified by src_pos,
