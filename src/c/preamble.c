@@ -727,6 +727,9 @@ cljc_core_print (int nargs, closure_t *closure, value_t *arg1, value_t *arg2, va
 			printf ("]");
 			break;
 		}
+		case TYPE_String:
+			printf ("%s", string_get_utf8 (arg1));
+			break;
 		default:
 			assert_not_reached ();
 	}
