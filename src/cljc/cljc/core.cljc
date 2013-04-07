@@ -544,6 +544,13 @@ reduces them without incurring seq initialization"
          (-nth coll n)
          not-found)))
 
+  ILookup
+  (-lookup
+    ([string k]
+       (-nth string k))
+    ([string k not_found]
+       (-nth string k not_found)))
+
   IPrintable
   (-pr-seq [s opts]
     (if (:readably opts)

@@ -230,15 +230,15 @@
 
   (assert (= "\"symbol\\\"'string\"" (pr-str (str 'symbol \" \' "string"))))
 
-  (comment
   (assert (not (= "one" "two")))
   (assert (= 3 (-count "abc")))
   (assert (= 4 (-count (array 1 2 3 4))))
-  (assert (= "c" (-nth "abc" 2)))
+  (assert (= \c (-nth "abc" 2)))
   (assert (= "quux" (-nth "abc" 3 "quux")))
   (assert (= 1 (-nth (array 1 2 3 4) 0)))
   (assert (= "val" (-nth (array 1 2 3 4) 4 "val")))
-  (assert (= "b" (-lookup "abc" 1)))
+  (assert (= \b (-lookup "abc" 1)))
+  (comment
   (assert (= "harriet" (-lookup "abcd" 4 "harriet")))
   (assert (= 4 (-lookup (array 1 2 3 4) 3)))
   (assert (= "zot" (-lookup (array 1 2 3 4) 4 "zot")))
