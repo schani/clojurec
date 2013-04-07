@@ -634,7 +634,6 @@
   (assert (= ["a" [ 1 2] "foo"] (sort-by count ["foo" "a" [1 2]])))
   (assert (= ["foo" [1 2] "a"] (sort-by count > ["foo" "a" [1 2]])))
 
-  (comment
   ;; shuffle
   (let [coll [1 2 3 4 5 6 7 8 9 10]
         ; while it is technically possible for this test to fail with a false negative,
@@ -642,16 +641,7 @@
         shuffles (filter #(not= coll %) (take 100 (iterate shuffle coll)))]
     (assert (not (empty? shuffles))))
 
-  ;; js->clj
-  (assert (= {"a" 1, "b" 2} (js->clj (js* "{\"a\":1,\"b\":2}"))))
-  (assert (= {"a" nil} (js->clj (js* "{\"a\":null}"))))
-  (assert (= {"a" true, "b" false} (js->clj (js* "{\"a\":true,\"b\":false}"))))
-  (assert (= {:a 1, :b 2} (js->clj (js* "{\"a\":1,\"b\":2}") :keywordize-keys true)))
-  (assert (= [[{:a 1, :b 2} {:a 1, :b 2}]]
-               (js->clj (js* "[[{\"a\":1,\"b\":2}, {\"a\":1,\"b\":2}]]") :keywordize-keys true)))
-  (assert (= [[{:a 1, :b 2} {:a 1, :b 2}]]
-               (js->clj [[{:a 1, :b 2} {:a 1, :b 2}]])))
-
+  (comment
   ;; last
   (assert (= nil (last nil)))
   (assert (= 3 (last [1 2 3])))

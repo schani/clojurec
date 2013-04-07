@@ -827,6 +827,11 @@ reduces them without incurring seq initialization"
     q
     (c* "make_integer ((long)float_get (~{}))" q)))
 
+(defn- unfix [q]
+  (if (float? q)
+    q
+    (c* "make_float ((double)integer_get (~{}))" q)))
+
 (defn int
   "Coerce to int by stripping decimal places."
   [x]
@@ -862,6 +867,15 @@ reduces them without incurring seq initialization"
     (if (and xs (pos? n))
       (recur (dec n) (next xs))
       xs)))
+
+(defn rand
+  "Returns a random floating point number between 0 (inclusive) and n (default 1) (exclusive)."
+  ([]  (c* "make_float (g_random_double_range (0.0, 1.0))"))
+  ([n] (c* "make_float (g_random_double_range (0.0, float_get (~{})))" (unfix n))))
+
+(defn rand-int
+  "Returns a random integer between 0 (inclusive) and n (exclusive)."
+  [n] (c* "make_integer (g_random_int_range (0, integer_get (~{})))" (fix n)))
 
 (defn bit-xor
   "Bitwise exclusive or"
@@ -1487,6 +1501,22 @@ reduces them without incurring seq initialization"
          (let [nval (f val (first coll))]
            (recur nval (next coll)))
          val))))
+
+(declare vec)
+
+(defn shuffle
+  "Return a random permutation of coll"
+  [coll]
+  (let [a (to-array coll)]
+    (loop [i (alength a)]
+      (if (> i 1)
+        (let [j (rand-int i)
+              i-1 (dec i)
+              tmp (aget a i-1)]
+          (aset a i-1 (aget a j))
+          (aset a j tmp)
+          (recur i-1))
+        (vec a)))))
 
 (defn reduce
   "f should be a function of 2 arguments. If val is not supplied,
