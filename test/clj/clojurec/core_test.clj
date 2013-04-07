@@ -13,7 +13,7 @@
   `(run '(do ~@(map #(list 'cljc.core/print %) exprs))))
 
 (defmacro core-run-and-print [& exprs]
-  `(core-run '(do ~@(map #(list 'print %) exprs))))
+  `(core-run '(do ~@(map #(list 'println %) exprs))))
 
 (deftest basic
   (testing "very basic stuff"
@@ -124,13 +124,12 @@
 			  (-foo [o r]))
 			(deftype Bar []
 			  IFoo
-			  (-foo [o _] (pr 1)))
+			  (-foo [o _] (println 1)))
 			(deftype Baz [x]
 			  IFoo
 			  (-foo [o r]
-				(pr 2)
+				(println 2)
 				(when r
-				  (pr " ")
 				  (-foo x false))))
 			(-foo (Baz. (Bar.)) true)))
 	   [2 1]))
@@ -151,9 +150,9 @@
                           IFoo
                           (-foo [o] (set! x (inc x))))
                         (let [o (Bar. 0)]
-                          (print (-foo o))
-                          (print (-foo o))
-                          (print (-foo o)))))
+                          (println (-foo o))
+                          (println (-foo o))
+                          (println (-foo o)))))
            [1 2 3]))))
 
 (deftest numbers
@@ -306,6 +305,17 @@
 		     (recur (+ i 1) (* x i))
 		     (cljc.core/print x))))
 	   [3628800]))
+    (is (= (run '(loop [s 0
+                        i 0]
+                   (if (< i 10)
+                     (recur (loop [s s
+                                   j 0]
+                              (if (< j i)
+                                (recur (+ s j) (+ j 1))
+                                s))
+                            (+ i 1))
+                     (cljc.core/print s))))
+           [120]))
     (is (= (core-run '(pr (loop [i 0 j ()]
 			    (if (< i 5)
 			      (recur (inc i) (conj j (fn [] i)))
@@ -317,7 +327,7 @@
     (is (= (core-run '(do
                         (def ^:dynamic *x* 1)
                         (defn print-x []
-                          (cljc.core/print *x*))
+                          (cljc.core/println *x*))
                         (print-x)
                         (try
                           (binding [*x* (+ *x* 1)]
@@ -337,24 +347,24 @@
                                     (finally
                                      (cljc.core/print 345)))))
            [345 123]))
-    (is (= (core-run '(pr (try
-                            (throw (Exception. 123))
-                            (catch Exception e
-                              (.-info e))
-                            (finally
-                             (pr 345 " ")))))
+    (is (= (core-run '(println (try
+                                 (throw (Exception. 123))
+                                 (catch Exception e
+                                   (.-info e))
+                                 (finally
+                                  (println 345)))))
            [345 123]))
-    (is (= (core-run '(pr (try
-                            (try
-                              (throw (Exception. 123))
-                              (catch Cons _
-                                (pr 0))
-                              (finally
-                               (pr 345 " ")))
-                            (catch Exception e
-                              (.-info e))
-                            (finally
-                             (pr 567 " ")))))
+    (is (= (core-run '(println (try
+                                 (try
+                                   (throw (Exception. 123))
+                                   (catch Cons _
+                                     (println 0))
+                                   (finally
+                                    (println 345)))
+                                 (catch Exception e
+                                   (.-info e))
+                                 (finally
+                                  (println 567)))))
            [345 567 123]))
     (is (= (core-run '(try
                         (loop [i 2
@@ -369,63 +379,63 @@
 (deftest core
   (testing "cljc.core"
     (is (= (core-run '(let [c (Cons. nil 1 2 nil)]
-			(print (. c -first))
-			(print (. c -rest))))
+			(println (. c -first))
+			(println (. c -rest))))
 	   [1 2]))
     (is (= (core-run '(loop [l (cons 1 (cons 2 nil))]
 			(when (seq l)
-			  (print (first l))
+			  (println (first l))
 			  (recur (rest l)))))
 	   [1 2]))
     (is (= (core-run '(loop [l '(1 2 3)]
 			(when (seq l)
-			  (print (first l))
+			  (println (first l))
 			  (recur (rest l)))))
 	   [1 2 3]))
     (is (= (core-run '(loop [l (reverse '(1 2 3))]
 			(when (seq l)
-			  (print (first l))
+			  (println (first l))
 			  (recur (rest l)))))
 	   [3 2 1]))
     (is (= (core-run '(print (count '(0 0 0)))) [3]))
     (is (= (core-run '(loop [l (flatten-tail '(1 2 (3 4)))]
                         (when (seq l)
-                          (print (first l))
+                          (println (first l))
                           (recur (rest l)))))
            [1 2 3 4]))
     (is (= (core-run '(loop [l (concat '(1) '(2 3) '(4 5 6) () '(7))]
                         (when (seq l)
-                          (print (first l))
+                          (println (first l))
                           (recur (rest l)))))
            [1 2 3 4 5 6 7]))
     (is (= (core-run '(loop [l (interpose 0 '(1 2 3))]
                         (when (seq l)
-                          (print (first l))
+                          (println (first l))
                           (recur (rest l)))))
            [1 0 2 0 3]))
     (is (= (core-run '(loop [l (flatten1 '((1 2 3) (4 5) (6)))]
                         (when (seq l)
-                          (print (first l))
+                          (println (first l))
                           (recur (rest l)))))
            [1 2 3 4 5 6]))
     (is (= (core-run '(loop [l (map inc '(1 2 3))]
                         (when (seq l)
-                          (print (first l))
+                          (println (first l))
                           (recur (rest l)))))
            [2 3 4]))
     (is (= (core-run '(loop [l (map + '(1 2 3) '(8 1 2))]
                         (when (seq l)
-                          (print (first l))
+                          (println (first l))
                           (recur (rest l)))))
            [9 3 5]))
     (is (= (core-run '(loop [l (map + '(1 2 3) '(8 1 2) '(8 3 7))]
                         (when (seq l)
-                          (print (first l))
+                          (println (first l))
                           (recur (rest l)))))
            [17 6 12]))
     (is (= (core-run '(loop [l (map + '(1 2 3) '(8 1 2) '(8 3 7) '(-4 -6 -2))]
                         (when (seq l)
-                          (print (first l))
+                          (println (first l))
                           (recur (rest l)))))
            [13 0 10]))
     (is (= (core-run '(print (-count nil))) [0]))
@@ -434,15 +444,15 @@
     (is (= (core-run '(pr (filter #(> % 3) (list 1 2 3 4 5))))
            ['(4 5)]))
     (is (= (core-run '(do
-                        (pr "\"")
-                        (pr (str \a))
-                        (pr " ")
-                        (pr (str 'abc))
-                        (pr " ")
-                        (pr (str :abc))
-                        (pr " ")
-                        (pr (str :abc 'def \g "hi"))
-                        (pr "\"")))
+                        (print "\"")
+                        (print (str \a))
+                        (print " ")
+                        (print (str 'abc))
+                        (print " ")
+                        (print (str :abc))
+                        (print " ")
+                        (print (str :abc 'def \g "hi"))
+                        (print "\"")))
            ["a abc :abc :abcdefghi"]))
     (is (= (core-run '(assert true))
            []))
@@ -451,20 +461,23 @@
 
 (deftest arrays
   (testing "arrays"
-    (is (= (core-run '(print (make-array 3))) [[nil nil nil]]))
+    (is (= (core-run '(doseq [x (make-array 3)]
+                        (println x)))
+           [nil nil nil]))
     (is (= (core-run '(let [a (make-array 3)]
                         (aset a 0 1)
                         (aset a 1 2)
                         (aset a 2 3)
-                        (print a)))
-           [[1 2 3]]))
+                        (doseq [x a]
+                          (println x))))
+           [1 2 3]))
     (is (= (core-run '(let [a (make-array 3)]
                         (aset a 0 1)
                         (aset a 1 2)
                         (aset a 2 3)
-                        (print (aget a 0))
-                        (print (aget a 1))
-                        (print (aget a 2))))
+                        (println (aget a 0))
+                        (println (aget a 1))
+                        (println (aget a 2))))
            [1 2 3]))
     (is (= (core-run '(print (-count (make-array 3))))
            [3]))))
@@ -486,24 +499,23 @@
 			  (subs "abcd" 2)
 			  (subs "abcd" 1 3)
 			  (subs "abcd" 5 10)))
-	   '[abcd cd bc]))))
+	   '["abcd" "cd" "bc" ""]))))
 
 (deftest printing
   (testing "printing"
     (is (= (core-run '(string-print "abc"))
            ['abc]))
     (is (= (core-run '(do
-                        (pr true false) (pr " ")
-                        (pr -1 0 1) (pr " ")
-                        (pr "a" "b") (pr " ")
-                        (pr :a :b) (pr " ")
-                        (pr 'a 'b) (pr " ")
-                        (pr \a \b) (pr " ")
-                        (pr '(1 2 3)) (pr " ")
-                        (pr (make-array 2)) (pr " ")
-                        (pr [1 2]) (pr " ")
-                        (pr {:a 1}) (pr " ")
-                        (pr #{1 2 3})))
+                        (println true false)
+                        (println -1 0 1)
+                        (println "a" "b")
+                        (println :a :b)
+                        (println 'a 'b)
+                        (println \a \b)
+                        (println '(1 2 3))
+                        (println [1 2])
+                        (println {:a 1})
+                        (println #{1 2 3})))
            [true false
             -1 0 1
             'a 'b
@@ -511,7 +523,6 @@
             'a 'b
             \a \b
             '(1 2 3)
-            [nil nil]
             [1 2]
             {:a 1}
             #{1 2 3}]))))
@@ -597,16 +608,16 @@
     (is (= (core-run '(apply (fn [& r] r) '())) []))
     (is (= (core-run '(do
 			(defn printer [a b c d e]
-			  (print a)
-			  (print b)
-			  (print c)
-			  (print d)
-			  (print e))
+			  (println a)
+			  (println b)
+			  (println c)
+			  (println d)
+			  (println e))
 			(printer 1 2 3 4 5)))
 	   [1 2 3 4 5]))
     (is (= (core-run '(loop [l (apply (fn [& r] r) 1 2 '(3 4))]
                         (when (seq l)
-                          (print (first l))
+                          (println (first l))
                           (recur (rest l)))))
            [1 2 3 4]))
     (is (= (core-run '(do
@@ -615,64 +626,64 @@
                           ([x] x)
                           ([x y] (+ x y))
                           ([x & r] (+ x (apply m r))))
-                        (print (m))
-                        (print (m 1))
-                        (print (m 1 2))
-                        (print (m 1 2 3))))
+                        (println (m))
+                        (println (m 1))
+                        (println (m 1 2))
+                        (println (m 1 2 3))))
            [0 1 3 6]))
     (is (= (core-run '(do
 			(defn print-list [l]
 			  (loop [l l]
 			    (when (seq l)
-			      (print (first l))
+			      (println (first l))
 			      (recur (rest l)))))
 			(defn printer0 [& r]
-			  (print 0)
+			  (println 0)
 			  (print-list r))
 			(defn printer1 [a & r]
-			  (print a)
-			  (print 0)
+			  (println a)
+			  (println 0)
 			  (print-list r))
 			(defn printer2 [a b & r]
-			  (print a)
-			  (print b)
-			  (print 0)
+			  (println a)
+			  (println b)
+			  (println 0)
 			  (print-list r))
 			(defn printer3 [a b c & r]
-			  (print a)
-			  (print b)
-			  (print c)
-			  (print 0)
+			  (println a)
+			  (println b)
+			  (println c)
+			  (println 0)
 			  (print-list r))
 			(defn printer4 [a b c d & r]
-			  (print a)
-			  (print b)
-			  (print c)
-			  (print d)
-			  (print 0)
+			  (println a)
+			  (println b)
+			  (println c)
+			  (println d)
+			  (println 0)
 			  (print-list r))
 			(defn printer5 [a b c d e & r]
-			  (print a)
-			  (print b)
-			  (print c)
-			  (print d)
-			  (print e)
-			  (print 0)
+			  (println a)
+			  (println b)
+			  (println c)
+			  (println d)
+			  (println e)
+			  (println 0)
 			  (print-list r))
-			(defn p0 [p] (p) (print -1))
-			(defn p1 [p] (p 1) (print -1))
-			(defn p2 [p] (p 1 2) (print -1))
-			(defn p3 [p] (p 1 2 3) (print -1))
-			(defn p4 [p] (p 1 2 3 4) (print -1))
-			(defn p5 [p] (p 1 2 3 4 5) (print -1))
-			(defn p6 [p] (p 1 2 3 4 5 6) (print -1))
-			(defn ap0 [p] (apply p '()) (print -1))
-			(defn ap1 [p] (apply p '(1)) (print -1))
-			(defn ap2 [p] (apply p '(1 2)) (print -1))
-			(defn ap3 [p] (apply p '(1 2 3)) (print -1))
-			(defn ap4 [p] (apply p '(1 2 3 4)) (print -1))
-			(defn ap5 [p] (apply p '(1 2 3 4 5)) (print -1))
-			(defn ap6 [p] (apply p '(1 2 3 4 5 6)) (print -1))
+			(defn p0 [p] (p) (println -1))
+			(defn p1 [p] (p 1) (println -1))
+			(defn p2 [p] (p 1 2) (println -1))
+			(defn p3 [p] (p 1 2 3) (println -1))
+			(defn p4 [p] (p 1 2 3 4) (println -1))
+			(defn p5 [p] (p 1 2 3 4 5) (println -1))
+			(defn p6 [p] (p 1 2 3 4 5 6) (println -1))
+			(defn ap0 [p] (apply p '()) (println -1))
+			(defn ap1 [p] (apply p '(1)) (println -1))
+			(defn ap2 [p] (apply p '(1 2)) (println -1))
+			(defn ap3 [p] (apply p '(1 2 3)) (println -1))
+			(defn ap4 [p] (apply p '(1 2 3 4)) (println -1))
+			(defn ap5 [p] (apply p '(1 2 3 4 5)) (println -1))
+			(defn ap6 [p] (apply p '(1 2 3 4 5 6)) (println -1))
 			(p0 printer0) (p1 printer0) (p2 printer0) (p3 printer0) (p4 printer0) (p5 printer0) (p6 printer0)
 			(p1 printer1) (p2 printer1) (p3 printer1) (p4 printer1) (p5 printer1) (p6 printer1)
 			(p2 printer2) (p3 printer2) (p4 printer2) (p5 printer2) (p6 printer2)
@@ -732,9 +743,9 @@
 (deftest io
   (testing "I/O"
     (let [filename (.getAbsolutePath (io/file (java.lang.System/getProperty "user.dir") "test" "words.txt"))]
-      (is (= (core-run `(pr (slurp ~filename)))
+      (is (= (core-run `(print (slurp ~filename)))
              ['foo 'bar 'quux]))
-      (is (= (core-run `(pr (~'split-string-seq (slurp ~filename) \newline)))
+      (is (= (core-run `(print (~'split-string-seq (slurp ~filename) \newline)))
              ['(foo bar quux)])))))
 
 (deftest programs
@@ -757,7 +768,7 @@
 
                              `(pr (filter (fn [word] (check-word 5 "abcdefg" word))
                                           (~'split-string-seq (slurp ~filename) \newline))))))
-           ['(badge caged faced)]))))
+           ['("badge" "caged" "faced")]))))
 
 ;;(run-tests *ns*)
 
@@ -776,7 +787,7 @@
                             print-array (fn [a]
                                           (loop [i 0]
                                             (when (< i (alength a))
-                                              (print (aget a i))
+                                              (println (aget a i))
                                               (recur (inc i)))))
                             x (make-array 4)
                             y (make-array 4)
@@ -883,17 +894,17 @@
                             ac (array-chunk a 1 3)
                             ac2 (-drop-first ac)
                             ac3 (array-chunk a 1 1)]
-                        (print (-count ac))
-                        (print (-count ac2))
-                        (print (-nth ac 0))
-                        (print (-nth ac 1))
-                        (print (-nth ac 2 nil))
-                        (print (-nth ac2 0))
-                        (print (-nth ac2 1 nil))
-                        (print (reduce + ac))
-                        (print (reduce + 0 ac))
-                        (print (reduce + ac3))
-                        (print (reduce + 0 ac3))))))))
+                        (println (-count ac))
+                        (println (-count ac2))
+                        (println (-nth ac 0))
+                        (println (-nth ac 1))
+                        (println (-nth ac 2 nil))
+                        (println (-nth ac2 0))
+                        (println (-nth ac2 1 nil))
+                        (println (reduce + ac))
+                        (println (reduce + 0 ac))
+                        (println (reduce + ac3))
+                        (println (reduce + 0 ac3))))))))
 
 (deftest lazy-seq-test
   (testing "LazySeq"
@@ -915,9 +926,9 @@
 (deftest string-builder-test
   (testing "StringBuilder"
     (is (= (core-run
-            '(pr (loop [sb (sb-make "abc")
-                        i 0]
-                   (if (< i 20)
-                     (recur (-append! sb (first (-pr-seq i nil))) (inc i))
-                     (str sb)))))
+            '(print (loop [sb (sb-make "abc")
+                           i 0]
+                      (if (< i 20)
+                        (recur (-append! sb (first (-pr-seq i nil))) (inc i))
+                        (str sb)))))
            ['abc012345678910111213141516171819]))))

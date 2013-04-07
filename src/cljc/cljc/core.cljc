@@ -212,7 +212,7 @@
 (defprotocol IChunkedNext
   (-chunked-next [coll]))
 
-(declare pr-sequential pr-seq list hash-coll cons inc equiv-sequential str)
+(declare pr-sequential pr-seq list hash-coll cons inc equiv-sequential str string-quote)
 
 (deftype Cons [meta first rest ^:mutable __hash]
   IWithMeta
@@ -500,7 +500,7 @@ reduces them without incurring seq initialization"
 
   IPrintable
   (-pr-seq [a opts]
-    (pr-sequential pr-seq "[" " " "]" opts a)))
+    (pr-sequential pr-seq "#<Array [" ", " "]>" opts a)))
 
 (extend-type Character
   IEquiv
@@ -546,7 +546,9 @@ reduces them without incurring seq initialization"
 
   IPrintable
   (-pr-seq [s opts]
-    (list s)))
+    (if (:readably opts)
+      (list "\"" (string-quote s) "\"")
+      (list s))))
 
 (extend-type Keyword
   IEquiv
@@ -1618,10 +1620,41 @@ reduces them without incurring seq initialization"
                  (c* "string_get_utf8 (~{}) [integer_get (~{})] = '\\0'" sb i)
                  sb))))))))
 
+(defn flush [] ;stub
+  nil)
+
 (defn- pr-seq [obj opts]
+  ;; FIXME: print meta
   (if (satisfies? IPrintable obj)
     (-pr-seq obj opts)
     (list "#<" (str obj) ">")))
+
+(defn- pr-sb [objs opts]
+  (loop [sb (sb-make "")
+         objs (seq objs)
+         need-sep false]
+    (if objs
+      (recur (loop [sb (if need-sep (-append! sb " ") sb)
+                    strings (seq (pr-seq (first objs) opts))]
+               (if strings
+                 (recur (-append! sb (first strings))
+                        (next strings))
+                 sb))
+             (next objs)
+             true)
+      sb)))
+
+(defn pr-str-with-opts
+  "Prints a sequence of objects to a string, observing all the
+  options given in opts"
+  [objs opts]
+  (str (pr-sb objs opts)))
+
+(defn prn-str-with-opts
+  "Same as pr-str-with-opts followed by (newline)"
+  [objs opts]
+  (let [sb (pr-sb objs opts)]
+    (str (-append! sb "\n"))))
 
 (defn pr-with-opts
   "Prints a sequence of objects using string-print, observing all
@@ -1636,8 +1669,31 @@ reduces them without incurring seq initialization"
         (string-print string))
       (recur (next objs) true))))
 
+(defn newline [opts]
+  (string-print "\n")
+  (when (get opts :flush-on-newline)
+    (flush)))
+
+(def *flush-on-newline* true)
+(def *print-readably* true)
+(def *print-meta* false)
+(def *print-dup* false)
+
 (defn- pr-opts []
-  nil)
+  {:flush-on-newline *flush-on-newline*
+   :readably *print-readably*
+   :meta *print-meta*
+   :dup *print-dup*})
+
+(defn pr-str
+  "pr to a string, returning it. Fundamental entrypoint to IPrintable."
+  [& objs]
+  (pr-str-with-opts objs (pr-opts)))
+
+(defn prn-str
+  "Same as pr-str followed by (newline)"
+  [& objs]
+  (prn-str-with-opts objs (pr-opts)))
 
 (defn pr
   "Prints the object(s) using string-print.  Prints the
@@ -1646,6 +1702,52 @@ reduces them without incurring seq initialization"
   read by the reader"
   [& objs]
   (pr-with-opts objs (pr-opts)))
+
+(def ^{:doc
+  "Prints the object(s) using string-print.
+  print and println produce output for human consumption."}
+  print
+  (fn cljs-core-print [& objs]
+    (pr-with-opts objs (assoc (pr-opts) :readably false))))
+
+(defn print-str
+  "print to a string, returning it"
+  [& objs]
+  (pr-str-with-opts objs (assoc (pr-opts) :readably false)))
+
+(defn println
+  "Same as print followed by (newline)"
+  [& objs]
+  (pr-with-opts objs (assoc (pr-opts) :readably false))
+  (newline (pr-opts)))
+
+(defn println-str
+  "println to a string, returning it"
+  [& objs]
+  (prn-str-with-opts objs (assoc (pr-opts) :readably false)))
+
+(defn prn
+  "Same as pr followed by (newline)."
+  [& objs]
+  (pr-with-opts objs (pr-opts))
+  (newline (pr-opts)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Strings ;;;;;;;;;;;;;;;;
+
+;; FIXME: horribly inefficient as well as incomplete
+(defn string-quote [s]
+  (loop [sb (sb-make "")
+         cs (seq s)]
+    (if cs
+      (let [c (first cs)]
+        (recur (-append! sb
+                         (cond
+                          (= c \") "\\\""
+                          (= c \newline) "\\n"
+                          (= c \tab) "\\t"
+                          :else (str c)))
+               (next cs)))
+      (str sb))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; I/O ;;;;;;;;;;;;;;;;
 

@@ -11,11 +11,11 @@
 (deftest persistent-vector-test
   (testing "PersistentVector predicates"
     (is (= [true true true true true]
-           (core-run '(do (print (vector? []))
-                          (print (vector? [1 2 3]))
-                          (print (vector? (conj [1 2 3] 4)))
-                          (print (vector? (conj [] 1)))
-                          (print (seqable? [1 2 3])))))))
+           (core-run '(do (println (vector? []))
+                          (println (vector? [1 2 3]))
+                          (println (vector? (conj [1 2 3] 4)))
+                          (println (vector? (conj [] 1)))
+                          (println (seqable? [1 2 3])))))))
 
   (testing "PersistentVector conj/get"
     (is (= [1234
@@ -25,24 +25,24 @@
                                   (if (< i 1234)
                                     (recur (inc i) (conj v i))
                                     v))]
-                        (print (count vec))
+                        (println (count vec))
                         (loop [i 0]
                           (when (< i 1234)
-                            (print (get vec i))
+                            (println (get vec i))
                             (recur (+ i 100))))
-                        (print (get vec 1233))
-                        (print (get vec 1234)))))))
+                        (println (get vec 1233))
+                        (println (get vec 1234)))))))
 
   (testing "PersistentVector pop/peek"
     (is (= [123 0 99 99 1]
            (core-run '(let [v1 (conj [] 123)
                             v100 (loop [i 1 v v1]
                                    (if (< i 100) (recur (inc i) (conj v i)) v))]
-                        (print (peek v1))
-                        (print (count (pop v1)))
-                        (print (peek v100))
-                        (print (count (pop v100)))
-                        (print (count (loop [i 1 v v100]
+                        (println (peek v1))
+                        (println (count (pop v1)))
+                        (println (peek v100))
+                        (println (count (pop v100)))
+                        (println (count (loop [i 1 v v100]
                                         (if (< i 100)
                                           (recur (inc i) (pop v))
                                           v)))))))))
@@ -58,53 +58,53 @@
                                     (recur (inc i) (-assoc v (* 100 i) i))
                                     v))
                             ]
-                        (print (count vec))
+                        (println (count vec))
                         (loop [i 0]
                           (when (< i 1234)
-                            (print (get vec i))
+                            (println (get vec i))
                             (recur (+ i 100))))
-                        (print (get vec 1233))
-                        (print (get vec 1234)))))))
+                        (println (get vec 1233))
+                        (println (get vec 1234)))))))
 
   (testing "PersistentVector invoke"
     (is (= [1 33 7]
            (core-run '(let [v (conj [] 1 33 7)]
-                        (print (v 0))
-                        (print (v 1))
-                        (print (v 2)))))))
+                        (println (v 0))
+                        (println (v 1))
+                        (println (v 2)))))))
 
   (testing "PersistentVector literal"
     (is (= [1 33 7]
            (core-run '(let [v [1 33 (inc 6)]]
-                        (print (get v 0))
-                        (print (get v 1))
-                        (print (get v 2)))))))
+                        (println (get v 0))
+                        (println (get v 1))
+                        (println (get v 2)))))))
   (testing "PersistentVector constant"
     (is (= [1 33 7]
            (core-run '(let [v '[1 33 7]]
-                        (print (get v 0))
-                        (print (get v 1))
-                        (print (get v 2)))))))
+                        (println (get v 0))
+                        (println (get v 1))
+                        (println (get v 2)))))))
   (testing "PersistentVector reduce"
     (is (= [true 6]
            (core-run '(do
-                        (print (reduceable? []))
-                        (print (reduce + [1 2 3])))))))
+                        (println (reduceable? []))
+                        (println (reduce + [1 2 3])))))))
   (testing "PersistentVector equiv"
     (is (= [true false]
-           (core-run '(do (print (= [1 2 3] [1 2 3]))
-                          (print (= [1 2 3] [1 2 3 4])))))))
+           (core-run '(do (println (= [1 2 3] [1 2 3]))
+                          (println (= [1 2 3] [1 2 3 4])))))))
 
   (testing "PersistentVector vec/vector"
     (is (= [1 33 7 1 33 7]
            (core-run '(let [v1 (vector 1 33 (inc 6))
                             v2 (vec (list 1 33 7))]
-                        (print (get v1 0))
-                        (print (get v1 1))
-                        (print (get v1 2))
-                        (print (get v2 0))
-                        (print (get v2 1))
-                        (print (get v2 2))))))))
+                        (println (get v1 0))
+                        (println (get v1 1))
+                        (println (get v1 2))
+                        (println (get v2 0))
+                        (println (get v2 1))
+                        (println (get v2 2))))))))
 
 (deftest chunked-seq-test
   (testing "ChunkedSeq created from PersistentVector"
@@ -114,11 +114,11 @@
                                   (recur (inc i) (conj v i))
                                   v))
                             cs (-seq v)]
-                        (print (seq? cs))
-                        (print (= cs v))
-                        (print (first cs))
-                        (print (last cs))
-                        (print (first (conj cs -1)))))))))
+                        (println (seq? cs))
+                        (println (= cs v))
+                        (println (first cs))
+                        (println (last cs))
+                        (println (first (conj cs -1)))))))))
 
 (deftest subvec-test
   (testing "Subvec"
@@ -137,28 +137,28 @@
                             sv3 (subvec v 99)
                             sv4 (subvec v 100)
                             sv5 (subvec v 50 50)]
-                        (print (count sv1))
-                        (print (sv1 0))
-                        (print (sv1 99))
-                        (print (sv1 100))
+                        (println (count sv1))
+                        (println (sv1 0))
+                        (println (sv1 99))
+                        (println (sv1 100))
 
-                        (print (count sv2))
-                        (print (sv2 0))
-                        (print (sv2 98))
-                        (print (sv2 99))
+                        (println (count sv2))
+                        (println (sv2 0))
+                        (println (sv2 98))
+                        (println (sv2 99))
 
-                        (print (count sv3))
-                        (print (sv3 0))
-                        (print (sv3 1))
+                        (println (count sv3))
+                        (println (sv3 0))
+                        (println (sv3 1))
 
-                        (print (count sv4))
-                        (print (sv4 0))
+                        (println (count sv4))
+                        (println (sv4 0))
 
-                        (print (count sv5))
-                        (print (sv5 0))
+                        (println (count sv5))
+                        (println (sv5 0))
 
-                        (print ((conj sv5 1234) 0))
-                        (print ((-assoc sv2 50 4321) 50))))))))
+                        (println ((conj sv5 1234) 0))
+                        (println ((-assoc sv2 50 4321) 50))))))))
 
 (deftest transient-vector-test
   (testing "TransientVector conj!"
@@ -169,13 +169,13 @@
                                   (if (< i 1234)
                                     (recur (inc i) (conj! v i))
                                     v))]
-                        (print (count vec))
+                        (println (count vec))
                         (loop [i 0]
                           (when (< i 1234)
-                            (print (get vec i))
+                            (println (get vec i))
                             (recur (+ i 100))))
-                        (print (get vec 1233))
-                        (print (get vec 1234)))))))
+                        (println (get vec 1233))
+                        (println (get vec 1234)))))))
 
   (testing "TransientVector assoc!"
     (is (= [1234 0 1 2 3 4 5 6 7 8 9 10 11 12 1233 nil]
@@ -187,13 +187,13 @@
                                   (if (< i 13)
                                     (recur (inc i) (assoc! v (* 100 i) i))
                                     v))]
-                        (print (count vec))
+                        (println (count vec))
                         (loop [i 0]
                           (when (< i 1234)
-                            (print (get vec i))
+                            (println (get vec i))
                             (recur (+ i 100))))
-                        (print (get vec 1233))
-                        (print (get vec 1234)))))))
+                        (println (get vec 1233))
+                        (println (get vec 1234)))))))
 
   (testing "PersistentVector pop!"
     (is (= [0 123 1]
@@ -204,6 +204,6 @@
                                   (if (< i 100)
                                     (recur (inc i) (pop! v))
                                     v))]
-                        (print (count (pop! v1)))
-                        (print (vec (dec (count vec))))
-                        (print (count vec))))))))
+                        (println (count (pop! v1)))
+                        (println (vec (dec (count vec))))
+                        (println (count vec))))))))
