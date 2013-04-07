@@ -877,6 +877,14 @@ reduces them without incurring seq initialization"
 
 (def ^:private lookup-sentinel (c* "alloc_value (PTABLE_NAME (cljc_DOT_core_SLASH_Nil), sizeof (value_t))"))
 
+(defn ^boolean false?
+  "Returns true if x is the value false, false otherwise."
+  [x] (cljc.core/false? x))
+
+(defn ^boolean true?
+  "Returns true if x is the value true, false otherwise."
+  [x] (cljc.core/true? x))
+
 (defn ^boolean boolean [x]
   (if x true false))
 

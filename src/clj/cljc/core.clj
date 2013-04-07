@@ -45,6 +45,12 @@
 (defmacro nil? [x]
   `(identical? ~x nil))
 
+(defmacro true? [x]
+  (bool-expr (list 'c* "(make_boolean (~{} == value_true))" x)))
+
+(defmacro false? [x]
+  (bool-expr (list 'c* "(make_boolean (~{} == value_false))" x)))
+
 (defmacro has-type? [val t]
   ;; FIXME: This is a horrible hack - it can't cope with user types
   ;; because they need to be resolved to get their namespaces.

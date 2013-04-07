@@ -297,12 +297,12 @@
                 (bit-test 1000 3)
                 (bit-test 16713 11)
                 (bit-test 1024 10)]))
-  (comment
   (assert (= [true false true false]
              [(true? true)
               (true? false)
               (false? false)
               (false? true)]))
+  (comment
   ;; apply
   (assert (= 0 (apply + nil)))
   (assert (= 0 (apply + (list))))
