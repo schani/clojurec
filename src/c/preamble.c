@@ -683,6 +683,13 @@ make_boolean (bool x)
 	return value_false;
 }
 
+static long
+identity_hash_code (value_t *v)
+{
+	/* FIXME: this won't work with a moving GC */
+	return (long)v;
+}
+
 static value_t*
 cljc_core_print (int nargs, closure_t *closure, value_t *arg1, value_t *arg2, value_t *arg3, value_t **argrest)
 {

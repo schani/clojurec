@@ -170,6 +170,9 @@
 (defprotocol IVector
   (-assoc-n [coll n val]))
 
+(defprotocol IDeref
+ (-deref [o]))
+
 (defprotocol IMeta
   (-meta [o]))
 
@@ -181,6 +184,11 @@
 
 (defprotocol IPrintable
   (-pr-seq [o opts]))
+
+(defprotocol IWatchable
+  (-notify-watches [this oldval newval])
+  (-add-watch [this key f])
+  (-remove-watch [this key]))
 
 (defprotocol IEditableCollection
   (-as-transient [coll]))
@@ -942,6 +950,13 @@ reduces them without incurring seq initialization"
   "Returns true if coll has no items - same as (not (seq coll)).
   Please use the idiom (seq x) rather than (not (empty? x))"
   [coll] (not (seq coll)))
+
+(defn ^boolean coll?
+  "Returns true if x satisfies ICollection"
+  [x]
+  (if (nil? x)
+    false
+    (satisfies? ICollection x)))
 
 (defn ^boolean set?
   "Returns true if x satisfies ISet"
@@ -1781,6 +1796,154 @@ reduces them without incurring seq initialization"
   [& objs]
   (pr-with-opts objs (pr-opts))
   (newline (pr-opts)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Reference Types ;;;;;;;;;;;;;;;;
+
+(deftype Atom [^:mutable state ^:mutable meta ^:mutable validator ^:mutable watches]
+  IEquiv
+  (-equiv [o other] (identical? o other))
+
+  IDeref
+  (-deref [_] state)
+
+  IMeta
+  (-meta [_] meta)
+
+  IPrintable
+  (-pr-seq [a opts]
+    (concat  ["#<Atom: "] (-pr-seq state opts) ">"))
+
+  IWatchable
+  (-notify-watches [this oldval newval]
+    (doseq [[key f] watches]
+      (f key this oldval newval)))
+  (-add-watch [this key f]
+    (set! (.-watches this) (assoc watches key f)))
+  (-remove-watch [this key]
+    (set! (.-watches this) (dissoc watches key)))
+
+  IHash
+  (-hash [this] (c* "make_integer (identity_hash_code (~{}))" this)))
+
+(defn atom
+  "Creates and returns an Atom with an initial value of x and zero or
+  more options (in any order):
+
+  :meta metadata-map
+
+  :validator validate-fn
+
+  If metadata-map is supplied, it will be come the metadata on the
+  atom. validate-fn must be nil or a side-effect-free fn of one
+  argument, which will be passed the intended new state on any state
+  change. If the new state is unacceptable, the validate-fn should
+  return false or throw an Error.  If either of these error conditions
+  occur, then the value of the atom will not change."
+  ([x] (Atom. x nil nil nil))
+  ([x & {:keys [meta validator]}] (Atom. x meta validator nil)))
+
+(defn reset!
+  "Sets the value of atom to newval without regard for the
+  current value. Returns newval."
+  [a new-value]
+  (when-let [validate (.-validator a)]
+    (assert (validate new-value) "Validator rejected reference state"))
+  (let [old-value (.-state a)]
+    (set! (.-state a) new-value)
+    (-notify-watches a old-value new-value))
+  new-value)
+
+(defn swap!
+  "Atomically swaps the value of atom to be:
+  (apply f current-value-of-atom args). Note that f may be called
+  multiple times, and thus should be free of side effects.  Returns
+  the value that was swapped in."
+  ([a f]
+     (reset! a (f (.-state a))))
+  ([a f x]
+     (reset! a (f (.-state a) x)))
+  ([a f x y]
+     (reset! a (f (.-state a) x y)))
+  ([a f x y z]
+     (reset! a (f (.-state a) x y z)))
+  ([a f x y z & more]
+     (reset! a (apply f (.-state a) x y z more))))
+
+(defn compare-and-set!
+  "Atomically sets the value of atom to newval if and only if the
+  current value of the atom is identical to oldval. Returns true if
+  set happened, else false."
+  [a oldval newval]
+  (if (= (.-state a) oldval)
+    (do (reset! a newval) true)
+    false))
+
+;; generic to all refs
+;; (but currently hard-coded to atom!)
+
+(defn deref
+  [o]
+  (-deref o))
+
+(defn set-validator!
+  "Sets the validator-fn for an atom. validator-fn must be nil or a
+  side-effect-free fn of one argument, which will be passed the intended
+  new state on any state change. If the new state is unacceptable, the
+  validator-fn should return false or throw an Error. If the current state
+  is not acceptable to the new validator, an Error will be thrown and the
+  validator will not be changed."
+  [iref val]
+  (set! (.-validator iref) val))
+
+(defn get-validator
+  "Gets the validator-fn for a var/ref/agent/atom."
+  [iref]
+  (.-validator iref))
+
+(defn alter-meta!
+  "Atomically sets the metadata for a namespace/var/ref/agent/atom to be:
+
+  (apply f its-current-meta args)
+
+  f must be free of side-effects"
+  [iref f & args]
+  (set! (.-meta iref) (apply f (.-meta iref) args)))
+
+(defn reset-meta!
+  "Atomically resets the metadata for an atom"
+  [iref m]
+  (set! (.-meta iref) m))
+
+(defn add-watch
+  "Alpha - subject to change.
+
+  Adds a watch function to an atom reference. The watch fn must be a
+  fn of 4 args: a key, the reference, its old-state, its
+  new-state. Whenever the reference's state might have been changed,
+  any registered watches will have their functions called. The watch
+  fn will be called synchronously. Note that an atom's state
+  may have changed again prior to the fn call, so use old/new-state
+  rather than derefing the reference. Keys must be unique per
+  reference, and can be used to remove the watch with remove-watch,
+  but are otherwise considered opaque by the watch mechanism.  Bear in
+  mind that regardless of the result or action of the watch fns the
+  atom's value will change.  Example:
+
+      (def a (atom 0))
+      (add-watch a :inc (fn [k r o n] (assert (== 0 n))))
+      (swap! a inc)
+      ;; Assertion Error
+      (deref a)
+      ;=> 1"
+  [iref key f]
+  (-add-watch iref key f))
+
+(defn remove-watch
+  "Alpha - subject to change.
+
+  Removes a watch (set by add-watch) from a reference"
+  [iref key]
+  (-remove-watch iref key))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Strings ;;;;;;;;;;;;;;;;
 
