@@ -386,7 +386,6 @@
     (assert (= {:a 1} (meta a)))
     (alter-meta! a assoc :b 2)
     (assert (= {:a 1 :b 2} (meta a))))
-  (comment
   (assert (nil? (empty nil)))
   (let [e-lazy-seq (empty (with-meta (lazy-seq (cons :a nil)) {:b :c}))]
     (assert (seq? e-lazy-seq))
@@ -395,6 +394,7 @@
   (let [e-list (empty '^{:b :c} (1 2 3))]
     (assert (seq? e-list))
     (assert (empty? e-list)))
+  (comment
   (let [e-elist (empty '^{:b :c} ())]
     (assert (seq? e-elist))
     (assert (empty? e-elist))

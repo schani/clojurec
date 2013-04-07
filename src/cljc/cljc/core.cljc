@@ -220,7 +220,7 @@
 (defprotocol IChunkedNext
   (-chunked-next [coll]))
 
-(declare pr-sequential pr-seq list hash-coll cons inc equiv-sequential str string-quote)
+(declare pr-sequential pr-seq list hash-coll cons inc equiv-sequential str string-quote with-meta)
 
 (deftype Cons [meta first rest ^:mutable __hash]
   IWithMeta
@@ -247,6 +247,9 @@
   ICollection
   (-conj [coll o] (Cons. nil o coll nil))
 
+  IEmptyableCollection
+  (-empty [coll] (with-meta cljc.core.List/EMPTY meta))
+
   IHash
   (-hash [coll]
     (caching-hash coll hash-coll __hash))
@@ -254,7 +257,13 @@
   IPrintable
   (-pr-seq [coll opts] (pr-sequential pr-seq "(" " " ")" opts coll)))
 
-(deftype EmptyList []
+(deftype EmptyList [meta]
+  IWithMeta
+  (-with-meta [coll meta] (EmptyList. meta))
+
+  IMeta
+  (-meta [coll] meta)
+
   ISeq
   (-first [coll] nil)
   (-rest [coll] ())
@@ -267,6 +276,9 @@
 
   ICollection
   (-conj [coll o] (Cons. nil o nil nil))
+
+  IEmptyableCollection
+  (-empty [coll] coll)
 
   ISequential
   IEquiv
@@ -281,7 +293,7 @@
   IPrintable
   (-pr-seq [coll opts] (list "()")))
 
-(set! cljc.core.List/EMPTY (cljc.core/EmptyList.))
+(set! cljc.core.List/EMPTY (cljc.core/EmptyList. nil))
 
 ;;;;;;;;;;;;;;;;;;; fundamentals ;;;;;;;;;;;;;;;
 (defn ^boolean identical?
@@ -320,6 +332,11 @@
        (recur (conj coll x) (first xs) (next xs))
        (conj coll x))))
 
+(defn empty
+  "Returns an empty collection of the same category as coll, or nil"
+  [coll]
+  (-empty coll))
+
 (defn ^boolean reversible? [coll]
   (satisfies? IReversible coll))
 
@@ -348,6 +365,9 @@
 
   ICounted
   (-count [_] 0)
+
+  IEmptyableCollection
+  (-empty [_] nil)
 
   ICollection
   (-conj [coll o] (list o))
