@@ -534,15 +534,14 @@
   (assert (distinct? 1 2 3))
   (assert (not (distinct? 1 2 3 1)))
 
-  (comment
   ;; distinct
   (assert (= (distinct ()) ()))
   (assert (= (distinct '(1)) '(1)))
   (assert (= (distinct '(1 2 3 1 1 1)) '(1 2 3)))
   (assert (= (distinct [1 1 1 2]) '(1 2)))
   (assert (= (distinct [1 2 1 2]) '(1 2)))
-  (assert (= (distinct "a") ["a"]))
-  (assert (= (distinct "abcabab") ["a" "b" "c"]))
+  (assert (= (distinct "a") [\a]))
+  (assert (= (distinct "abcabab") [\a \b \c]))
   (assert (= (distinct ["abc" "abc"]) ["abc"]))
   (assert (= (distinct [nil nil]) [nil]))
   (assert (= (distinct [0.0 0.0]) [0.0]))
@@ -558,6 +557,7 @@
   (assert (= (distinct [#{1 2} #{1 2}]) [#{1 2}]))
   (assert (= (distinct [#{} #{}]) [#{}]))
 
+  (comment
   ;;regexps
   (assert (= (str (re-pattern "f(.)o")) (str (js* "/f(.)o/"))))
   (assert (= (re-find (re-pattern "foo") "foo bar foo baz foo zot") "foo"))

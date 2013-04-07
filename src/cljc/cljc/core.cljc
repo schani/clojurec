@@ -426,6 +426,10 @@
     (and (has-type? o Float)
          (c* "make_boolean (float_get (~{}) == float_get (~{}))" f o)))
 
+  IHash
+  (-hash [o]
+    (c* "make_integer (hashmurmur3_32 (&((float_t*)(~{}))->x, sizeof (double)))" o))
+
   IPrintable
   (-pr-seq [f opts] (list (c* "make_string_copy_free (g_strdup_printf (\"%f\", float_get (~{})))" f))))
 
@@ -1751,6 +1755,19 @@ reduces them without incurring seq initialization"
        (if (seq in)
 	 (recur (next in) (conj! out (first in)))
 	 (persistent! out)))))
+
+(defn distinct
+  "Returns a lazy sequence of the elements of coll with duplicates removed"
+  [coll]
+  (let [step (fn step [xs seen]
+               (lazy-seq
+                ((fn [[f :as xs] seen]
+                   (when-let [s (seq xs)]
+                     (if (contains? seen f)
+                       (recur (rest s) seen)
+                       (cons f (step (rest s) (conj seen f))))))
+                 xs seen)))]
+    (step coll #{})))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Strings ;;;;;;;;;;;;;;;;
 
