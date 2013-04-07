@@ -959,6 +959,10 @@ reduces them without incurring seq initialization"
    (has-type? n Integer)
    (has-type? n Float)))
 
+(defn ^boolean integer?
+  [s]
+  (has-type? s Integer))
+
 (defn ^boolean contains?
   "Returns true if key is present in the given collection, otherwise
   returns false.  Note that for numerically indexed collections like
@@ -1250,6 +1254,16 @@ reduces them without incurring seq initialization"
   [pred coll]
     (when (seq coll)
       (or (pred (first coll)) (recur pred (next coll)))))
+
+(defn ^boolean even?
+  "Returns true if n is even, throws an exception if n is not an integer"
+   [n] (if (integer? n)
+        (zero? (bit-and n 1))
+        (throw (Exception. (str "Argument must be an integer: " n)))))
+
+(defn ^boolean odd?
+  "Returns true if n is odd, throws an exception if n is not an integer"
+  [n] (not (even? n)))
 
 (defn identity [x] x)
 

@@ -487,8 +487,7 @@
   (assert (= 1 (min 5 4 3 2 1)))
   (assert (= 1 (min 1 2 3 4 5)))
   (assert (= 0.5 (min 5 4 3 0.5 2 1)))
-  (comment
-  (let [x (array 1 2 3)]
+  #_(let [x (array 1 2 3)]
     (set! (.-foo x) :hello)
     (assert (= (.-foo x) :hello)))
 
@@ -526,6 +525,7 @@
   (assert (contains? [5 6 7] 1))
   (assert (contains? [5 6 7] 2))
   (assert (not (contains? [5 6 7] 3)))
+  (comment
   (assert (contains? (to-array [5 6 7]) 1))
   (assert (contains? (to-array [5 6 7]) 2))
   (assert (not (contains? (to-array [5 6 7]) 3)))
