@@ -498,6 +498,13 @@ reduces them without incurring seq initialization"
          (aget coll n)
          not-found)))
 
+  ILookup
+  (-lookup
+    ([array k]
+       (aget array k))
+    ([array k not-found]
+       (-nth array k not-found)))
+
   IPrintable
   (-pr-seq [a opts]
     (pr-sequential pr-seq "#<Array [" ", " "]>" opts a)))
