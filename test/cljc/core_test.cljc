@@ -480,7 +480,6 @@
     (assert (ep 0 0 0))
     (assert (not (ep 1 2 3 0))))
   (assert ((complement number?) :foo))
-  (comment
   (assert (= [1 [2 3] [1 2 3]] ((juxt first rest seq) [1 2 3])))
   (assert (= 5 (max 1 2 3 4 5)))
   (assert (= 5 (max 5 4 3 2 1)))
@@ -488,6 +487,7 @@
   (assert (= 1 (min 5 4 3 2 1)))
   (assert (= 1 (min 1 2 3 4 5)))
   (assert (= 0.5 (min 5 4 3 0.5 2 1)))
+  (comment
   (let [x (array 1 2 3)]
     (set! (.-foo x) :hello)
     (assert (= (.-foo x) :hello)))

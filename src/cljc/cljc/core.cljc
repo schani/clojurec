@@ -1726,7 +1726,7 @@ reduces them without incurring seq initialization"
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Strings ;;;;;;;;;;;;;;;;
 
-(declare split-string-seq-next-fn)
+(declare split-string-seq-next-fn vector)
 
 (deftype SplitStringSeq [string len char first offset]
   ASeq
@@ -1897,6 +1897,42 @@ reduces them without incurring seq initialization"
            fv (f fst)
            run (cons fst (take-while #(= fv (f %)) (next s)))]
        (cons run (partition-by f (seq (drop (count run) s))))))))
+
+(defn juxt
+  "Takes a set of functions and returns a fn that is the juxtaposition
+  of those fns.  The returned fn takes a variable number of args, and
+  returns a vector containing the result of applying each fn to the
+  args (left-to-right).
+  ((juxt a b c) x) => [(a x) (b x) (c x)]"
+  ([f]
+     (fn
+       ([] (vector (f)))
+       ([x] (vector (f x)))
+       ([x y] (vector (f x y)))
+       ([x y z] (vector (f x y z)))
+       ([x y z & args] (vector (apply f x y z args)))))
+  ([f g]
+     (fn
+       ([] (vector (f) (g)))
+       ([x] (vector (f x) (g x)))
+       ([x y] (vector (f x y) (g x y)))
+       ([x y z] (vector (f x y z) (g x y z)))
+       ([x y z & args] (vector (apply f x y z args) (apply g x y z args)))))
+  ([f g h]
+     (fn
+       ([] (vector (f) (g) (h)))
+       ([x] (vector (f x) (g x) (h x)))
+       ([x y] (vector (f x y) (g x y) (h x y)))
+       ([x y z] (vector (f x y z) (g x y z) (h x y z)))
+       ([x y z & args] (vector (apply f x y z args) (apply g x y z args) (apply h x y z args)))))
+  ([f g h & fs]
+     (let [fs (list* f g h fs)]
+       (fn
+         ([] (reduce #(conj %1 (%2)) [] fs))
+         ([x] (reduce #(conj %1 (%2 x)) [] fs))
+         ([x y] (reduce #(conj %1 (%2 x y)) [] fs))
+         ([x y z] (reduce #(conj %1 (%2 x y z)) [] fs))
+         ([x y z & args] (reduce #(conj %1 (apply %2 x y z args)) [] fs))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Printing ;;;;;;;;;;;;;;;;
 
