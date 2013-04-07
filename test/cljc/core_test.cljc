@@ -625,12 +625,12 @@
     (assert (= (aget a 1 1) 5))
     (assert (= (apply aget a [1 1]) 5)))
 
-  (comment
   ;; sort
   (assert (= [1 2 3 4 5] (sort [5 3 1 4 2])))
   (assert (= [1 2 3 4 5] (sort < [5 3 1 4 2])))
   (assert (= [5 4 3 2 1] (sort > [5 3 1 4 2])))
 
+  (comment
   ;; sort-by
   (assert (= ["a" [ 1 2] "foo"] (sort-by count ["foo" "a" [1 2]])))
   (assert (= ["foo" [1 2] "a"] (sort-by count > ["foo" "a" [1 2]])))

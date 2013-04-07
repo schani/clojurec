@@ -216,6 +216,9 @@
 (defprotocol ITransientSet
   (-disjoin! [tcoll v]))
 
+(defprotocol IComparable
+  (-compare [x y]))
+
 (defprotocol IChunk
   (-drop-first [coll]))
 
@@ -325,7 +328,7 @@
          (= y (first more)))
        false)))
 
-(declare reduce hash-map)
+(declare reduce hash-map nth)
 
 (defn conj
   "conj[oin]. Returns a new collection with the xs
@@ -1052,6 +1055,73 @@ reduces them without incurring seq initialization"
              (recur (conj s x) etc))
            true)))
      false)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Seq fns ;;;;;;;;;;;;;;;;
+
+(defn compare
+  "Comparator. Returns a negative number, zero, or a positive number
+  when x is logically 'less than', 'equal to', or 'greater than'
+  y. Uses IComparable if available and google.array.defaultCompare for objects
+ of the same type and special-cases nil to be less than any other object."
+  [x y]
+  (cond
+   (identical? x y) 0
+   (nil? x) -1
+   (nil? y) 1
+   (and (number? x) (number? y)) (cond
+                                  (< x y) -1
+                                  (> x y) 1
+                                  :else 0)
+   (and (have-same-type? x y) (satisfies? IComparable x)) (-compare x y)
+   :else (throw (Exception. "compare on non-nil objects of different types"))))
+
+(defn ^:private compare-indexed
+  "Compare indexed collection."
+  ([xs ys]
+     (let [xl (count xs)
+           yl (count ys)]
+       (cond
+        (< xl yl) -1
+        (> xl yl) 1
+        :else (compare-indexed xs ys xl 0))))
+  ([xs ys len n]
+     (let [d (compare (nth xs n) (nth ys n))]
+       (if (and (zero? d) (< (+ n 1) len))
+         (recur xs ys len (inc n))
+         d))))
+
+(defn ^:private fn->comparator
+  "Given a fn that might be boolean valued or a comparator,
+   return a fn that is a comparator."
+  [f]
+  (if (= f compare)
+    compare
+    (fn [x y]
+      (let [r (f x y)]
+        (cond
+         (integer? r) r
+         (float? r) (cond
+                     (< r 0) -1
+                     (> r 0) 1
+                     :else 0)
+         r -1
+         (f y x) 1
+         :else 0)))))
+
+(declare to-array)
+(defn sort
+  "Returns a sorted sequence of the items in coll. Comp can be
+   boolean-valued comparison funcion, or a -/0/+ valued comparator.
+   Comp defaults to compare."
+  ([coll]
+   (sort compare coll))
+  ([comp coll]
+   (if (seq coll)
+     (let [a (to-array coll)]
+       ;; matching Clojure's stable sort, though docs don't promise it
+       (c* "array_sort_stable (~{}, ~{})" a (fn->comparator comp))
+       (seq a))
+     ())))
 
 (defn- accumulating-seq-count [coll]
   (loop [s (seq coll) acc 0]
@@ -2539,6 +2609,11 @@ reduces them without incurring seq initialization"
   ;;     (RSeq. coll (dec cnt) nil)
   ;;     ())))
   )
+
+;; IComparable
+(extend-protocol IComparable
+  PersistentVector
+  (-compare [x y] (compare-indexed x y)))
 
 (defn- pv-fresh-node [edit]
   (VectorNode. edit (make-array 32)))

@@ -56,6 +56,9 @@
   ;; because they need to be resolved to get their namespaces.
   (bool-expr `(~'c* ~(core/str "(make_boolean (~{}->ptable->type == TYPE_" (core/str t) "))") ~val)))
 
+(defmacro have-same-type? [x y]
+  (bool-expr (list 'c* "(make_boolean (~{}->ptable->type == ~{}->ptable->type))" x y)))
+
 (defmacro integer? [x]
   `(has-type? ~x "Integer"))
 
