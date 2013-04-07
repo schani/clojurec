@@ -1253,6 +1253,16 @@ reduces them without incurring seq initialization"
 
 (defn identity [x] x)
 
+(defn ^boolean complement
+  "Takes a fn f and returns a fn that takes the same arguments as f,
+  has the same effects, if any, and returns the opposite truth value."
+  [f]
+  (fn
+    ([] (not (f)))
+    ([x] (not (f x)))
+    ([x y] (not (f x y)))
+    ([x y & zs] (not (apply f x y zs)))))
+
 (defn comp
   "Takes a set of functions and returns a fn that is the composition
   of those fns.  The returned fn takes a variable number of args,
