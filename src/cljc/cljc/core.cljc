@@ -1196,7 +1196,7 @@ reduces them without incurring seq initialization"
 (defn- hash-coll [coll]
   (reduce #(hash-combine %1 (hash %2)) (hash (first coll)) (next coll)))
 
-(declare key val transient persistent!)
+(declare key val transient persistent! concat list*)
 
 (defn- hash-imap [m]
   ;; a la clojure.lang.APersistentMap
@@ -1238,6 +1238,48 @@ reduces them without incurring seq initialization"
    true false))
 
 (defn identity [x] x)
+
+(defn comp
+  "Takes a set of functions and returns a fn that is the composition
+  of those fns.  The returned fn takes a variable number of args,
+  applies the rightmost of fns to the args, the next
+  fn (right-to-left) to the result, etc."
+  ([] identity)
+  ([f] f)
+  ([f g]
+     (fn
+       ([] (f (g)))
+       ([x] (f (g x)))
+       ([x y] (f (g x y)))
+       ([x y z] (f (g x y z)))
+       ([x y z & args] (f (apply g x y z args)))))
+  ([f g h]
+     (fn
+       ([] (f (g (h))))
+       ([x] (f (g (h x))))
+       ([x y] (f (g (h x y))))
+       ([x y z] (f (g (h x y z))))
+       ([x y z & args] (f (g (apply h x y z args))))))
+  ([f1 f2 f3 & fs]
+    (let [fs (reverse (list* f1 f2 f3 fs))]
+      (fn [& args]
+        (loop [ret (apply (first fs) args) fs (next fs)]
+          (if fs
+            (recur ((first fs) ret) (next fs))
+            ret))))))
+
+(defn partial
+  "Takes a function f and fewer than the normal arguments to f, and
+  returns a fn that takes a variable number of additional args. When
+  called, the returned function calls f with args + additional args."
+  ([f arg1]
+   (fn [& args] (apply f arg1 args)))
+  ([f arg1 arg2]
+   (fn [& args] (apply f arg1 arg2 args)))
+  ([f arg1 arg2 arg3]
+   (fn [& args] (apply f arg1 arg2 arg3 args)))
+  ([f arg1 arg2 arg3 & more]
+   (fn [& args] (apply f arg1 arg2 arg3 (concat more args)))))
 
 (defn filter
   "Returns a lazy sequence of the items in coll for which
@@ -1440,6 +1482,14 @@ reduces them without incurring seq initialization"
     (-chunked-next s)
     (seq (-chunked-rest s))))
 
+(defn spread
+  [arglist]
+  (cond
+   (nil? arglist) nil
+   (nil? (next arglist)) (seq (first arglist))
+   :else (cons (first arglist)
+               (spread (next arglist)))))
+
 (defn concat
   "Returns a lazy seq representing the concatenation of the elements in the supplied colls."
   ([] nil)
@@ -1457,6 +1507,16 @@ reduces them without incurring seq initialization"
                      (when zs
                        (cat (first zs) (next zs))))))]
        (cat (concat x y) zs))))
+
+(defn list*
+  "Creates a new list containing the items prepended to the rest, the
+  last of which will be treated as a sequence."
+  ([args] (seq args))
+  ([a args] (cons a args))
+  ([a b args] (cons a (cons b args)))
+  ([a b c args] (cons a (cons b (cons c args))))
+  ([a b c d & more]
+     (cons a (cons b (cons c (cons d (spread more)))))))
 
 ;;; Transients
 
