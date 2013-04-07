@@ -568,6 +568,7 @@
   (assert (= (re-seq (re-pattern "foo") "foo bar foo baz foo zot") (list "foo" "foo" "foo")))
   (assert (= (re-seq (re-pattern "f(.)o") "foo bar foo baz foo zot") (list ["foo" "o"] ["foo" "o"] ["foo" "o"])))
   (assert (= (re-matches (re-pattern "(?i)foo") "Foo") "Foo"))
+  )
 
   ;; destructuring
   (assert (= [2 1] (let [[a b] [1 2]] [b a])))
@@ -609,6 +610,7 @@
   (assert (= 4 (get-in [{:foo 1 :bar [{:baz 1}, {:buzz 2}]}, {:foo 3 :bar [{:baz 3}, {:buzz 4}]}]
                        [1 :bar 1 :buzz])))
 
+  (comment
   ;; arrays
   (let [a (to-array [1 2 3])]
     (assert (= [10 20 30] (seq (amap a i ret (* 10 (aget a i))))))

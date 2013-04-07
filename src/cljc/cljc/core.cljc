@@ -1344,6 +1344,45 @@ reduces them without incurring seq initialization"
     (persistent! (reduce -conj! (transient to) from))
     (reduce -conj to from)))
 
+(defn get-in
+  "Returns the value in a nested associative structure,
+  where ks is a sequence of ke(ys. Returns nil if the key is not present,
+  or the not-found value if supplied."
+  {:added "1.2"
+   :static true}
+  ([m ks]
+     (reduce get m ks))
+  ([m ks not-found]
+     (loop [sentinel lookup-sentinel
+            m m
+            ks (seq ks)]
+       (if ks
+         (let [m (get m (first ks) sentinel)]
+           (if (identical? sentinel m)
+             not-found
+             (recur sentinel m (next ks))))
+         m))))
+
+(defn assoc-in
+  "Associates a value in a nested associative structure, where ks is a
+  sequence of keys and v is the new value and returns a new nested structure.
+  If any levels do not exist, hash-maps will be created."
+  [m [k & ks] v]
+  (if ks
+    (assoc m k (assoc-in (get m k) ks v))
+    (assoc m k v)))
+
+(defn update-in
+  "'Updates' a value in a nested associative structure, where ks is a
+  sequence of keys and f is a function that will take the old value
+  and any supplied args and return the new value, and returns a new
+  nested structure.  If any levels do not exist, hash-maps will be
+  created."
+  ([m [k & ks] f & args]
+   (if ks
+     (assoc m k (apply update-in (get m k) ks f args))
+     (assoc m k (apply f (get m k) args)))))
+
 (defn flatten-tail
   [coll]
   (if-let [n (next coll)]
