@@ -751,10 +751,10 @@
   (assert (= {1 2 3 4 5 6} (merge {1 2} {3 4} {5 6})))
   (assert (= {1 2 3 4} (merge {1 2} {3 4} nil)))
 
-  (comment
   ;; frequencies
   (assert (= {:a 3 :b 2} (frequencies [:a :b :a :b :a])))
 
+  (comment
   ;; reductions
   (assert (= [1 3 6 10 15] (reductions + [1 2 3 4 5])))
 
