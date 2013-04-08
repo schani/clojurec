@@ -684,12 +684,12 @@
   (assert (= #{1 2} (disj #{1 2 3} 3)))
   (assert (= #{1} (disj #{1 2 3} 2 3)))
 
-  (comment
   ;; memoize
   (let [f (memoize (fn [] (rand)))]
     (f)
     (assert (= (f) (f))))
 
+  (comment
   ;; find
   (assert (= (find {} :a) nil))
   (assert (= (find {:a 1} :a) [:a 1]))

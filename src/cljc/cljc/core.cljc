@@ -2477,6 +2477,20 @@ reduces them without incurring seq initialization"
   [d]
   (-realized? d))
 
+(defn memoize
+  "Returns a memoized version of a referentially transparent function. The
+  memoized version of the function keeps a cache of the mapping from arguments
+  to results and, when calls with the same arguments are repeated often, has
+  higher performance at the expense of higher memory use."
+  [f]
+  (let [mem (atom {})]
+    (fn [& args]
+      (if-let [v (get @mem args)]
+        v
+        (let [ret (apply f args)]
+          (swap! mem assoc args ret)
+          ret)))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Strings ;;;;;;;;;;;;;;;;
 
 ;; FIXME: horribly inefficient as well as incomplete
