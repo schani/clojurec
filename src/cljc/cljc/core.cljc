@@ -1998,6 +1998,20 @@ reduces them without incurring seq initialization"
 	 (recur (next in) (conj! out (first in)))
 	 (persistent! out)))))
 
+(defn replace
+  "Given a map of replacement pairs and a vector/collection, returns a
+  vector/seq with any elements = a key in smap replaced with the
+  corresponding val in smap"
+  [smap coll]
+  (if (vector? coll)
+    (let [n (count coll)]
+      (reduce (fn [v i]
+                (if-let [e (find smap (nth v i))]
+                  (assoc v i (second e))
+                  v))
+              coll (take n (iterate inc 0))))
+    (map #(if-let [e (find smap %)] (second e) %) coll)))
+
 (defn distinct
   "Returns a lazy sequence of the elements of coll with duplicates removed"
   [coll]

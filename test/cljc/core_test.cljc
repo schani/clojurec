@@ -789,11 +789,11 @@
                                 {:a 1 :b 2 :c 3}
                                 {:a 1 :c 10}])))
 
-  (comment
   (assert (= '[a c e] (replace '[a b c d e] [0 2 4])))
   (assert (= [:one :zero :two :zero]
              (replace {0 :zero 1 :one 2 :two} '(1 0 2 0))))
 
+  (comment
   ;; split-at
   (assert (= [[1 2] [3 4 5]] (split-at 2 [1 2 3 4 5])))
 
