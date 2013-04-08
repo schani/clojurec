@@ -742,13 +742,13 @@
   (assert (= (range 10 20 2) (list 10 12 14 16 18)))
   (assert (= (take 20 (range)) (list 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19)))
 
-  (comment
   ;; group-by
   (let [d (group-by second {:a 1 :b 2 :c 1 :d 4 :e 1 :f 2})]
     (assert (= 3 (count (get d 1))))
     (assert (= 2 (count (get d 2))))
     (assert (= 1 (count (get d 4)))))
 
+  (comment
   (assert (= {1 2 3 4 5 6} (merge {1 2} {3 4} {5 6})))
   (assert (= {1 2 3 4} (merge {1 2} {3 4} nil)))
 

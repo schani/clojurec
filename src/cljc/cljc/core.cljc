@@ -890,15 +890,6 @@ reduces them without incurring seq initialization"
       (recur (dec n) (next xs))
       xs)))
 
-(defn rand
-  "Returns a random floating point number between 0 (inclusive) and n (default 1) (exclusive)."
-  ([]  (c* "make_float (g_random_double_range (0.0, 1.0))"))
-  ([n] (c* "make_float (g_random_double_range (0.0, float_get (~{})))" (number-as-float n))))
-
-(defn rand-int
-  "Returns a random integer between 0 (inclusive) and n (exclusive)."
-  [n] (c* "make_integer (g_random_int_range (0, integer_get (~{})))" (fix n)))
-
 (defn bit-xor
   "Bitwise exclusive or"
   [x y] (cljc.core/bit-xor x y))
@@ -1535,7 +1526,7 @@ reduces them without incurring seq initialization"
            (recur nval (next coll)))
          val))))
 
-(declare vec)
+(declare vec rand-int)
 
 (defn shuffle
   "Return a random permutation of coll"
@@ -2593,6 +2584,26 @@ reduces them without incurring seq initialization"
         (let [ret (apply f args)]
           (swap! mem assoc args ret)
           ret)))))
+
+(defn rand
+  "Returns a random floating point number between 0 (inclusive) and n (default 1) (exclusive)."
+  ([]  (c* "make_float (g_random_double_range (0.0, 1.0))"))
+  ([n] (c* "make_float (g_random_double_range (0.0, float_get (~{})))" (number-as-float n))))
+
+(defn rand-int
+  "Returns a random integer between 0 (inclusive) and n (exclusive)."
+  [n] (c* "make_integer (g_random_int_range (0, integer_get (~{})))" (fix n)))
+
+(defn group-by
+  "Returns a map of the elements of coll keyed by the result of
+  f on each element. The value at each key will be a vector of the
+  corresponding elements, in the order they appeared in coll."
+  [f coll]
+  (reduce
+   (fn [ret x]
+     (let [k (f x)]
+       (assoc ret k (conj (get ret k []) x))))
+   {} coll))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Strings ;;;;;;;;;;;;;;;;
 
