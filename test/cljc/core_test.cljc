@@ -894,6 +894,7 @@
     ([x y] :two)
     ([x y & r] [:three r]))
   (assert (= [:three '(2)] (apply apply-multi-test [0 1 2])))
+  )
 
   ;; Range
   (assert (= (range 0 10 3) (list 0 3 6 9)))
@@ -955,6 +956,7 @@
     (assert (= s (vec s))) ; pour into plain vector
     (let [m {:x 1}] (assert (= m (meta (with-meta s m))))))
 
+  (comment
   ;; TransientVector
   (let [v1 (vec (range 15 48))
         v2 (vec (range 40 57))

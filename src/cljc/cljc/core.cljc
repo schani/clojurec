@@ -3142,6 +3142,22 @@ reduces them without incurring seq initialization"
   IEmptyableCollection
   (-empty [coll] (-with-meta cljc.core.PersistentVector/EMPTY meta))
 
+  ISequential
+  IEquiv
+  (-equiv [coll other] (equiv-sequential coll other))
+
+  IHash
+  (-hash [coll] (caching-hash coll hash-coll __hash))
+
+  ISeqable
+  (-seq [coll]
+    (let [subvec-seq (fn subvec-seq [i]
+                       (when-not (== i end)
+                         (cons (-nth v i)
+                               (lazy-seq
+                                (subvec-seq (inc i))))))]
+      (subvec-seq start)))
+
   ICounted
   (-count [coll] (- end start))
 
@@ -3180,13 +3196,6 @@ reduces them without incurring seq initialization"
     (-lookup coll k))
   (-invoke [coll k not-found]
     (-lookup coll k not-found))
-
-  IHash
-  (-hash [coll] (caching-hash coll hash-coll __hash))
-
-  ISequential
-  IEquiv
-  (-equiv [coll other] (equiv-sequential coll other))
 
   IPrintable
   (-pr-seq [coll opts] (pr-sequential pr-seq "[" " " "]" opts coll))
