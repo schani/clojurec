@@ -796,10 +796,10 @@
   ;; split-at
   (assert (= [[1 2] [3 4 5]] (split-at 2 [1 2 3 4 5])))
 
-  (comment
   ;; split-with
   (assert (= [[1 2 3] [4 5]] (split-with (partial >= 3) [1 2 3 4 5])))
 
+  (comment
   ;; trampoline
   (assert (= 10000 (trampoline (fn f [n] (if (>= n 10000) n #(f (inc n)))) 0)))
 

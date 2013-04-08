@@ -1962,6 +1962,17 @@ reduces them without incurring seq initialization"
                    s)))]
     (lazy-seq (step n coll))))
 
+(defn drop-while
+  "Returns a lazy sequence of the items in coll starting from the first
+  item for which (pred item) returns nil."
+  [pred coll]
+  (let [step (fn [pred coll]
+               (let [s (seq coll)]
+                 (if (and s (pred (first s)))
+                   (recur pred (rest s))
+                   s)))]
+    (lazy-seq (step pred coll))))
+
 (defn split-at
   "Returns a vector of [(take n coll) (drop n coll)]"
   [n coll]
@@ -2268,6 +2279,11 @@ reduces them without incurring seq initialization"
   (lazy-seq
    (when-let [s (seq coll)]
      (cons (first s) (take-nth n (drop n s))))))
+
+(defn split-with
+  "Returns a vector of [(take-while pred coll) (drop-while pred coll)]"
+  [pred coll]
+  [(take-while pred coll) (drop-while pred coll)])
 
 (defn partition-by
   "Applies f to each value in coll, splitting it each time f returns
