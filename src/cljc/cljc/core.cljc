@@ -188,6 +188,9 @@
 (defprotocol IReduce
   (-reduce [coll f] [coll f start]))
 
+(defprotocol IPending
+  (-realized? [d]))
+
 (defprotocol IPrintable
   (-pr-seq [o opts]))
 
@@ -328,7 +331,7 @@
          (= y (first more)))
        false)))
 
-(declare reduce hash-map nth)
+(declare reduce hash-map nth deref)
 
 (defn conj
   "conj[oin]. Returns a new collection with the xs
@@ -2443,6 +2446,36 @@ reduces them without incurring seq initialization"
   Removes a watch (set by add-watch) from a reference"
   [iref key]
   (-remove-watch iref key))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Delay ;;;;;;;;;;;;;;;;;;;;
+
+(deftype Delay [state f]
+  IDeref
+  (-deref [_]
+    (:value (swap! state (fn [{:keys [done] :as curr-state}]
+                           (if done
+                             curr-state,
+                             {:done true :value (f)})))))
+
+  IPending
+  (-realized? [d]
+    (:done @state)))
+
+(defn ^boolean delay?
+  "returns true if x is a Delay created with delay"
+  [x] (instance? cljc.core/Delay x))
+
+(defn force
+  "If x is a Delay, returns the (possibly cached) value of its expression, else returns x"
+  [x]
+  (if (delay? x)
+    (deref x)
+    x))
+
+(defn ^boolean realized?
+  "Returns true if a value has been produced for a promise, delay, future or lazy sequence."
+  [d]
+  (-realized? d))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Strings ;;;;;;;;;;;;;;;;
 

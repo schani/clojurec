@@ -657,7 +657,6 @@
     (doseq [n v] (swap! s conj n))
     (assert (= @s (reverse v))))
 
-  (comment
   ;; delay
   (let [a (atom 0)
         d (delay (swap! a inc))]
@@ -685,6 +684,7 @@
   (assert (= #{1 2} (disj #{1 2 3} 3)))
   (assert (= #{1} (disj #{1 2 3} 2 3)))
 
+  (comment
   ;; memoize
   (let [f (memoize (fn [] (rand)))]
     (f)
