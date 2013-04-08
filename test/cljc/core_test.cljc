@@ -44,14 +44,12 @@
   (assert (= (* 2 3) 6))
   (assert (= (apply * [2 3]) 6))
 
-  (comment
   (assert (= (/ 2) 0.5))
   (assert (= (apply / [2]) 0.5))
   (assert (= (/ 6 2) 3))
   (assert (= (apply / [6 2]) 3))
   (assert (= (/ 6 3 2) 1))
   (assert (= (apply / [6 3 2]) 1))
-  )
 
   (assert (= (< 1) true))
   (assert (= (apply < [1]) true))

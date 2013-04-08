@@ -413,6 +413,17 @@
   ([x y] `(math-op * ~x ~y))  
   ([x y & more] `(* (* ~x ~y) ~@more)))
 
+(defmacro number-as-float [n]
+  `(let [n# ~n]
+     (if (integer? n#)
+       (~'c* "make_float ((double)integer_get (~{}))" n#)
+       n#)))
+
+(defmacro /
+  ([x] `(/ 1 ~x))
+  ([x y] (list 'c* "make_float (float_get (~{}) / float_get (~{}))" `(number-as-float ~x) `(number-as-float ~y)))
+  ([x y & more] `(/ (/ ~x ~y) ~@more)))
+
 (defmacro zero?
   [val]
   (bool-expr `(let [x# ~val]

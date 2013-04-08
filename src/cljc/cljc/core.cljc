@@ -425,8 +425,10 @@
 (extend-type Integer
   IEquiv
   (-equiv [i o]
-    (and (has-type? o Integer)
-         (c* "make_boolean (integer_get (~{}) == integer_get (~{}))" i o)))
+    (or (and (has-type? o Integer)
+             (c* "make_boolean (integer_get (~{}) == integer_get (~{}))" i o))
+        (and (has-type? o Float)
+             (c* "make_boolean ((double)integer_get (~{}) == float_get (~{}))" i o))))
 
   IHash
   (-hash [o] o)
@@ -437,8 +439,10 @@
 (extend-type Float
   IEquiv
   (-equiv [f o]
-    (and (has-type? o Float)
-         (c* "make_boolean (float_get (~{}) == float_get (~{}))" f o)))
+    (or (and (has-type? o Float)
+             (c* "make_boolean (float_get (~{}) == float_get (~{}))" f o))
+        (and (has-type? o Integer)
+             (c* "make_boolean (float_get (~{}) == (double)integer_get (~{}))" f o))))
 
   IHash
   (-hash [o]
@@ -757,6 +761,13 @@ reduces them without incurring seq initialization"
   ([x y] (cljc.core/* x y))
   ([x y & more] (reduce * (cljc.core/* x y) more)))
 
+(defn /
+  "If no denominators are supplied, returns 1/numerator,
+  else returns numerator divided by all of the denominators."
+  ([x] (/ 1 x))
+  ([x y] (c* "make_float (float_get (~{}) / float_get (~{}))" (number-as-float x) (number-as-float y))) ;; FIXME: waiting on cljs.core//
+  ([x y & more] (reduce / (/ x y) more)))
+
 (defn ^boolean <
   "Returns non-nil if nums are in monotonically increasing order,
   otherwise false."
@@ -832,11 +843,6 @@ reduces them without incurring seq initialization"
     q
     (c* "make_integer ((long)float_get (~{}))" q)))
 
-(defn- unfix [q]
-  (if (float? q)
-    q
-    (c* "make_float ((double)integer_get (~{}))" q)))
-
 (defn int
   "Coerce to int by stripping decimal places."
   [x]
@@ -876,7 +882,7 @@ reduces them without incurring seq initialization"
 (defn rand
   "Returns a random floating point number between 0 (inclusive) and n (default 1) (exclusive)."
   ([]  (c* "make_float (g_random_double_range (0.0, 1.0))"))
-  ([n] (c* "make_float (g_random_double_range (0.0, float_get (~{})))" (unfix n))))
+  ([n] (c* "make_float (g_random_double_range (0.0, float_get (~{})))" (number-as-float n))))
 
 (defn rand-int
   "Returns a random integer between 0 (inclusive) and n (exclusive)."
