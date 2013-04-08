@@ -793,10 +793,10 @@
   (assert (= [:one :zero :two :zero]
              (replace {0 :zero 1 :one 2 :two} '(1 0 2 0))))
 
-  (comment
   ;; split-at
   (assert (= [[1 2] [3 4 5]] (split-at 2 [1 2 3 4 5])))
 
+  (comment
   ;; split-with
   (assert (= [[1 2 3] [4 5]] (split-with (partial >= 3) [1 2 3 4 5])))
 

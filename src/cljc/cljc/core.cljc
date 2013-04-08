@@ -1171,6 +1171,54 @@ reduces them without incurring seq initialization"
   ([keyfn comp coll]
      (sort (fn [x y] ((fn->comparator comp) (keyfn x) (keyfn y))) coll)))
 
+; simple reduce based on seqs, used as default
+(defn- seq-reduce
+  ([f coll]
+    (if-let [s (seq coll)]
+      (reduce f (first s) (next s))
+      (f)))
+  ([f val coll]
+     (loop [val val, coll (seq coll)]
+       (if coll
+         (let [nval (f val (first coll))]
+           (recur nval (next coll)))
+         val))))
+
+(declare vec rand-int)
+
+(defn shuffle
+  "Return a random permutation of coll"
+  [coll]
+  (let [a (to-array coll)]
+    (loop [i (alength a)]
+      (if (> i 1)
+        (let [j (rand-int i)
+              i-1 (dec i)
+              tmp (aget a i-1)]
+          (aset a i-1 (aget a j))
+          (aset a j tmp)
+          (recur i-1))
+        (vec a)))))
+
+(defn reduce
+  "f should be a function of 2 arguments. If val is not supplied,
+  returns the result of applying f to the first 2 items in coll, then
+  applying f to that result and the 3rd item, etc. If coll contains no
+  items, f must accept no arguments as well, and reduce returns the
+  result of calling f with no arguments.  If coll has only 1 item, it
+  is returned and f is not called.  If val is supplied, returns the
+  result of applying f to val and the first item in coll, then
+  applying f to that result and the 2nd item, etc. If coll contains no
+  items, returns val and f is not called."
+  ([f coll]
+     (if (satisfies? IReduce coll)
+       (-reduce coll f)
+       (seq-reduce f coll)))
+  ([f val coll]
+     (if (satisfies? IReduce coll)
+       (-reduce coll f val)
+       (seq-reduce f val coll))))
+
 (defn- accumulating-seq-count [coll]
   (loop [s (seq coll) acc 0]
     (if (counted? s) ; assumes nil is counted, which it currently is
@@ -1791,59 +1839,6 @@ reduces them without incurring seq initialization"
     (cons (first coll) (flatten-tail n))
     (first coll)))
 
-; simple reduce based on seqs, used as default
-(defn- seq-reduce
-  ([f coll]
-    (if-let [s (seq coll)]
-      (reduce f (first s) (next s))
-      (f)))
-  ([f val coll]
-     (loop [val val, coll (seq coll)]
-       (if coll
-         (let [nval (f val (first coll))]
-           (recur nval (next coll)))
-         val))))
-
-(declare vec rand-int)
-
-(defn shuffle
-  "Return a random permutation of coll"
-  [coll]
-  (let [a (to-array coll)]
-    (loop [i (alength a)]
-      (if (> i 1)
-        (let [j (rand-int i)
-              i-1 (dec i)
-              tmp (aget a i-1)]
-          (aset a i-1 (aget a j))
-          (aset a j tmp)
-          (recur i-1))
-        (vec a)))))
-
-(defn reduce
-  "f should be a function of 2 arguments. If val is not supplied,
-  returns the result of applying f to the first 2 items in coll, then
-  applying f to that result and the 3rd item, etc. If coll contains no
-  items, f must accept no arguments as well, and reduce returns the
-  result of calling f with no arguments.  If coll has only 1 item, it
-  is returned and f is not called.  If val is supplied, returns the
-  result of applying f to val and the first item in coll, then
-  applying f to that result and the 2nd item, etc. If coll contains no
-  items, returns val and f is not called."
-  ([f coll]
-     (if (satisfies? IReduce coll)
-       (-reduce coll f)
-       (seq-reduce f coll)))
-  ([f val coll]
-     (if (satisfies? IReduce coll)
-       (-reduce coll f val)
-       (seq-reduce f val coll))))
-
-(defn iterate
-  "Returns a lazy sequence of x, (f x), (f (f x)) etc. f must be free of side-effects"
-  {:added "1.0"}
-  [f x] (cons x (lazy-seq (iterate f (f x)))))
-
 (defn every-pred
   "Takes a set of predicates and returns a function f that returns true if all of its
   composing predicates return a logical true value against all of its arguments, else it returns
@@ -1966,6 +1961,16 @@ reduces them without incurring seq initialization"
                    (recur (dec n) (rest s))
                    s)))]
     (lazy-seq (step n coll))))
+
+(defn split-at
+  "Returns a vector of [(take n coll) (drop n coll)]"
+  [n coll]
+  [(take n coll) (drop n coll)])
+
+(defn iterate
+  "Returns a lazy sequence of x, (f x), (f (f x)) etc. f must be free of side-effects"
+  {:added "1.0"}
+  [f x] (cons x (lazy-seq (iterate f (f x)))))
 
 (defn interpose
   "Returns a lazy seq of the elements of coll separated by sep"
