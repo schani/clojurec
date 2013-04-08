@@ -1620,6 +1620,12 @@ reduces them without incurring seq initialization"
 (defn disj! [tcoll val]
   (-disjoin! tcoll val))
 
+(defn vary-meta
+ "Returns an object of the same type and value as obj, with
+  (apply f (meta obj) args) as its metadata."
+ [obj f & args]
+ (with-meta obj (apply f (meta obj) args)))
+
 (defn ^boolean not=
   "Same as (not (= obj1 obj2))"
   ([x] false)
