@@ -2113,6 +2113,82 @@ reduces them without incurring seq initialization"
      (when (pred (first s))
        (cons (first s) (take-while pred (rest s)))))))
 
+(deftype Range [meta start end step ^:mutable __hash]
+  IWithMeta
+  (-with-meta [rng meta] (Range. meta start end step __hash))
+
+  IMeta
+  (-meta [rng] meta)
+
+  ISeqable
+  (-seq [rng]
+    (if (pos? step)
+      (when (< start end)
+        rng)
+      (when (> start end)
+        rng)))
+
+  ISeq
+  (-first [rng] start)
+  (-rest [rng]
+    (if-not (nil? (-seq rng))
+      (Range. meta (+ start step) end step nil)
+      ()))
+
+  INext
+  (-next [rng]
+    (if (pos? step)
+      (when (< (+ start step) end)
+        (Range. meta (+ start step) end step nil))
+      (when (> (+ start step) end)
+        (Range. meta (+ start step) end step nil))))
+
+  ICollection
+  (-conj [rng o] (cons o rng))
+
+  IEmptyableCollection
+  (-empty [rng] (with-meta cljc.core.List/EMPTY meta))
+
+  ISequential
+  IEquiv
+  (-equiv [rng other] (equiv-sequential rng other))
+
+  IHash
+  (-hash [rng] (caching-hash rng hash-coll __hash))
+
+  ICounted
+  (-count [rng]
+    (if-not (-seq rng)
+      0
+      (c* "make_integer ((long)ceil (float_get (~{})))" (/ (- end start) step))))
+
+  IIndexed
+  (-nth [rng n]
+    (if (< n (-count rng))
+      (+ start (* n step))
+      (if (and (> start end) (zero? step))
+        start
+        (throw (Exception. "Index out of bounds")))))
+  (-nth [rng n not-found]
+    (if (< n (-count rng))
+      (+ start (* n step))
+      (if (and (> start end) (zero? step))
+        start
+        not-found)))
+
+  IReduce
+  (-reduce [rng f] (ci-reduce rng f))
+  (-reduce [rng f s] (ci-reduce rng f s)))
+
+(defn range
+  "Returns a lazy seq of nums from start (inclusive) to end
+   (exclusive), by step, where start defaults to 0, step to 1,
+   and end to infinity."
+  ([] (range 0 (c* "make_integer (LONG_MAX)") 1))
+  ([end] (range 0 end 1))
+  ([start end] (range start end 1))
+  ([start end step] (Range. nil start end step nil)))
+
 (defn take-nth
   "Returns a lazy seq of every nth item in coll."
   [n coll]
