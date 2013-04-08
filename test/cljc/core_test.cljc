@@ -799,10 +799,10 @@
   ;; split-with
   (assert (= [[1 2 3] [4 5]] (split-with (partial >= 3) [1 2 3 4 5])))
 
-  (comment
   ;; trampoline
   (assert (= 10000 (trampoline (fn f [n] (if (>= n 10000) n #(f (inc n)))) 0)))
 
+  (comment
   ;; vary-meta
   (assert (= {:a 1} (meta (vary-meta [] assoc :a 1))))
   (assert (= {:a 1 :b 2} (meta (vary-meta (with-meta [] {:b 2}) assoc :a 1))))
