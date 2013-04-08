@@ -754,10 +754,10 @@
   ;; frequencies
   (assert (= {:a 3 :b 2} (frequencies [:a :b :a :b :a])))
 
-  (comment
   ;; reductions
   (assert (= [1 3 6 10 15] (reductions + [1 2 3 4 5])))
 
+  (comment
   ;; keep
   (assert (= [1 3 5 7 9] (keep #(if (odd? %) %) [1 2 3 4 5 6 7 8 9 10])))
   (assert (= [2 4 6 8 10] (keep #(if (even? %) %) [1 2 3 4 5 6 7 8 9 10])))
