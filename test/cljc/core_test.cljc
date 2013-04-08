@@ -768,7 +768,6 @@
   ;; map-indexed
   (assert (= [[0 :a] [1 :b] [2 :c]] (map-indexed #(vector % %2) [:a :b :c])))
 
-  (comment
   ;; merge-with
   (assert (= '{"Foo" ("foo" "FOO" "fOo"), "Bar" ("bar" "BAR" "BAr"), "Baz" ["baz"], "Qux" ["qux" "quux"]}
              (merge-with concat
@@ -790,6 +789,7 @@
                                 {:a 1 :b 2 :c 3}
                                 {:a 1 :c 10}])))
 
+  (comment
   (assert (= '[a c e] (replace '[a b c d e] [0 2 4])))
   (assert (= [:one :zero :two :zero]
              (replace {0 :zero 1 :one 2 :two} '(1 0 2 0))))
