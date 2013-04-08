@@ -2313,7 +2313,7 @@ reduces them without incurring seq initialization"
 
   IPrintable
   (-pr-seq [a opts]
-    (concat  ["#<Atom: "] (-pr-seq state opts) ">"))
+    (concat  ["#<Atom: "] (-pr-seq state opts) [">"]))
 
   IWatchable
   (-notify-watches [this oldval newval]
