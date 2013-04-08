@@ -331,7 +331,7 @@
          (= y (first more)))
        false)))
 
-(declare reduce hash-map nth deref)
+(declare reduce hash-map nth deref associative?)
 
 (defn conj
   "conj[oin]. Returns a new collection with the xs
@@ -370,6 +370,8 @@
   ([x y z & items]
      (conj (conj (conj (reduce conj () (reverse items))
                        z) y) x)))
+
+;;;;;;;;;;;;;;;;;;; protocols on primitives ;;;;;;;;
 
 (extend-type Nil
   IEquiv
@@ -1006,6 +1008,14 @@ reduces them without incurring seq initialization"
   (if (identical? (-lookup coll v lookup-sentinel) lookup-sentinel)
     false
     true))
+
+(defn find
+  "Returns the map entry for key, or nil if key not present."
+  [coll k]
+  (when (and coll
+             (associative? coll)
+             (contains? coll k))
+    [k (-lookup coll k)]))
 
 (defn ^boolean map?
   "Return true if x satisfies IMap"

@@ -689,7 +689,6 @@
     (f)
     (assert (= (f) (f))))
 
-  (comment
   ;; find
   (assert (= (find {} :a) nil))
   (assert (= (find {:a 1} :a) [:a 1]))
@@ -702,6 +701,7 @@
   (assert (= (find {:a 1 :b 2} nil) nil))
   (assert (= (find [1 2 3] 0) [0 1]))
 
+  (comment
   ;; mod,quot,rem
   (assert (= (quot 4 2) 2))
   (assert (= (quot 3 2) 1))
