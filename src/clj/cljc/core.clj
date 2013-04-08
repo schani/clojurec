@@ -234,6 +234,7 @@
 			      (list 'c* "DEFTYPE_SET_FIELD (~{}, ~{str}, ~{})" val i fld))
 			    fields)
 	     ~val))
+         (~'deftype-ptable* ~t)
 	 ~@(if (seq impls)
 	     (list `(extend-type ~(with-meta t {:skip-protocol-flag fpps}) ~@(dt->et impls)))
 	     ())

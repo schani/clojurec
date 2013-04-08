@@ -873,9 +873,12 @@
      (emitln "default: assert_not_reached ();")
      (emitln "}")
      (emitln "return value_nil;")
-     (emitln "}"))
-    (do
-      (emitln "PTABLE_NAME (" t ") = alloc_ptable (TYPE_NAME (" t "), FIELD_ACCESS_FN_NAME (" t "));"))))
+     (emitln "}"))))
+
+(defmethod emit :deftype-ptable*
+  [{:keys [t fields pmasks index form]}]
+  (do
+    (emitln "PTABLE_NAME (" t ") = alloc_ptable (TYPE_NAME (" t "), VAR_NAME (" t "), FIELD_ACCESS_FN_NAME (" t "));")))
 
 (defn lookup-protocol [method]
   (some (fn [[ns protocols]]
@@ -932,7 +935,7 @@
 
 (declare analyze analyze-symbol analyze-seq)
 
-(def specials '#{if def fn* do let* loop* letfn* throw try* recur new set! ns defprotocol* deftype* . c* & quote})
+(def specials '#{if def fn* do let* loop* letfn* throw try* recur new set! ns defprotocol* deftype* deftype-ptable* . c* & quote})
 
 (def ^:dynamic *recur-frames* nil)
 (def ^:dynamic *loop-lets* nil)
@@ -1390,6 +1393,11 @@
                      (assoc :line line))
                  m))))
     {:env env :op :deftype* :as form :t t :fields fields :pmasks pmasks :index index}))
+
+(defmethod parse 'deftype-ptable*
+  [_ env [_ tsym :as form] _]
+  (let [t (munge (:name (resolve-var (dissoc env :locals) tsym)))]
+    {:env env :op :deftype-ptable* :as form :t t}))
 
 ;; dot accessor code
 

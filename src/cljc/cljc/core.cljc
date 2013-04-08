@@ -950,6 +950,9 @@ reduces them without incurring seq initialization"
   "Returns true if x is the value true, false otherwise."
   [x] (cljc.core/true? x))
 
+(defn ^boolean instance? [t o]
+  (c* "make_boolean (~{}->ptable->constructor == ~{})" o t))
+
 (defn ^boolean boolean [x]
   (if x true false))
 

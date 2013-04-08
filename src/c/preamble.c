@@ -105,6 +105,7 @@ typedef value_t* (*field_access_fn_t) (value_t *val, int field, value_t *new_val
 struct ptable {
 	int type;
 	field_access_fn_t field_access_fn;
+	value_t *constructor;
 	ptable_entry_t *entries;
 };
 
@@ -220,10 +221,11 @@ invoken (value_t *f, int nargs, value_t *a1, value_t *a2, value_t **ar)
 }
 
 static ptable_t*
-alloc_ptable (int type, field_access_fn_t field_access_fn)
+alloc_ptable (int type, value_t *constructor, field_access_fn_t field_access_fn)
 {
 	ptable_t *ptable = GC_malloc (sizeof (ptable_t));
 	ptable->type = type;
+	ptable->constructor = constructor;
 	ptable->field_access_fn = field_access_fn;
 	ptable->entries = &empty_ptable_entry;
 	return ptable;
@@ -354,7 +356,8 @@ closure_ptable (void)
 		closure_t **vtable = alloc_vtable (PROTOCOL_VTABLE_SIZE (cljc_DOT_core_SLASH_IFn));
 		set_vtable_entry (vtable, MEMBER__invoke, invoke);
 
-		ptable_t *ptable = alloc_ptable (TYPE_Closure, NULL);
+		/* FIXME: we need a constructor */
+		ptable_t *ptable = alloc_ptable (TYPE_Closure, VALUE_NONE, NULL);
 		extend_ptable (ptable, PROTOCOL_cljc_DOT_core_SLASH_IFn, vtable);
 
 		closure_ptable = ptable;
@@ -942,21 +945,51 @@ strchr_offset (const gchar *str, gunichar c)
 	return p - str;
 }
 
+static value_t* VAR_NAME (cljc_DOT_core_SLASH_Nil);
+static value_t* VAR_NAME (cljc_DOT_core_SLASH_Integer);
+static value_t* VAR_NAME (cljc_DOT_core_SLASH_Float);
+static value_t* VAR_NAME (cljc_DOT_core_SLASH_Boolean);
+static value_t* VAR_NAME (cljc_DOT_core_SLASH_Array);
+static value_t* VAR_NAME (cljc_DOT_core_SLASH_Character);
+static value_t* VAR_NAME (cljc_DOT_core_SLASH_String);
+static value_t* VAR_NAME (cljc_DOT_core_SLASH_Symbol);
+static value_t* VAR_NAME (cljc_DOT_core_SLASH_Keyword);
+static value_t* VAR_NAME (cljc_DOT_core_SLASH_RawPointer);
+
 static void
 cljc_init (void)
 {
 	GC_INIT ();
 
-	PTABLE_NAME (cljc_DOT_core_SLASH_Nil) = alloc_ptable (TYPE_Nil, NULL);
-	PTABLE_NAME (cljc_DOT_core_SLASH_Integer) = alloc_ptable (TYPE_Integer, NULL);
-	PTABLE_NAME (cljc_DOT_core_SLASH_Float) = alloc_ptable (TYPE_Float, NULL);
-	PTABLE_NAME (cljc_DOT_core_SLASH_Boolean) = alloc_ptable (TYPE_Boolean, NULL);
-	PTABLE_NAME (cljc_DOT_core_SLASH_Array) = alloc_ptable (TYPE_Array, NULL);
-	PTABLE_NAME (cljc_DOT_core_SLASH_Character) = alloc_ptable (TYPE_Character, NULL);
-	PTABLE_NAME (cljc_DOT_core_SLASH_String) = alloc_ptable (TYPE_String, NULL);
-	PTABLE_NAME (cljc_DOT_core_SLASH_Symbol) = alloc_ptable (TYPE_Symbol, NULL);
-	PTABLE_NAME (cljc_DOT_core_SLASH_Keyword) = alloc_ptable (TYPE_Keyword, NULL);
-	PTABLE_NAME (cljc_DOT_core_SLASH_RawPointer) = alloc_ptable (TYPE_RawPointer, NULL);
+	VAR_NAME (cljc_DOT_core_SLASH_Nil) = make_closure (NULL, NULL);
+	PTABLE_NAME (cljc_DOT_core_SLASH_Nil) = alloc_ptable (TYPE_Nil, VAR_NAME (cljc_DOT_core_SLASH_Nil), NULL);
+
+	VAR_NAME (cljc_DOT_core_SLASH_Integer) = make_closure (NULL, NULL);
+	PTABLE_NAME (cljc_DOT_core_SLASH_Integer) = alloc_ptable (TYPE_Integer, VAR_NAME (cljc_DOT_core_SLASH_Integer), NULL);
+
+	VAR_NAME (cljc_DOT_core_SLASH_Float) = make_closure (NULL, NULL);
+	PTABLE_NAME (cljc_DOT_core_SLASH_Float) = alloc_ptable (TYPE_Float, VAR_NAME (cljc_DOT_core_SLASH_Float), NULL);
+
+	VAR_NAME (cljc_DOT_core_SLASH_Boolean) = make_closure (NULL, NULL);
+	PTABLE_NAME (cljc_DOT_core_SLASH_Boolean) = alloc_ptable (TYPE_Boolean, VAR_NAME (cljc_DOT_core_SLASH_Boolean), NULL);
+
+	VAR_NAME (cljc_DOT_core_SLASH_Array) = make_closure (NULL, NULL);
+	PTABLE_NAME (cljc_DOT_core_SLASH_Array) = alloc_ptable (TYPE_Array, VAR_NAME (cljc_DOT_core_SLASH_Array), NULL);
+
+	VAR_NAME (cljc_DOT_core_SLASH_Character) = make_closure (NULL, NULL);
+	PTABLE_NAME (cljc_DOT_core_SLASH_Character) = alloc_ptable (TYPE_Character, VAR_NAME (cljc_DOT_core_SLASH_Character), NULL);
+
+	VAR_NAME (cljc_DOT_core_SLASH_String) = make_closure (NULL, NULL);
+	PTABLE_NAME (cljc_DOT_core_SLASH_String) = alloc_ptable (TYPE_String, VAR_NAME (cljc_DOT_core_SLASH_String), NULL);
+
+	VAR_NAME (cljc_DOT_core_SLASH_Symbol) = make_closure (NULL, NULL);
+	PTABLE_NAME (cljc_DOT_core_SLASH_Symbol) = alloc_ptable (TYPE_Symbol, VAR_NAME (cljc_DOT_core_SLASH_Symbol), NULL);
+
+	VAR_NAME (cljc_DOT_core_SLASH_Keyword) = make_closure (NULL, NULL);
+	PTABLE_NAME (cljc_DOT_core_SLASH_Keyword) = alloc_ptable (TYPE_Keyword, VAR_NAME (cljc_DOT_core_SLASH_Keyword), NULL);
+
+	VAR_NAME (cljc_DOT_core_SLASH_RawPointer) = make_closure (NULL, NULL);
+	PTABLE_NAME (cljc_DOT_core_SLASH_RawPointer) = alloc_ptable (TYPE_RawPointer, VAR_NAME (cljc_DOT_core_SLASH_RawPointer), NULL);
 
 	value_nil = alloc_value (PTABLE_NAME (cljc_DOT_core_SLASH_Nil), sizeof (value_t));
 
