@@ -446,7 +446,7 @@
 
   IHash
   (-hash [o]
-    (c* "make_integer (hashmurmur3_32 (&((float_t*)(~{}))->x, sizeof (double)))" o))
+    (c* "make_integer (hashmurmur3_32 (&((floating_t*)(~{}))->x, sizeof (double)))" o))
 
   IPrintable
   (-pr-seq [f opts] (list (c* "make_string_copy_free (g_strdup_printf (\"%f\", float_get (~{})))" f))))
@@ -857,6 +857,17 @@ reduces them without incurring seq initialization"
   "Modulus of num and div. Truncates toward negative infinity."
   [n d]
   (cljc.core/mod n d))
+
+(defn quot
+  "quot[ient] of dividing numerator by denominator."
+  [n d]
+  (c* "make_integer (integer_get (~{}) / integer_get (~{}))" (fix n) (fix d)))
+
+(defn rem
+  "remainder of dividing numerator by denominator."
+  [n d]
+  (let [q (quot n d)]
+    (- n (* d q))))
 
 (defn ^boolean pos?
   "Returns true if num is greater than zero, else false"
@@ -3199,12 +3210,6 @@ reduces them without incurring seq initialization"
       ;;(identical? key other)
       (= key other)
     (= key other)))
-
-;;XXX--remove after merging of rest of math fns
-(defn quot
-  "quot[ient] of dividing numerator by denominator."
-  [n d]
-  (error "NOT IMPLEMENTED"))
 
 (defn- equiv-map
   "Assumes y is a map. Returns true if x equals y, otherwise returns

@@ -699,7 +699,6 @@
   (assert (= (find {:a 1 :b 2} nil) nil))
   (assert (= (find [1 2 3] 0) [0 1]))
 
-  (comment
   ;; mod,quot,rem
   (assert (= (quot 4 2) 2))
   (assert (= (quot 3 2) 1))
@@ -737,6 +736,7 @@
   (assert (= (rem 2 -5) 2))
   (assert (= (rem 0 3) 0))
 
+  (comment
   ;; range
   (assert (= (range 10) (list 0 1 2 3 4 5 6 7 8 9)))
   (assert (= (range 10 20) (list 10 11 12 13 14 15 16 17 18 19)))

@@ -452,7 +452,11 @@
   ([x y & more] `(and (>= ~x ~y) (>= ~y ~@more))))
 
 (defmacro mod [num div]
-  (list 'c* "make_integer (integer_get(~{}) % integer_get(~{}))" num div))
+  `(let [num# ~num
+         div# ~div]
+     (if (or (float? num#) (float? div#))
+       (~'c* "make_float (fmod (float_get (~{}), float_get (~{})))" (number-as-float num#) (number-as-float div#))
+       (~'c* "make_integer (integer_get(~{}) % integer_get(~{}))" num# div#))))
 
 (defmacro bit-not [x]
   (list 'c* "make_integer (~ (integer_get (~{})))" x))

@@ -7,6 +7,7 @@
 #include <glib.h>
 #include <stdlib.h>
 #include <setjmp.h>
+#include <math.h>
 
 #include "khash.h"
 
@@ -59,7 +60,7 @@ typedef struct {
 typedef struct {
 	value_t val;
 	double x;
-} float_t;
+} floating_t;
 
 typedef struct {
 	value_t val;
@@ -421,7 +422,7 @@ integer_get (value_t *v)
 static value_t*
 make_float (double x)
 {
-	float_t *f = (float_t*) alloc_value (PTABLE_NAME (cljc_DOT_core_SLASH_Float), sizeof (float_t));
+	floating_t *f = (floating_t*) alloc_value (PTABLE_NAME (cljc_DOT_core_SLASH_Float), sizeof (floating_t));
 	f->x = x;
 	return &f->val;
 }
@@ -429,7 +430,7 @@ make_float (double x)
 static double
 float_get (value_t *v)
 {
-	float_t *f = (float_t*)v;
+	floating_t *f = (floating_t*)v;
 	assert (v->ptable->type == TYPE_Float);
 	return f->x;
 }
@@ -736,7 +737,7 @@ cljc_core_print (int nargs, closure_t *closure, value_t *arg1, value_t *arg2, va
 			break;
 		}
 		case TYPE_Float: {
-			float_t *f = (float_t*)arg1;
+			floating_t *f = (floating_t*)arg1;
 			printf ("%f", f->x);
 			break;
 		}
