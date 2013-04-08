@@ -748,10 +748,10 @@
     (assert (= 2 (count (get d 2))))
     (assert (= 1 (count (get d 4)))))
 
-  (comment
   (assert (= {1 2 3 4 5 6} (merge {1 2} {3 4} {5 6})))
   (assert (= {1 2 3 4} (merge {1 2} {3 4} nil)))
 
+  (comment
   ;; frequencies
   (assert (= {:a 3 :b 2} (frequencies [:a :b :a :b :a])))
 

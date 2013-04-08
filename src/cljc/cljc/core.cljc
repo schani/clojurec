@@ -4108,6 +4108,13 @@ reduces them without incurring seq initialization"
   [map-entry]
   (-val map-entry))
 
+(defn merge
+  "Returns a map that consists of the rest of the maps conj-ed onto
+  the first.  If a key occurs in more than one map, the mapping from
+  the latter (left-to-right) will be the mapping in the result."
+  [& maps]
+  (when (some identity maps)
+    (reduce #(conj (or %1 {}) %2) maps)))
 
 ;;; PersistentHashSet
 
