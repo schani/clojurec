@@ -757,7 +757,6 @@
   ;; reductions
   (assert (= [1 3 6 10 15] (reductions + [1 2 3 4 5])))
 
-  (comment
   ;; keep
   (assert (= [1 3 5 7 9] (keep #(if (odd? %) %) [1 2 3 4 5 6 7 8 9 10])))
   (assert (= [2 4 6 8 10] (keep #(if (even? %) %) [1 2 3 4 5 6 7 8 9 10])))
@@ -769,6 +768,7 @@
   ;; map-indexed
   (assert (= [[0 :a] [1 :b] [2 :c]] (map-indexed #(vector % %2) [:a :b :c])))
 
+  (comment
   ;; merge-with
   (assert (= '{"Foo" ("foo" "FOO" "fOo"), "Bar" ("bar" "BAR" "BAr"), "Baz" ["baz"], "Qux" ["qux" "quux"]}
              (merge-with concat
