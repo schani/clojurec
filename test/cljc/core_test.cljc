@@ -956,7 +956,6 @@
     (assert (= s (vec s))) ; pour into plain vector
     (let [m {:x 1}] (assert (= m (meta (with-meta s m))))))
 
-  (comment
   ;; TransientVector
   (let [v1 (vec (range 15 48))
         v2 (vec (range 40 57))
@@ -975,6 +974,7 @@
        (next xs))
       (assert (= (vec (range 100)) (persistent! v)))))
 
+  (comment
   ;; PersistentHashMap & TransientHashMap
   (loop [m1 cljs.core.PersistentHashMap/EMPTY
          m2 (transient cljs.core.PersistentHashMap/EMPTY)
