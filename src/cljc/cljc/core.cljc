@@ -2221,6 +2221,18 @@ reduces them without incurring seq initialization"
 		   (c* "make_string_from_buf (symbol_get_utf8 (~{}), raw_pointer_get (~{}))" x ptr)))
    :else (error (str "Doesn't support namespace: " x))))
 
+(defn zipmap
+  "Returns a map with the keys mapped to the corresponding vals."
+  [keys vals]
+    (loop [map {}
+           ks (seq keys)
+           vs (seq vals)]
+      (if (and ks vs)
+        (recur (assoc map (first ks) (first vs))
+               (next ks)
+               (next vs))
+        map)))
+
 (defn max-key
   "Returns the x for which (k x), a number, is greatest."
   ([k x] x)

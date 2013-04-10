@@ -1034,7 +1034,6 @@
       (assert (= 2 (try (persistent! tm) 1 (catch Exception e 2))))
       (assert (= 2 (try (count tm) 1 (catch Exception e 2))))
       (assert (= m {0 0 1 1 2 2 4 4 6 6 8 8 9 9}))))
-  (comment
   (deftype FixedHash [h v]
     IHash
     (-hash [this] h)
@@ -1043,7 +1042,7 @@
       (and (instance? FixedHash other) (= v (.-v other)))))
   (def fixed-hash-foo (FixedHash. 0 :foo))
   (def fixed-hash-bar (FixedHash. 0 :bar))
-  (let [m (assoc cljs.core.PersistentHashMap/EMPTY
+  (let [m (assoc cljc.core.PersistentHashMap/EMPTY
             fixed-hash-foo 1
             fixed-hash-bar 2)]
     (assert (= (get m fixed-hash-foo) 1))
@@ -1053,7 +1052,7 @@
       (assert (= (get m fixed-hash-bar) 2))
       (assert (not (contains? m fixed-hash-foo)))
       (assert (= (count m) 1))))
-  (let [m (into cljs.core.PersistentHashMap/EMPTY ; make sure we're testing
+  (let [m (into cljc.core.PersistentHashMap/EMPTY ; make sure we're testing
                 (zipmap (range 100) (range 100))) ; the correct map type
         m (assoc m fixed-hash-foo 1 fixed-hash-bar 2)]
     (assert (= (count m) 102))
@@ -1063,7 +1062,7 @@
       (assert (= (get m fixed-hash-bar) 2))
       (assert (not (contains? m fixed-hash-foo)))
       (assert (= (count m) 98))))
-  (let [m (into cljs.core.PersistentHashMap/EMPTY ; make sure we're testing
+  (let [m (into cljc.core.PersistentHashMap/EMPTY ; make sure we're testing
                 (zipmap (range 100) (range 100))) ; the correct map type
         m (transient m)
         m (assoc! m fixed-hash-foo 1)
@@ -1077,6 +1076,7 @@
       (assert (not (contains? m fixed-hash-foo)))
       (assert (= (count m) 98))))
 
+  (comment
   ;; PersistentArrayMap & TransientArrayMap
   (def array-map-conversion-threshold
     cljs.core.PersistentArrayMap/HASHMAP_THRESHOLD)
