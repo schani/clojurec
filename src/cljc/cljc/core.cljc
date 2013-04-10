@@ -3897,13 +3897,6 @@ reduces them without incurring seq initialization"
         (array-copy arr 0 new-arr 0 (* 2 cnt))
         (HashCollisionNode. e collision-hash cnt new-arr))))
 
-  (-ensure-editable-array [inode e count array]
-    (if (identical? e edit)
-      (do (set! arr array)
-          (set! cnt count)
-          inode)
-      (HashCollisionNode. edit collision-hash count array)))
-
   (-inode-assoc! [inode edit shift hash key val added-leaf?]
     (if (== hash collision-hash)
       (let [idx (hash-collision-node-find-index arr cnt key)]
@@ -3945,7 +3938,15 @@ reduces them without incurring seq initialization"
                 (aset earr (dec (* 2 cnt)) nil)
                 (aset earr (- (* 2 cnt) 2) nil)
                 (set! (.-cnt editable) (dec (.-cnt editable)))
-                editable)))))))
+                editable))))))
+
+  IHashCollisionNode
+  (-ensure-editable-array [inode e count array]
+    (if (identical? e edit)
+      (do (set! arr array)
+          (set! cnt count)
+          inode)
+      (HashCollisionNode. edit collision-hash count array))))
 
 (defn- create-node
   ([shift key1 val1 key2hash key2 val2]
