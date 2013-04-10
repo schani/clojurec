@@ -974,10 +974,9 @@
        (next xs))
       (assert (= (vec (range 100)) (persistent! v)))))
 
-  (comment
   ;; PersistentHashMap & TransientHashMap
-  (loop [m1 cljs.core.PersistentHashMap/EMPTY
-         m2 (transient cljs.core.PersistentHashMap/EMPTY)
+  (loop [m1 cljc.core.PersistentHashMap/EMPTY
+         m2 (transient cljc.core.PersistentHashMap/EMPTY)
          i 0]
     (if (< i 100)
       (recur (assoc m1 i i) (assoc! m2 i i) (inc i))
@@ -998,24 +997,24 @@
         (assert (= (map vector (range 100) (range 100)) (sort-by first (seq m2))))
         (assert (not (contains? (dissoc m1 3) 3))))))
   (let [m (-> (->> (interleave (range 10) (range 10))
-                   (apply assoc cljs.core.PersistentHashMap/EMPTY))
+                   (apply assoc cljc.core.PersistentHashMap/EMPTY))
               (dissoc 3 5 7))]
     (assert (= (count m) 7))
     (assert (= m {0 0 1 1 2 2 4 4 6 6 8 8 9 9})))
   (let [m (-> (->> (interleave (range 10) (range 10))
-                   (apply assoc cljs.core.PersistentHashMap/EMPTY))
+                   (apply assoc cljc.core.PersistentHashMap/EMPTY))
               (conj [:foo 1]))]
     (assert (= (count m) 11))
     (assert (= m {0 0 1 1 2 2 3 3 4 4 5 5 6 6 7 7 8 8 9 9 :foo 1})))
   (let [m (-> (->> (interleave (range 10) (range 10))
-                   (apply assoc cljs.core.PersistentHashMap/EMPTY)
+                   (apply assoc cljc.core.PersistentHashMap/EMPTY)
                    transient)
               (conj! [:foo 1])
               persistent!)]
     (assert (= (count m) 11))
     (assert (= m {0 0 1 1 2 2 3 3 4 4 5 5 6 6 7 7 8 8 9 9 :foo 1})))
   (let [tm (->> (interleave (range 10) (range 10))
-                (apply assoc cljs.core.PersistentHashMap/EMPTY)
+                (apply assoc cljc.core.PersistentHashMap/EMPTY)
                 transient)]
     (loop [tm tm ks [3 5 7]]
       (if-let [k (first ks)]
@@ -1024,17 +1023,18 @@
           (assert (= (count m) 7))
           (assert (= m {0 0 1 1 2 2 4 4 6 6 8 8 9 9}))))))
   (let [tm (-> (->> (interleave (range 10) (range 10))
-                    (apply assoc cljs.core.PersistentHashMap/EMPTY))
+                    (apply assoc cljc.core.PersistentHashMap/EMPTY))
                (dissoc 3 5 7)
                transient)]
     (doseq [k [0 1 2 4 6 8 9]]
       (assert (= k (get tm k))))
     (let [m (persistent! tm)]
-      (assert (= 2 (try (dissoc! tm 1) 1 (catch js/Error e 2))))
-      (assert (= 2 (try (assoc! tm 10 10) 1 (catch js/Error e 2))))
-      (assert (= 2 (try (persistent! tm) 1 (catch js/Error e 2))))
-      (assert (= 2 (try (count tm) 1 (catch js/Error e 2))))
+      (assert (= 2 (try (dissoc! tm 1) 1 (catch Exception e 2))))
+      (assert (= 2 (try (assoc! tm 10 10) 1 (catch Exception e 2))))
+      (assert (= 2 (try (persistent! tm) 1 (catch Exception e 2))))
+      (assert (= 2 (try (count tm) 1 (catch Exception e 2))))
       (assert (= m {0 0 1 1 2 2 4 4 6 6 8 8 9 9}))))
+  (comment
   (deftype FixedHash [h v]
     IHash
     (-hash [this] h)
