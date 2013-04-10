@@ -1149,6 +1149,42 @@ reduces them without incurring seq initialization"
          (f y x) 1
          :else 0)))))
 
+(defn- merge-sort! [src dst min max comp]
+  (let [len (- max min)]
+    (if (< len 2)
+      (do
+        (array-copy src min dst 0 len)
+        dst)
+      (let [left-len (quot len 2)
+            right-len (- len left-len)
+            mid (+ min left-len)
+            left (make-array left-len)
+            right (make-array right-len)]
+        (merge-sort! src left min mid comp)
+        (merge-sort! src right mid max comp)
+        (loop [i 0
+               l 0
+               r 0]
+          (if (= l left-len)
+            (if (= r right-len)
+              dst
+              (do
+                (aset dst i (aget right r))
+                (recur (inc i) l (inc r))))
+            (if (= r right-len)
+              (do
+                (aset dst i (aget left l))
+                (recur (inc i) (inc l) r))
+              (let [le (aget left l)
+                    re (aget right r)]
+                (if (<= (comp le re) 0)
+                  (do
+                    (aset dst i le)
+                    (recur (inc i) (inc l) r))
+                  (do
+                    (aset dst i re)
+                    (recur (inc i) l (inc r))))))))))))
+
 (declare to-array)
 (defn sort
   "Returns a sorted sequence of the items in coll. Comp can be
@@ -1159,9 +1195,7 @@ reduces them without incurring seq initialization"
   ([comp coll]
    (if (seq coll)
      (let [a (to-array coll)]
-       ;; matching Clojure's stable sort, though docs don't promise it
-       (c* "array_sort_stable (~{}, ~{})" a (fn->comparator comp))
-       (seq a))
+       (seq (merge-sort! a a 0 (count a) (fn->comparator comp))))
      ())))
 
 (defn sort-by

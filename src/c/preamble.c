@@ -497,29 +497,6 @@ array_copy (value_t *src, long src_pos, value_t *dst, long dst_pos, long len)
 	return dst;
 }
 
-static value_t *sort_comparator;
-
-static int
-sort_compare (const void *p1, const void *p2)
-{
-	value_t *v1 = *(value_t**)p1;
-	value_t *v2 = *(value_t**)p2;
-	return integer_get (invoke2 (sort_comparator, v1, v2));
-}
-
-static void
-array_sort_stable (value_t *arr, value_t *comp)
-{
-	array_t *a = (array_t*)arr;
-
-	assert (arr->ptable->type == TYPE_Array);
-
-	/* FIXME: this is not thread safe! */
-	sort_comparator = comp;
-	mergesort (a->elems, a->len, sizeof (value_t*), sort_compare);
-	sort_comparator = NULL;
-}
-
 static value_t*
 make_character (gunichar c)
 {
