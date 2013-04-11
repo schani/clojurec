@@ -350,6 +350,7 @@
 		(~'c* "DEFTYPE_SET_FIELD (~{}, ~{str}, ~{})" ~val ~num-base-fields ~'__meta)
 		(~'c* "DEFTYPE_SET_FIELD (~{}, ~{str}, ~{})" ~val ~(core/inc num-base-fields) ~'__extmap)
 		~val)))
+	   (~'deftype-ptable* ~tagname)
 	   (extend-type ~(with-meta tagname {:skip-protocol-flag fpps}) ~@(dt->et impls)))))))
 
 (defn- build-positional-factory
