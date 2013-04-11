@@ -18,6 +18,12 @@
 (def EMPTY nil)
 (def fromArray nil)
 
+(ns cljc.core.PersistentArrayMap)
+
+(def EMPTY nil)
+(def HASHMAP_THRESHOLD nil)
+(def fromArrays nil)
+
 (ns cljc.core.List)
 
 (def EMPTY nil)
@@ -187,6 +193,9 @@
 
 (defprotocol IReduce
   (-reduce [coll f] [coll f start]))
+
+(defprotocol IKVReduce
+  (-kv-reduce [coll f init]))
 
 (defprotocol IPending
   (-realized? [d]))
@@ -458,6 +467,10 @@
 
   IPrintable
   (-pr-seq [o opts] (list (if o "true" "false"))))
+
+;; FIXME: implement once we have Reduced
+(defn reduced? [r]
+  false)
 
 (defn- ci-reduce
   "Accepts any collection which satisfies the ICount and IIndexed protocols and
@@ -3472,6 +3485,264 @@ reduces them without incurring seq initialization"
 
 (defn vector [& args] (vec args))
 
+(deftype NeverEquiv []
+  IEquiv
+  (-equiv [o other] false))
+
+(def ^:private never-equiv (NeverEquiv.))
+
+(defn- equiv-map
+  "Assumes y is a map. Returns true if x equals y, otherwise returns
+  false."
+  [x y]
+  (boolean
+    (when (map? y)
+      ; assume all maps are counted
+      (when (== (count x) (count y))
+        (every? identity
+                (map (fn [xkv] (= (get y (first xkv) never-equiv)
+                                  (second xkv)))
+                     x))))))
+
+;;; PersistentArrayMap
+
+(defn- array-map-index-of [m k]
+  (let [arr (.-arr m)
+        len (alength arr)]
+    (loop [i 0]
+      (cond
+        (<= len i) -1
+        (= (aget arr i) k) i
+        :else (recur (+ i 2))))))
+
+(defn- array-push [arr & vals]
+  (let [arr-cnt (count arr)
+        vals-cnt (count vals)
+        new-arr (make-array (+ arr-cnt vals-cnt))]
+    (array-copy arr 0 new-arr 0 arr-cnt)
+    (loop [vals (seq vals)
+           i arr-cnt]
+      (if vals
+	(do
+	 (aset new-arr i (first vals))
+	 (recur (next vals) (inc i)))
+	new-arr))))
+
+(defn- array-pop [arr num]
+  (let [arr-cnt (count arr)
+        new-cnt (- arr-cnt num)
+	new-arr (make-array new-cnt)]
+    (array-copy arr 0 new-arr 0 new-cnt)
+    new-arr))
+
+(declare TransientArrayMap)
+
+(deftype PersistentArrayMap [meta cnt arr ^:mutable __hash]
+  IWithMeta
+  (-with-meta [coll meta] (PersistentArrayMap. meta cnt arr __hash))
+
+  IMeta
+  (-meta [coll] meta)
+
+  ICollection
+  (-conj [coll entry]
+    (if (vector? entry)
+      (-assoc coll (-nth entry 0) (-nth entry 1))
+      (reduce -conj coll entry)))
+
+  IEmptyableCollection
+  (-empty [coll] (-with-meta cljc.core.PersistentArrayMap/EMPTY meta))
+
+  IEquiv
+  (-equiv [coll other] (equiv-map coll other))
+
+  IHash
+  (-hash [coll] (caching-hash coll hash-imap __hash))
+
+  ISeqable
+  (-seq [coll]
+    (when (pos? cnt)
+      (let [len (alength arr)
+            array-map-seq
+            (fn array-map-seq [i]
+              (lazy-seq
+               (when (< i len)
+                 (cons [(aget arr i) (aget arr (inc i))]
+                       (array-map-seq (+ i 2))))))]
+        (array-map-seq 0))))
+
+  ICounted
+  (-count [coll] cnt)
+
+  ILookup
+  (-lookup [coll k]
+    (-lookup coll k nil))
+
+  (-lookup [coll k not-found]
+    (let [idx (array-map-index-of coll k)]
+      (if (== idx -1)
+        not-found
+        (aget arr (inc idx)))))
+
+  IAssociative
+  (-assoc [coll k v]
+    (let [idx (array-map-index-of coll k)]
+      (cond
+        (== idx -1)
+        (if (< cnt cljc.core.PersistentArrayMap/HASHMAP_THRESHOLD)
+	  (let [new-cnt (inc cnt)]
+	    (PersistentArrayMap. meta
+				 new-cnt
+				 (array-push arr k v)
+				 nil))
+          (persistent!
+           (assoc!
+            (transient (into cljc.core.PersistentHashMap/EMPTY coll))
+            k v)))
+
+        (identical? v (aget arr (inc idx)))
+        coll
+
+        :else
+        (PersistentArrayMap. meta
+                             cnt
+                             (doto (aclone arr)
+                               (aset (inc idx) v))
+                             nil))))
+
+  (-contains-key? [coll k]
+    (not (== (array-map-index-of coll k) -1)))
+
+  IMap
+  (-dissoc [coll k]
+    (let [idx (array-map-index-of coll k)]
+      (if (>= idx 0)
+        (let [len     (alength arr)
+              new-len (- len 2)]
+          (if (zero? new-len)
+            (-empty coll)
+            (let [new-arr (make-array new-len)]
+              (loop [s 0 d 0]
+                (cond
+                  (>= s len) (PersistentArrayMap. meta (dec cnt) new-arr nil)
+                  (= k (aget arr s)) (recur (+ s 2) d)
+                  :else (do (aset new-arr d (aget arr s))
+                            (aset new-arr (inc d) (aget arr (inc s)))
+                            (recur (+ s 2) (+ d 2))))))))
+        coll)))
+
+  IKVReduce
+  (-kv-reduce [coll f init]
+    (let [len (alength arr)]
+      (loop [i 0 init init]
+        (if (< i len)
+          (let [init (f init (aget arr i) (aget arr (inc i)))]
+            (if (reduced? init)
+              @init
+              (recur (+ i 2) init)))))))
+
+  IFn
+  (-invoke [coll k]
+    (-lookup coll k))
+
+  (-invoke [coll k not-found]
+    (-lookup coll k not-found))
+
+  IEditableCollection
+  (-as-transient [coll]
+    (TransientArrayMap. true (alength arr) (aclone arr))))
+
+(set! cljc.core.PersistentArrayMap/EMPTY (PersistentArrayMap. nil 0 (array) nil))
+
+(set! cljc.core.PersistentArrayMap/HASHMAP_THRESHOLD 16)
+
+(set! cljc.core.PersistentArrayMap/fromArrays
+      (fn [ks vs]
+        (let [len (count ks)]
+          (loop [i   0
+                 out (transient cljc.core.PersistentArrayMap/EMPTY)]
+            (if (< i len)
+              (recur (inc i) (assoc! out (aget ks i) (aget vs i)))
+              (persistent! out))))))
+
+(declare array->transient-hash-map)
+
+(deftype TransientArrayMap [^:mutable editable?
+                            ^:mutable len
+                            ^:mutable arr]
+  ICounted
+  (-count [tcoll]
+    (if editable?
+      (quot len 2)
+      (throw (Exception. "count after persistent!"))))
+
+  ILookup
+  (-lookup [tcoll k]
+    (-lookup tcoll k nil))
+
+  (-lookup [tcoll k not-found]
+    (if editable?
+      (let [idx (array-map-index-of tcoll k)]
+        (if (== idx -1)
+          not-found
+          (aget arr (inc idx))))
+      (throw (Exception. "lookup after persistent!"))))
+
+  ITransientCollection
+  (-conj! [tcoll o]
+    (if editable?
+      (if (satisfies? IMapEntry o)
+        (-assoc! tcoll (key o) (val o))
+        (loop [es (seq o) tcoll tcoll]
+          (if-let [e (first es)]
+            (recur (next es)
+                   (-assoc! tcoll (key e) (val e)))
+            tcoll)))
+      (throw (Exception. "conj! after persistent!"))))
+
+  (-persistent! [tcoll]
+    (if editable?
+      (do (set! editable? false)
+          (PersistentArrayMap. nil (quot len 2) arr nil))
+      (throw (Exception. "persistent! called twice"))))
+
+  ITransientAssociative
+  (-assoc! [tcoll key val]
+    (if editable?
+      (let [idx (array-map-index-of tcoll key)]
+        (if (== idx -1)
+          (if (<= (+ len 2) (* 2 cljc.core.PersistentArrayMap/HASHMAP_THRESHOLD))
+            (do (set! len (+ len 2))
+		(set! arr (array-push arr key val))
+                tcoll)
+            (assoc! (array->transient-hash-map len arr) key val))
+          (if (identical? val (aget arr (inc idx)))
+            tcoll
+            (do (aset arr (inc idx) val)
+                tcoll))))
+      (throw (Exception. "assoc! after persistent!"))))
+
+  ITransientMap
+  (-dissoc! [tcoll key]
+    (if editable?
+      (let [idx (array-map-index-of tcoll key)]
+        (when (>= idx 0)
+          (aset arr idx (aget arr (- len 2)))
+          (aset arr (inc idx) (aget arr (dec len)))
+	  (set! arr (array-pop arr 2))
+          (set! len (- len 2)))
+        tcoll)
+      (throw (Exception. "dissoc! after persistent!")))))
+
+(declare TransientHashMap)
+
+(defn- array->transient-hash-map [len arr]
+  (loop [out (transient {})
+         i   0]
+    (if (< i len)
+      (recur (assoc! out (aget arr i) (aget arr (inc i))) (+ i 2))
+      out)))
+
 ;;;PersistentHashMap
 (defprotocol INode
   (-inode-assoc [inode shift hash key val added-leaf?])
@@ -3492,12 +3763,6 @@ reduces them without incurring seq initialization"
 (defprotocol ITransientHashMap
   (-without! [tcoll k]))
 
-(deftype NeverEquiv []
-  IEquiv
-  (-equiv [o other] false))
-
-(def ^:private never-equiv (NeverEquiv.))
-
 (deftype EditSentinel [])
 
 (declare create-inode-seq create-array-node-seq reset! create-node atom deref)
@@ -3510,19 +3775,6 @@ reduces them without incurring seq initialization"
       ;;(identical? key other)
       (= key other)
     (= key other)))
-
-(defn- equiv-map
-  "Assumes y is a map. Returns true if x equals y, otherwise returns
-  false."
-  [x y]
-  (boolean
-    (when (map? y)
-      ; assume all maps are counted
-      (when (== (count x) (count y))
-        (every? identity
-                (map (fn [xkv] (= (get y (first xkv) never-equiv)
-                                  (second xkv)))
-                     x))))))
 
 (defn- clone-and-set
   ([arr i a]
