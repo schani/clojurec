@@ -163,6 +163,9 @@
 (defprotocol ISequential
   "Marker interface indicating a persistent collection of sequential items")
 
+(defprotocol IList
+  "Marker interface indicating a persistent list")
+
 (defprotocol IRecord
   "Marker interface indicating a record object")
 
@@ -277,44 +280,6 @@
 
   IPrintable
   (-pr-seq [coll opts] (pr-sequential pr-seq "(" " " ")" opts coll)))
-
-(deftype EmptyList [meta]
-  IWithMeta
-  (-with-meta [coll meta] (EmptyList. meta))
-
-  IMeta
-  (-meta [coll] meta)
-
-  ISeq
-  (-first [coll] nil)
-  (-rest [coll] ())
-
-  INext
-  (-next [coll] nil)
-
-  ISeqable
-  (-seq [coll] nil)
-
-  ICollection
-  (-conj [coll o] (Cons. nil o nil nil))
-
-  IEmptyableCollection
-  (-empty [coll] coll)
-
-  ISequential
-  IEquiv
-  (-equiv [coll other] (equiv-sequential coll other))
-
-  ICounted
-  (-count [_] 0)
-
-  IHash
-  (-hash [coll] 0)
-
-  IPrintable
-  (-pr-seq [coll opts] (list "()")))
-
-(set! cljc.core.List/EMPTY (cljc.core/EmptyList. nil))
 
 ;;;;;;;;;;;;;;;;;;; fundamentals ;;;;;;;;;;;;;;;
 (defn ^boolean identical?
@@ -963,6 +928,94 @@ reduces them without incurring seq initialization"
        (recur y (first more) (next more))
        (== y (first more)))
      false)))
+
+;;;;;;;;;;;;;;;; cons ;;;;;;;;;;;;;;;;
+(deftype List [meta first rest count ^:mutable __hash]
+  IList
+
+  IWithMeta
+  (-with-meta [coll meta] (List. meta first rest count __hash))
+
+  IMeta
+  (-meta [coll] meta)
+
+  ASeq
+  ISeq
+  (-first [coll] first)
+  (-rest [coll]
+    (if (== count 1)
+      ()
+      rest))
+
+  INext
+  (-next [coll]
+    (if (== count 1)
+      nil
+      rest))
+
+  IStack
+  (-peek [coll] first)
+  (-pop [coll] (-rest coll))
+
+  ICollection
+  (-conj [coll o] (List. meta o coll (inc count) nil))
+
+  IEmptyableCollection
+  (-empty [coll] cljc.core.List/EMPTY)
+
+  ISequential
+  IEquiv
+  (-equiv [coll other] (equiv-sequential coll other))
+
+  IHash
+  (-hash [coll] (caching-hash coll hash-coll __hash))
+
+  ISeqable
+  (-seq [coll] coll)
+
+  ICounted
+  (-count [coll] count)
+
+  IPrintable
+  (-pr-seq [coll opts] (pr-sequential pr-seq "(" " " ")" opts coll)))
+
+(deftype EmptyList [meta]
+  IWithMeta
+  (-with-meta [coll meta] (EmptyList. meta))
+
+  IMeta
+  (-meta [coll] meta)
+
+  ISeq
+  (-first [coll] nil)
+  (-rest [coll] ())
+
+  INext
+  (-next [coll] nil)
+
+  ISeqable
+  (-seq [coll] nil)
+
+  ICollection
+  (-conj [coll o] (List. meta o nil 1 nil))
+
+  IEmptyableCollection
+  (-empty [coll] coll)
+
+  ISequential
+  IEquiv
+  (-equiv [coll other] (equiv-sequential coll other))
+
+  ICounted
+  (-count [_] 0)
+
+  IHash
+  (-hash [coll] 0)
+
+  IPrintable
+  (-pr-seq [coll opts] (list "()")))
+
+(set! cljc.core.List/EMPTY (cljc.core/EmptyList. nil))
 
 ;;;;;;;;;;;;;;;; preds ;;;;;;;;;;;;;;;;;;
 
@@ -2140,7 +2193,7 @@ reduces them without incurring seq initialization"
   (-seq [coll] coll)
 
   ICollection
-  (-conj [coll o] (Cons. nil o coll nil))
+  (-conj [coll o] (List. nil o coll (inc (count coll)) nil))
 
   IPrintable
   (-pr-seq [coll opts]
