@@ -1209,7 +1209,6 @@
       (assert (= (count (conj m2 [:wibble 4])) 4))
       (assert (= (map key (assoc m1 nil 4)) (list nil :bar :foo :quux)))
       (assert (= (map key (assoc m2 nil 4)) (list :quux :foo :bar nil)))))
-  (comment
   (let [m (->> [[0 10] [20 30] [10 20] [50 60] [30 40] [40 50]]
                (mapcat (partial apply range))
                (mapcat #(list % %))
@@ -1219,6 +1218,7 @@
     (assert (= (count m) 60))
     (assert (= (seq m) s1))
     (assert (= (rseq m) s2)))
+  (comment
   (let [m (sorted-map :foo 1 :bar 2 :quux 3)]
     (assert (= (dissoc m :foo) (hash-map :bar 2 :quux 3)))
     (assert (= (count (dissoc m :foo)) 2))

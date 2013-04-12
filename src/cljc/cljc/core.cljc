@@ -1899,78 +1899,6 @@ reduces them without incurring seq initialization"
                         (cons x (keepi (inc idx) (rest s)))))))))]
        (keepi 0 coll))))
 
-(defn filter
-  "Returns a lazy sequence of the items in coll for which
-  (pred item) returns true. pred must be free of side-effects."
-  ([pred coll]
-     (loop [rev ()
-            coll (seq coll)]
-       (if coll
-         (let [f (first coll) r (next coll)]
-           (if (pred f)
-             (recur (cons f rev) r)
-             (recur rev r)))
-         (reverse rev)))))
-
-(defn remove
-  "Returns a lazy sequence of the items in coll for which
-  (pred item) returns false. pred must be free of side-effects."
-  [pred coll]
-  (filter (complement pred) coll))
-
-(defn into
-  "Returns a new coll consisting of to-coll with all of the items of
-  from-coll conjoined."
-  [to from]
-  (if (satisfies? IEditableCollection to)
-    (persistent! (reduce -conj! (transient to) from))
-    (reduce -conj to from)))
-
-(defn get-in
-  "Returns the value in a nested associative structure,
-  where ks is a sequence of ke(ys. Returns nil if the key is not present,
-  or the not-found value if supplied."
-  {:added "1.2"
-   :static true}
-  ([m ks]
-     (reduce get m ks))
-  ([m ks not-found]
-     (loop [sentinel lookup-sentinel
-            m m
-            ks (seq ks)]
-       (if ks
-         (let [m (get m (first ks) sentinel)]
-           (if (identical? sentinel m)
-             not-found
-             (recur sentinel m (next ks))))
-         m))))
-
-(defn assoc-in
-  "Associates a value in a nested associative structure, where ks is a
-  sequence of keys and v is the new value and returns a new nested structure.
-  If any levels do not exist, hash-maps will be created."
-  [m [k & ks] v]
-  (if ks
-    (assoc m k (assoc-in (get m k) ks v))
-    (assoc m k v)))
-
-(defn update-in
-  "'Updates' a value in a nested associative structure, where ks is a
-  sequence of keys and f is a function that will take the old value
-  and any supplied args and return the new value, and returns a new
-  nested structure.  If any levels do not exist, hash-maps will be
-  created."
-  ([m [k & ks] f & args]
-   (if ks
-     (assoc m k (apply update-in (get m k) ks f args))
-     (assoc m k (apply f (get m k) args)))))
-
-(defn flatten-tail
-  [coll]
-  (if-let [n (next coll)]
-    (cons (first coll) (flatten-tail n))
-    (first coll)))
-
 (defn every-pred
   "Takes a set of predicates and returns a function f that returns true if all of its
   composing predicates return a logical true value against all of its arguments, else it returns
@@ -2148,6 +2076,86 @@ reduces them without incurring seq initialization"
                 (when (seq colls)
                   (cat (first colls) (rest colls)))))]
     (cat nil colls)))
+
+(defn mapcat
+  "Returns the result of applying concat to the result of applying map
+  to f and colls.  Thus function f should return a collection."
+  ([f coll]
+    (flatten1 (map f coll)))
+  ([f coll & colls]
+    (flatten1 (apply map f coll colls))))
+
+(defn filter
+  "Returns a lazy sequence of the items in coll for which
+  (pred item) returns true. pred must be free of side-effects."
+  ([pred coll]
+     (loop [rev ()
+            coll (seq coll)]
+       (if coll
+         (let [f (first coll) r (next coll)]
+           (if (pred f)
+             (recur (cons f rev) r)
+             (recur rev r)))
+         (reverse rev)))))
+
+(defn remove
+  "Returns a lazy sequence of the items in coll for which
+  (pred item) returns false. pred must be free of side-effects."
+  [pred coll]
+  (filter (complement pred) coll))
+
+(defn into
+  "Returns a new coll consisting of to-coll with all of the items of
+  from-coll conjoined."
+  [to from]
+  (if (satisfies? IEditableCollection to)
+    (persistent! (reduce -conj! (transient to) from))
+    (reduce -conj to from)))
+
+(defn get-in
+  "Returns the value in a nested associative structure,
+  where ks is a sequence of ke(ys. Returns nil if the key is not present,
+  or the not-found value if supplied."
+  {:added "1.2"
+   :static true}
+  ([m ks]
+     (reduce get m ks))
+  ([m ks not-found]
+     (loop [sentinel lookup-sentinel
+            m m
+            ks (seq ks)]
+       (if ks
+         (let [m (get m (first ks) sentinel)]
+           (if (identical? sentinel m)
+             not-found
+             (recur sentinel m (next ks))))
+         m))))
+
+(defn assoc-in
+  "Associates a value in a nested associative structure, where ks is a
+  sequence of keys and v is the new value and returns a new nested structure.
+  If any levels do not exist, hash-maps will be created."
+  [m [k & ks] v]
+  (if ks
+    (assoc m k (assoc-in (get m k) ks v))
+    (assoc m k v)))
+
+(defn update-in
+  "'Updates' a value in a nested associative structure, where ks is a
+  sequence of keys and f is a function that will take the old value
+  and any supplied args and return the new value, and returns a new
+  nested structure.  If any levels do not exist, hash-maps will be
+  created."
+  ([m [k & ks] f & args]
+   (if ks
+     (assoc m k (apply update-in (get m k) ks f args))
+     (assoc m k (apply f (get m k) args)))))
+
+(defn flatten-tail
+  [coll]
+  (if-let [n (next coll)]
+    (cons (first coll) (flatten-tail n))
+    (first coll)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Sets ;;;;;;;;;;;;;;;;
 
