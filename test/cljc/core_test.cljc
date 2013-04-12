@@ -1168,7 +1168,6 @@
           (assert (= (count m1) 100))
           (assert (= (count m2) 100)))))
 
-  (comment
   ;; TransientHashSet
   (loop [s (transient #{})
          i 0]
@@ -1186,6 +1185,7 @@
                              s))))
             (assert (= s (set (remove #(zero? (mod % 3)) (range 100))))))))))
 
+  (comment
   ;; PersistentTreeMap
   (let [m1 (sorted-map)
         c2 (comp - compare)

@@ -1842,6 +1842,12 @@ reduces them without incurring seq initialization"
              (recur rev r)))
          (reverse rev)))))
 
+(defn remove
+  "Returns a lazy sequence of the items in coll for which
+  (pred item) returns false. pred must be free of side-effects."
+  [pred coll]
+  (filter (complement pred) coll))
+
 (defn into
   "Returns a new coll consisting of to-coll with all of the items of
   from-coll conjoined."
