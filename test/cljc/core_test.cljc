@@ -1,3 +1,5 @@
+;;; -*- clojure -*-
+
 (ns cljc.core-test)
 
 (defn test-stuff []
