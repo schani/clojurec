@@ -2113,7 +2113,7 @@ reduces them without incurring seq initialization"
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Strings ;;;;;;;;;;;;;;;;
 
-(declare split-string-seq-next-fn vector)
+(declare split-string-seq-next-fn vector pr-str)
 
 (deftype SplitStringSeq [string len char first offset]
   ASeq
@@ -2461,7 +2461,7 @@ reduces them without incurring seq initialization"
         (char? x) (c* "make_string_from_unichar (character_get (~{}))" x)
         (nil? x) ""
         (satisfies? IStringBuilder x) (-to-string x)
-        :else (error "FIXME: not implemented yet")))
+        :else (pr-str x)))
   ([& xs]
      (loop [xs (seq xs)
             rstrings ()

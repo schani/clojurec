@@ -1153,7 +1153,6 @@
                        (map #(vector % %)
                             (range (* 2 array-map-conversion-threshold)))))))
 
-  (comment
   ;; literal maps
   (loop [m1 {} m2 {} i 0]
     (if (< i 100)
@@ -1167,6 +1166,7 @@
           (assert (= (count m1) 100))
           (assert (= (count m2) 100)))))
 
+  (comment
   ;; TransientHashSet
   (loop [s (transient #{})
          i 0]
