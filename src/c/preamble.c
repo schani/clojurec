@@ -393,6 +393,7 @@ make_closure (function_t fn, environment_t *env)
 }
 
 static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Nil) = NULL;
+static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Closure) = NULL;
 static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Integer) = NULL;
 static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Float) = NULL;
 static ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Boolean) = NULL;
@@ -941,6 +942,8 @@ cljc_init (void)
 
 	VAR_NAME (cljc_DOT_core_SLASH_Nil) = make_closure (NULL, NULL);
 	PTABLE_NAME (cljc_DOT_core_SLASH_Nil) = alloc_ptable (TYPE_Nil, VAR_NAME (cljc_DOT_core_SLASH_Nil), NULL);
+
+	PTABLE_NAME (cljc_DOT_core_SLASH_Closure) = closure_ptable ();
 
 	VAR_NAME (cljc_DOT_core_SLASH_Integer) = make_closure (NULL, NULL);
 	PTABLE_NAME (cljc_DOT_core_SLASH_Integer) = alloc_ptable (TYPE_Integer, VAR_NAME (cljc_DOT_core_SLASH_Integer), NULL);

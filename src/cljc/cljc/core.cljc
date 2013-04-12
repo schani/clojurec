@@ -443,6 +443,11 @@
   IPrintable
   (-pr-seq [o opts] (list (if o "true" "false"))))
 
+(extend-type Closure
+  IHash
+  (-hash [o]
+    (c* "make_integer ((long)~{})" o)))
+
 ;; FIXME: implement once we have Reduced
 (defn reduced? [r]
   false)
@@ -2362,6 +2367,27 @@ reduces them without incurring seq initialization"
    (when-let [s (seq coll)]
      (when (pred (first s))
        (cons (first s) (take-while pred (rest s)))))))
+
+(defn mk-bound-fn
+  [sc test key]
+  (fn [e]
+    (let [comp (-comparator sc)]
+      (test (comp (-entry-key sc e) key) 0))))
+
+(defn subseq
+  "sc must be a sorted collection, test(s) one of <, <=, > or
+  >=. Returns a seq of those entries with keys ek for
+  which (test (.. sc comparator (compare ek key)) 0) is true"
+  ([sc test key]
+     (let [include (mk-bound-fn sc test key)]
+       (if (#{> >=} test)
+         (when-let [[e :as s] (-sorted-seq-from sc key true)]
+           (if (include e) s (next s)))
+         (take-while include (-sorted-seq sc true)))))
+  ([sc start-test start-key end-test end-key]
+     (when-let [[e :as s] (-sorted-seq-from sc start-key true)]
+       (take-while (mk-bound-fn sc end-test end-key)
+                   (if ((mk-bound-fn sc start-test start-key) e) s (next s))))))
 
 (deftype Range [meta start end step ^:mutable __hash]
   IWithMeta

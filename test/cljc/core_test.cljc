@@ -1218,7 +1218,6 @@
     (assert (= (count m) 60))
     (assert (= (seq m) s1))
     (assert (= (rseq m) s2)))
-  (comment
   (let [m (sorted-map :foo 1 :bar 2 :quux 3)]
     (assert (= (dissoc m :foo) (hash-map :bar 2 :quux 3)))
     (assert (= (count (dissoc m :foo)) 2))
@@ -1230,6 +1229,7 @@
     (assert (= (map #(reduce (fn [_ x] x) %) m) (list 2 1 3)))
     (assert (= (map #(reduce (fn [x _] x) 7 %) m) (list 7 7 7))))
 
+  (comment
 ;; PersistentTreeSet
   (let [s1 (sorted-set)
         c2 (comp - compare)
