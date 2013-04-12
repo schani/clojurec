@@ -24,6 +24,10 @@
 (def HASHMAP_THRESHOLD nil)
 (def fromArrays nil)
 
+(ns cljc.core.PersistentTreeMap)
+
+(def EMPTY nil)
+
 (ns cljc.core.List)
 
 (def EMPTY nil)
@@ -174,6 +178,12 @@
 
 (defprotocol IReversible
   (-rseq [coll]))
+
+(defprotocol ISorted
+  (-sorted-seq [coll ascending?])
+  (-sorted-seq-from [coll k ascending?])
+  (-entry-key [coll entry])
+  (-comparator [coll]))
 
 (defprotocol ISet
   (-disjoin [coll v]))
@@ -562,8 +572,11 @@ reduces them without incurring seq initialization"
   IEquiv
   (-equiv [s o]
     (and (has-type? o String)
-         ;; FIXME: normalize first
-         (c* "make_boolean (strcmp (string_get_utf8 (~{}), string_get_utf8 (~{})) == 0)" s o)))
+         (c* "make_boolean (g_utf8_collate (string_get_utf8 (~{}), string_get_utf8 (~{})) == 0)" s o)))
+
+  IComparable
+  (-compare [s o]
+    (c* "make_integer (g_utf8_collate (string_get_utf8 (~{}), string_get_utf8 (~{})))" s o))
 
   IHash
   (-hash [s]
@@ -610,6 +623,10 @@ reduces them without incurring seq initialization"
   IEquiv
   (-equiv [k o]
     (identical? k o))
+
+  IComparable
+  (-compare [s o]
+    (c* "make_integer (g_utf8_collate (keyword_get_utf8 (~{}), keyword_get_utf8 (~{})))" s o))
 
   IFn
   (-invoke [k coll]
@@ -4604,6 +4621,645 @@ reduces them without incurring seq initialization"
   ITransientMap
   (-dissoc! [tcoll key] (-without! tcoll key)))
 
+;;; PersistentTreeMap
+
+(defprotocol IRedBlackNode
+  (-add-left [node ins])
+  (-add-right [node ins])
+  (-remove-left [node del])
+  (-remove-right [node del])
+  (-blacken [node])
+  (-redden [node])
+  (-balance-left [node parent])
+  (-balance-right [node parent])
+  (-replace [node key val left right]))
+
+(declare balance-left-del balance-right-del tree-map-kv-reduce RedNode BlackNode)
+
+(deftype BlackNode [key val left right ^:mutable __hash]
+  IRedBlackNode
+  (-add-left [node ins]
+    (-balance-left ins node))
+
+  (-add-right [node ins]
+    (-balance-right ins node))
+
+  (-remove-left [node del]
+    (balance-left-del key val del right))
+
+  (-remove-right [node del]
+    (balance-right-del key val left del))
+
+  (-blacken [node] node)
+
+  (-redden [node] (RedNode. key val left right nil))
+
+  (-balance-left [node parent]
+    (BlackNode. (.-key parent) (.-val parent) node (.-right parent) nil))
+
+  (-balance-right [node parent]
+    (BlackNode. (.-key parent) (.-val parent) (.-left parent) node nil))
+
+  (-replace [node key val left right]
+    (BlackNode. key val left right nil))
+
+  IKVReduce
+  (-kv-reduce [node f init]
+    (tree-map-kv-reduce node f init))
+
+  IMapEntry
+  (-key [node] key)
+  (-val [node] val)
+
+  IHash
+  (-hash [coll] (caching-hash coll hash-coll __hash))
+
+  IEquiv
+  (-equiv [coll other] (equiv-sequential coll other))
+
+  IMeta
+  (-meta [node] nil)
+
+  IWithMeta
+  (-with-meta [node meta]
+    (with-meta [key val] meta))
+
+  IStack
+  (-peek [node] val)
+
+  (-pop [node] [key])
+
+  ICollection
+  (-conj [node o] [key val o])
+
+  IEmptyableCollection
+  (-empty [node] [])
+
+  ISequential
+  ISeqable
+  (-seq [node] (list key val))
+
+  ICounted
+  (-count [node] 2)
+
+  IIndexed
+  (-nth [node n]
+    (cond (== n 0) key
+          (== n 1) val
+          :else    nil))
+
+  (-nth [node n not-found]
+    (cond (== n 0) key
+          (== n 1) val
+          :else    not-found))
+
+  ILookup
+  (-lookup [node k] (-nth node k nil))
+  (-lookup [node k not-found] (-nth node k not-found))
+
+  IAssociative
+  (-assoc [node k v]
+    (assoc [key val] k v))
+
+  IVector
+  (-assoc-n [node n v]
+    (-assoc-n [key val] n v))
+
+  IReduce
+  (-reduce [node f]
+    (ci-reduce node f))
+
+  (-reduce [node f start]
+    (ci-reduce node f start))
+
+  IFn
+  (-invoke [node k]
+    (-lookup node k))
+
+  (-invoke [node k not-found]
+    (-lookup node k not-found)))
+
+(deftype RedNode [key val left right ^:mutable __hash]
+  IRedBlackNode
+  (-add-left [node ins]
+    (RedNode. key val ins right nil))
+
+  (-add-right [node ins]
+    (RedNode. key val left ins nil))
+
+  (-remove-left [node del]
+    (RedNode. key val del right nil))
+
+  (-remove-right [node del]
+    (RedNode. key val left del nil))
+
+  (-blacken [node]
+    (BlackNode. key val left right nil))
+
+  (-redden [node]
+    (throw (Exception. "red-black tree invariant violation")))
+
+  (-balance-left [node parent]
+    (cond
+      (instance? RedNode left)
+      (RedNode. key val
+                (-blacken left)
+                (BlackNode. (.-key parent) (.-val parent) right (.-right parent) nil)
+                nil)
+
+      (instance? RedNode right)
+      (RedNode. (.-key right) (.-val right)
+                (BlackNode. key val left (.-left right) nil)
+                (BlackNode. (.-key parent) (.-val parent)
+                            (.-right right)
+                            (.-right parent)
+                            nil)
+                nil)
+
+      :else
+      (BlackNode. (.-key parent) (.-val parent) node (.-right parent) nil)))
+
+  (-balance-right [node parent]
+    (cond
+      (instance? RedNode right)
+      (RedNode. key val
+                (BlackNode. (.-key parent) (.-val parent)
+                            (.-left parent)
+                            left
+                            nil)
+                (-blacken right)
+                nil)
+
+      (instance? RedNode left)
+      (RedNode. (.-key left) (.-val left)
+                (BlackNode. (.-key parent) (.-val parent)
+                            (.-left parent)
+                            (.-left left)
+                            nil)
+                (BlackNode. key val (.-right left) right nil)
+                nil)
+
+      :else
+      (BlackNode. (.-key parent) (.-val parent) (.-left parent) node nil)))
+
+  (-replace [node key val left right]
+    (RedNode. key val left right nil))
+
+  IKVReduce
+  (-kv-reduce [node f init]
+    (tree-map-kv-reduce node f init))
+
+  IMapEntry
+  (-key [node] key)
+  (-val [node] val)
+
+  IHash
+  (-hash [coll] (caching-hash coll hash-coll __hash))
+
+  IEquiv
+  (-equiv [coll other] (equiv-sequential coll other))
+
+  IMeta
+  (-meta [node] nil)
+
+  IWithMeta
+  (-with-meta [node meta]
+    (with-meta [key val] meta))
+
+  IStack
+  (-peek [node] val)
+
+  (-pop [node] [key])
+
+  ICollection
+  (-conj [node o] [key val o])
+
+  IEmptyableCollection
+  (-empty [node] [])
+
+  ISequential
+  ISeqable
+  (-seq [node] (list key val))
+
+  ICounted
+  (-count [node] 2)
+
+  IIndexed
+  (-nth [node n]
+    (cond (== n 0) key
+          (== n 1) val
+          :else    nil))
+
+  (-nth [node n not-found]
+    (cond (== n 0) key
+          (== n 1) val
+          :else    not-found))
+
+  ILookup
+  (-lookup [node k] (-nth node k nil))
+  (-lookup [node k not-found] (-nth node k not-found))
+
+  IAssociative
+  (-assoc [node k v]
+    (assoc [key val] k v))
+
+  IVector
+  (-assoc-n [node n v]
+    (-assoc-n [key val] n v))
+
+  IReduce
+  (-reduce [node f]
+    (ci-reduce node f))
+
+  (-reduce [node f start]
+    (ci-reduce node f start))
+
+  IFn
+  (-invoke [node k]
+    (-lookup node k))
+
+  (-invoke [node k not-found]
+    (-lookup node k not-found)))
+
+(defn- tree-map-seq-push [node stack ascending?]
+  (loop [t node stack stack]
+    (if-not (nil? t)
+      (recur (if ascending? (.-left t) (.-right t))
+             (conj stack t))
+      stack)))
+
+(deftype PersistentTreeMapSeq [meta stack ascending? cnt ^:mutable __hash]
+  ISeqable
+  (-seq [this] this)
+
+  ISequential
+  ISeq
+  (-first [this] (peek stack))
+  (-rest [this]
+    (let [t (first stack)
+          next-stack (tree-map-seq-push (if ascending? (.-right t) (.-left t))
+                                        (next stack)
+                                        ascending?)]
+      (if-not (nil? next-stack)
+        (PersistentTreeMapSeq. nil next-stack ascending? (dec cnt) nil)
+        ())))
+
+  ICounted
+  (-count [coll]
+    (if (neg? cnt)
+      (inc (count (next coll)))
+      cnt))
+
+  IEquiv
+  (-equiv [coll other] (equiv-sequential coll other))
+
+  ICollection
+  (-conj [coll o] (cons o coll))
+
+  IHash
+  (-hash [coll] (caching-hash coll hash-coll __hash))
+
+  IMeta
+  (-meta [coll] meta)
+
+  IWithMeta
+  (-with-meta [coll meta]
+    (PersistentTreeMapSeq. meta stack ascending? cnt __hash)))
+
+(defn- create-tree-map-seq [tree ascending? cnt]
+  (PersistentTreeMapSeq. nil (tree-map-seq-push tree nil ascending?) ascending? cnt nil))
+
+(defn- balance-left [key val ins right]
+  (if (instance? RedNode ins)
+    (cond
+      (instance? RedNode (.-left ins))
+      (RedNode. (.-key ins) (.-val ins)
+              (-blacken (.-left ins))
+              (BlackNode. key val (.-right ins) right nil)
+              nil)
+
+      (instance? RedNode (.-right ins))
+      (RedNode. (.. ins -right -key) (.. ins -right -val)
+                (BlackNode. (.-key ins) (.-val ins)
+                            (.-left ins)
+                            (.. ins -right -left)
+                            nil)
+                (BlackNode. key val
+                            (.. ins -right -right)
+                            right
+                            nil)
+                nil)
+
+      :else
+      (BlackNode. key val ins right nil))
+    (BlackNode. key val ins right nil)))
+
+(defn- balance-right [key val left ins]
+  (if (instance? RedNode ins)
+    (cond
+      (instance? RedNode (.-right ins))
+      (RedNode. (.-key ins) (.-val ins)
+                (BlackNode. key val left (.-left ins) nil)
+                (-blacken (.-right ins))
+                nil)
+
+      (instance? RedNode (.-left ins))
+      (RedNode. (.. ins -left -key) (.. ins -left -val)
+                (BlackNode. key val left (.. ins -left -left) nil)
+                (BlackNode. (.-key ins) (.-val ins)
+                            (.. ins -left -right)
+                            (.-right ins)
+                            nil)
+                nil)
+
+      :else
+      (BlackNode. key val left ins nil))
+    (BlackNode. key val left ins nil)))
+
+(defn- balance-left-del [key val del right]
+  (cond
+    (instance? RedNode del)
+    (RedNode. key val (-blacken del) right nil)
+
+    (instance? BlackNode right)
+    (balance-right key val del (-redden right))
+
+    (and (instance? RedNode right) (instance? BlackNode (.-left right)))
+    (RedNode. (.. right -left -key) (.. right -left -val)
+              (BlackNode. key val del (.. right -left -left) nil)
+              (balance-right (.-key right) (.-val right)
+                             (.. right -left -right)
+                             (-redden (.-right right)))
+              nil)
+
+    :else
+    (throw (Exception. "red-black tree invariant violation"))))
+
+(defn- balance-right-del [key val left del]
+  (cond
+    (instance? RedNode del)
+    (RedNode. key val left (-blacken del) nil)
+
+    (instance? BlackNode left)
+    (balance-left key val (-redden left) del)
+
+    (and (instance? RedNode left) (instance? BlackNode (.-right left)))
+    (RedNode. (.. left -right -key) (.. left -right -val)
+              (balance-left (.-key left) (.-val left)
+                            (-redden (.-left left))
+                            (.. left -right -left))
+              (BlackNode. key val (.. left -right -right) del nil)
+              nil)
+
+    :else
+    (throw (Exception. "red-black tree invariant violation"))))
+
+(defn- tree-map-kv-reduce [node f init]
+  (let [init (f init (.-key node) (.-val node))]
+    (if (reduced? init)
+      @init
+      (let [init (if-not (nil? (.-left node))
+                   (tree-map-kv-reduce (.-left node) f init)
+                   init)]
+        (if (reduced? init)
+          @init
+          (let [init (if-not (nil? (.-right node))
+                       (tree-map-kv-reduce (.-right node) f init)
+                       init)]
+            (if (reduced? init)
+              @init
+              init)))))))
+
+(defn- tree-map-add [comp tree k v found]
+  (if (nil? tree)
+    (RedNode. k v nil nil nil)
+    (let [c (comp k (.-key tree))]
+      (cond
+        (zero? c)
+        (do (aset found 0 tree)
+            nil)
+
+        (neg? c)
+        (let [ins (tree-map-add comp (.-left tree) k v found)]
+          (if-not (nil? ins)
+            (-add-left tree ins)))
+
+        :else
+        (let [ins (tree-map-add comp (.-right tree) k v found)]
+          (if-not (nil? ins)
+            (-add-right tree ins)))))))
+
+(defn- tree-map-append [left right]
+  (cond
+    (nil? left)
+    right
+
+    (nil? right)
+    left
+
+    (instance? RedNode left)
+    (if (instance? RedNode right)
+      (let [app (tree-map-append (.-right left) (.-left right))]
+        (if (instance? RedNode app)
+          (RedNode. (.-key app) (.-val app)
+                    (RedNode. (.-key left) (.-val left)
+                              (.-left left)
+                              (.-left app)
+                              nil)
+                    (RedNode. (.-key right) (.-val right)
+                              (.-right app)
+                              (.-right right)
+                              nil)
+                    nil)
+          (RedNode. (.-key left) (.-val left)
+                    (.-left left)
+                    (RedNode. (.-key right) (.-val right) app (.-right right) nil)
+                    nil)))
+      (RedNode. (.-key left) (.-val left)
+                (.-left left)
+                (tree-map-append (.-right left) right)
+                nil))
+
+    (instance? RedNode right)
+    (RedNode. (.-key right) (.-val right)
+              (tree-map-append left (.-left right))
+              (.-right right)
+              nil)
+
+    :else
+    (let [app (tree-map-append (.-right left) (.-left right))]
+      (if (instance? RedNode app)
+        (RedNode. (.-key app) (.-val app)
+                  (BlackNode. (.-key left) (.-val left)
+                              (.-left left)
+                              (.-left app)
+                              nil)
+                  (BlackNode. (.-key right) (.-val right)
+                              (.-right app)
+                              (.-right right)
+                              nil)
+                  nil)
+        (balance-left-del (.-key left) (.-val left)
+                          (.-left left)
+                          (BlackNode. (.-key right) (.-val right)
+                                      app
+                                      (.-right right)
+                                      nil))))))
+
+(defn- tree-map-remove [comp tree k found]
+  (if-not (nil? tree)
+    (let [c (comp k (.-key tree))]
+      (cond
+        (zero? c)
+        (do (aset found 0 tree)
+            (tree-map-append (.-left tree) (.-right tree)))
+
+        (neg? c)
+        (let [del (tree-map-remove comp (.-left tree) k found)]
+          (if (or (not (nil? del)) (not (nil? (aget found 0))))
+            (if (instance? BlackNode (.-left tree))
+              (balance-left-del (.-key tree) (.-val tree) del (.-right tree))
+              (RedNode. (.-key tree) (.-val tree) del (.-right tree) nil))))
+
+        :else
+        (let [del (tree-map-remove comp (.-right tree) k found)]
+          (if (or (not (nil? del)) (not (nil? (aget found 0))))
+            (if (instance? BlackNode (.-right tree))
+              (balance-right-del (.-key tree) (.-val tree) (.-left tree) del)
+              (RedNode. (.-key tree) (.-val tree) (.-left tree) del nil))))))))
+
+(defn- tree-map-replace [comp tree k v]
+  (let [tk (.-key tree)
+        c  (comp k tk)]
+    (cond (zero? c) (-replace tree tk v (.-left tree) (.-right tree))
+          (neg? c)  (-replace tree tk (.-val tree) (tree-map-replace comp (.-left tree) k v) (.-right tree))
+          :else     (-replace tree tk (.-val tree) (.-left tree) (tree-map-replace comp (.-right tree) k v)))))
+
+(declare key)
+
+(defprotocol IPersistentTreeMap
+  (-entry-at [coll k]))
+
+(deftype PersistentTreeMap [comp tree cnt meta ^:mutable __hash]
+  IPersistentTreeMap
+  (-entry-at [coll k]
+    (loop [t tree]
+      (if-not (nil? t)
+        (let [c (comp k (.-key t))]
+          (cond (zero? c) t
+                (neg? c)  (recur (.-left t))
+                :else     (recur (.-right t)))))))
+
+  IWithMeta
+  (-with-meta [coll meta] (PersistentTreeMap. comp tree cnt meta __hash))
+
+  IMeta
+  (-meta [coll] meta)
+
+  ICollection
+  (-conj [coll entry]
+    (if (vector? entry)
+      (-assoc coll (-nth entry 0) (-nth entry 1))
+      (reduce -conj
+              coll
+              entry)))
+
+  IEmptyableCollection
+  (-empty [coll] (with-meta cljc.core.PersistentTreeMap/EMPTY meta))
+
+  IEquiv
+  (-equiv [coll other] (equiv-map coll other))
+
+  IHash
+  (-hash [coll] (caching-hash coll hash-imap __hash))
+
+  ICounted
+  (-count [coll] cnt)
+
+  IKVReduce
+  (-kv-reduce [coll f init]
+    (if-not (nil? tree)
+      (tree-map-kv-reduce tree f init)
+      init))
+
+  IFn
+  (-invoke [coll k]
+    (-lookup coll k))
+
+  (-invoke [coll k not-found]
+    (-lookup coll k not-found))
+
+  ISeqable
+  (-seq [coll]
+    (if (pos? cnt)
+      (create-tree-map-seq tree true cnt)))
+
+  IReversible
+  (-rseq [coll]
+    (if (pos? cnt)
+      (create-tree-map-seq tree false cnt)))
+
+  ILookup
+  (-lookup [coll k]
+    (-lookup coll k nil))
+
+  (-lookup [coll k not-found]
+    (let [n (-entry-at coll k)]
+      (if-not (nil? n)
+        (.-val n)
+        not-found)))
+
+  IAssociative
+  (-assoc [coll k v]
+    (let [found (array nil)
+          t     (tree-map-add comp tree k v found)]
+      (if (nil? t)
+        (let [found-node (nth found 0)]
+          (if (= v (.-val found-node))
+            coll
+            (PersistentTreeMap. comp (tree-map-replace comp tree k v) cnt meta nil)))
+        (PersistentTreeMap. comp (-blacken t) (inc cnt) meta nil))))
+
+  (-contains-key? [coll k]
+    (not (nil? (-entry-at coll k))))
+
+  IMap
+  (-dissoc [coll k]
+    (let [found (array nil)
+          t     (tree-map-remove comp tree k found)]
+      (if (nil? t)
+        (if (nil? (nth found 0))
+          coll
+          (PersistentTreeMap. comp nil 0 meta nil))
+        (PersistentTreeMap. comp (-blacken t) (dec cnt) meta nil))))
+
+  ISorted
+  (-sorted-seq [coll ascending?]
+    (if (pos? cnt)
+      (create-tree-map-seq tree ascending? cnt)))
+
+  (-sorted-seq-from [coll k ascending?]
+    (if (pos? cnt)
+      (loop [stack nil t tree]
+        (if-not (nil? t)
+          (let [c (comp k (.-key t))]
+            (cond
+              (zero? c)  (PersistentTreeMapSeq. nil (conj stack t) ascending? -1 nil)
+              ascending? (if (neg? c)
+                           (recur (conj stack t) (.-left t))
+                           (recur stack          (.-right t)))
+              :else      (if (pos? c)
+                           (recur (conj stack t) (.-right t))
+                           (recur stack          (.-left t)))))
+          (if (nil? stack)
+            (PersistentTreeMapSeq. nil stack ascending? -1 nil))))))
+
+  (-entry-key [coll entry] (key entry))
+
+  (-comparator [coll] comp))
+
+(set! cljc.core.PersistentTreeMap/EMPTY (PersistentTreeMap. compare nil 0 nil 0))
+
 (defn hash-map
   "keyval => key val
   Returns a new hash map with supplied mappings."
@@ -4612,6 +5268,25 @@ reduces them without incurring seq initialization"
     (if in
       (recur (nnext in) (assoc! out (first in) (second in)))
       (persistent! out))))
+
+(defn sorted-map
+  "keyval => key val
+  Returns a new sorted map with supplied mappings."
+  ([& keyvals]
+     (loop [in (seq keyvals) out cljc.core.PersistentTreeMap/EMPTY]
+       (if in
+         (recur (nnext in) (assoc out (first in) (second in)))
+         out))))
+
+(defn sorted-map-by
+  "keyval => key val
+  Returns a new sorted map with supplied mappings, using the supplied comparator."
+  ([comparator & keyvals]
+     (loop [in (seq keyvals)
+            out (cljc.core/PersistentTreeMap. comparator nil 0 nil 0)]
+       (if in
+         (recur (nnext in) (assoc out (first in) (second in)))
+         out))))
 
 (defn keys
   "Returns a sequence of the map's keys."

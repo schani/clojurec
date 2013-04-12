@@ -1185,13 +1185,12 @@
                              s))))
             (assert (= s (set (remove #(zero? (mod % 3)) (range 100))))))))))
 
-  (comment
   ;; PersistentTreeMap
   (let [m1 (sorted-map)
         c2 (comp - compare)
         m2 (sorted-map-by c2)]
-    (assert (identical? cljc.core.PersistentTreeMap (type m1)))
-    (assert (identical? cljc.core.PersistentTreeMap (type m2)))
+    (assert (instance? cljc.core/PersistentTreeMap m1))
+    (assert (instance? cljc.core/PersistentTreeMap m2))
     (assert (identical? compare (.-comp m1)))
     (assert (identical? c2 (.-comp m2)))
     (assert (zero? (count m1)))
@@ -1210,6 +1209,7 @@
       (assert (= (count (conj m2 [:wibble 4])) 4))
       (assert (= (map key (assoc m1 nil 4)) (list nil :bar :foo :quux)))
       (assert (= (map key (assoc m2 nil 4)) (list :quux :foo :bar nil)))))
+  (comment
   (let [m (->> [[0 10] [20 30] [10 20] [50 60] [30 40] [40 50]]
                (mapcat (partial apply range))
                (mapcat #(list % %))
@@ -1230,12 +1230,12 @@
     (assert (= (map #(reduce (fn [_ x] x) %) m) (list 2 1 3)))
     (assert (= (map #(reduce (fn [x _] x) 7 %) m) (list 7 7 7))))
 
-  ;; PersistentTreeSet
+;; PersistentTreeSet
   (let [s1 (sorted-set)
         c2 (comp - compare)
         s2 (sorted-set-by c2)]
-    (assert (identical? cljc.core.PersistentTreeSet (type s1)))
-    (assert (identical? cljc.core.PersistentTreeSet (type s2)))
+    (assert (instance? cljc.core.PersistentTreeSet s1))
+    (assert (instance? cljc.core.PersistentTreeSet s2))
     (assert (identical? compare (-comparator s1)))
     (assert (identical? c2 (-comparator s2)))
     (assert (zero? (count s1)))
