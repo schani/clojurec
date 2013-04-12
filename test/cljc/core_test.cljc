@@ -1229,13 +1229,12 @@
     (assert (= (map #(reduce (fn [_ x] x) %) m) (list 2 1 3)))
     (assert (= (map #(reduce (fn [x _] x) 7 %) m) (list 7 7 7))))
 
-  (comment
 ;; PersistentTreeSet
   (let [s1 (sorted-set)
         c2 (comp - compare)
         s2 (sorted-set-by c2)]
-    (assert (instance? cljc.core.PersistentTreeSet s1))
-    (assert (instance? cljc.core.PersistentTreeSet s2))
+    (assert (instance? cljc.core/PersistentTreeSet s1))
+    (assert (instance? cljc.core/PersistentTreeSet s2))
     (assert (identical? compare (-comparator s1)))
     (assert (identical? c2 (-comparator s2)))
     (assert (zero? (count s1)))
@@ -1259,6 +1258,7 @@
         (assert (= (count s1) 2))
         (assert (= (count s2) 2)))))
 
+  (comment
   ;; defrecord
   (defrecord Person [firstname lastname])
   (def fred (Person. "Fred" "Mertz"))

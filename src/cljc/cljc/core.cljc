@@ -18,6 +18,10 @@
 (def EMPTY nil)
 (def fromArray nil)
 
+(ns cljc.core.PersistentTreeSet)
+
+(def EMPTY nil)
+
 (ns cljc.core.PersistentArrayMap)
 
 (def EMPTY nil)
@@ -2161,44 +2165,6 @@ reduces them without incurring seq initialization"
   (if-let [n (next coll)]
     (cons (first coll) (flatten-tail n))
     (first coll)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Sets ;;;;;;;;;;;;;;;;
-
-(defn set
-  "Returns a set of the distinct elements of coll."
-  ([coll]
-     (loop [in (seq coll)
-	    out (transient cljc.core.PersistentHashSet/EMPTY)]
-       (if (seq in)
-	 (recur (next in) (conj! out (first in)))
-	 (persistent! out)))))
-
-(defn replace
-  "Given a map of replacement pairs and a vector/collection, returns a
-  vector/seq with any elements = a key in smap replaced with the
-  corresponding val in smap"
-  [smap coll]
-  (if (vector? coll)
-    (let [n (count coll)]
-      (reduce (fn [v i]
-                (if-let [e (find smap (nth v i))]
-                  (assoc v i (second e))
-                  v))
-              coll (take n (iterate inc 0))))
-    (map #(if-let [e (find smap %)] (second e) %) coll)))
-
-(defn distinct
-  "Returns a lazy sequence of the elements of coll with duplicates removed"
-  [coll]
-  (let [step (fn step [xs seen]
-               (lazy-seq
-                ((fn [[f :as xs] seen]
-                   (when-let [s (seq xs)]
-                     (if (contains? seen f)
-                       (recur (rest s) seen)
-                       (cons f (step (rest s) (conj seen f))))))
-                 xs seen)))]
-    (step coll #{})))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Strings ;;;;;;;;;;;;;;;;
 
@@ -5472,6 +5438,120 @@ reduces them without incurring seq initialization"
     (if (identical? (-lookup transient-map k lookup-sentinel) lookup-sentinel)
       not-found
       k)))
+
+(deftype PersistentTreeSet [meta tree-map ^:mutable __hash]
+  IWithMeta
+  (-with-meta [coll meta] (PersistentTreeSet. meta tree-map __hash))
+
+  IMeta
+  (-meta [coll] meta)
+
+  ICollection
+  (-conj [coll o]
+    (PersistentTreeSet. meta (assoc tree-map o nil) nil))
+
+  IEmptyableCollection
+  (-empty [coll] (with-meta cljc.core.PersistentTreeSet/EMPTY meta))
+
+  IEquiv
+  (-equiv [coll other]
+    (and
+     (set? other)
+     (== (count coll) (count other))
+     (every? #(contains? coll %)
+             other)))
+
+  IHash
+  (-hash [coll] (caching-hash coll hash-iset __hash))
+
+  ISeqable
+  (-seq [coll] (keys tree-map))
+
+  ISorted
+  (-sorted-seq [coll ascending?]
+    (map key (-sorted-seq tree-map ascending?)))
+
+  (-sorted-seq-from [coll k ascending?]
+    (map key (-sorted-seq-from tree-map k ascending?)))
+
+  (-entry-key [coll entry] entry)
+
+  (-comparator [coll] (-comparator tree-map))
+
+  IReversible
+  (-rseq [coll]
+    (map key (rseq tree-map)))
+
+  ICounted
+  (-count [coll] (count tree-map))
+
+  ILookup
+  (-lookup [coll v]
+    (-lookup coll v nil))
+  (-lookup [coll v not-found]
+    (if (-contains-key? tree-map v)
+      v
+      not-found))
+
+  ISet
+  (-disjoin [coll v]
+    (PersistentTreeSet. meta (dissoc tree-map v) nil))
+
+  IFn
+  (-invoke [coll k]
+    (-lookup coll k))
+  (-invoke [coll k not-found]
+    (-lookup coll k not-found)))
+
+(set! cljc.core.PersistentTreeSet/EMPTY (PersistentTreeSet. nil (sorted-map) 0))
+
+(defn set
+  "Returns a set of the distinct elements of coll."
+  ([coll]
+     (loop [in (seq coll)
+	    out (transient cljc.core.PersistentHashSet/EMPTY)]
+       (if (seq in)
+	 (recur (next in) (conj! out (first in)))
+	 (persistent! out)))))
+
+(defn sorted-set
+  "Returns a new sorted set with supplied keys."
+  ([& keys]
+   (reduce -conj cljc.core.PersistentTreeSet/EMPTY keys)))
+
+(defn sorted-set-by
+  "Returns a new sorted set with supplied keys, using the supplied comparator."
+  ([comparator & keys]
+   (reduce -conj
+           (cljc.core/PersistentTreeSet. nil (sorted-map-by comparator) 0)
+           keys)))
+
+(defn replace
+  "Given a map of replacement pairs and a vector/collection, returns a
+  vector/seq with any elements = a key in smap replaced with the
+  corresponding val in smap"
+  [smap coll]
+  (if (vector? coll)
+    (let [n (count coll)]
+      (reduce (fn [v i]
+                (if-let [e (find smap (nth v i))]
+                  (assoc v i (second e))
+                  v))
+              coll (take n (iterate inc 0))))
+    (map #(if-let [e (find smap %)] (second e) %) coll)))
+
+(defn distinct
+  "Returns a lazy sequence of the elements of coll with duplicates removed"
+  [coll]
+  (let [step (fn step [xs seen]
+               (lazy-seq
+                ((fn [[f :as xs] seen]
+                   (when-let [s (seq xs)]
+                     (if (contains? seen f)
+                       (recur (rest s) seen)
+                       (cons f (step (rest s) (conj seen f))))))
+                 xs seen)))]
+    (step coll #{})))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; main function support ;;;;;;;;;;;;;;;;
 
