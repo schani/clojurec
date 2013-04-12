@@ -524,15 +524,11 @@
 
 ;; internal
 (defmacro bitpos [hash shift]
-  (list 'c* "make_integer ((1 << integer_get (~{})))" `(mask ~hash ~shift)))
+  (list 'c* "make_integer ((1ul << integer_get (~{})))" `(mask ~hash ~shift)))
 
 ;;internal
 (defmacro bit-count [num]
   (list 'c* "make_integer (__builtin_popcountll(integer_get (~{})))" num))
-
-;;internal
-(defmacro bit-index [bitmap bitpos]
-  (list 'c* "make_integer (__builtin_popcountll(integer_get (~{}) & (integer_get (~{}) - 1)))" bitmap bitpos))
 
 ;; internal
 (defmacro caching-hash [coll hash-fn hash-key]

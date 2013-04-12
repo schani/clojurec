@@ -3879,7 +3879,7 @@ reduces them without incurring seq initialization"
        editable)))
 
 (defn- bitmap-indexed-node-index [bitmap bit]
-  (cljc.core/bit-index bitmap bit))
+  (bit-count (bit-and bitmap (dec bit))))
 
 (declare ArrayNode)
 

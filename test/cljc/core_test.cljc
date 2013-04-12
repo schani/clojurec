@@ -1258,7 +1258,6 @@
         (assert (= (count s1) 2))
         (assert (= (count s2) 2)))))
 
-  (comment
   ;; defrecord
   (defrecord Person [firstname lastname])
   (def fred (Person. "Fred" "Mertz"))
@@ -1279,6 +1278,7 @@
   (assert (= (count fred) 2))
   (assert (= (count ethel) 3))
 
+  (comment
   (defrecord A [])
   (assert (= {:foo 'bar} (meta (with-meta (A.) {:foo 'bar}))))
   (assert (= 'bar (:foo (assoc (A.) :foo 'bar))))
