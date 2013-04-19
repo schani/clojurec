@@ -925,6 +925,7 @@ strchr_offset (const gchar *str, gunichar c)
 }
 
 static value_t* VAR_NAME (cljc_DOT_core_SLASH_Nil);
+static value_t* VAR_NAME (cljc_DOT_core_SLASH_Closure);
 static value_t* VAR_NAME (cljc_DOT_core_SLASH_Integer);
 static value_t* VAR_NAME (cljc_DOT_core_SLASH_Float);
 static value_t* VAR_NAME (cljc_DOT_core_SLASH_Boolean);
@@ -943,7 +944,9 @@ cljc_init (void)
 	VAR_NAME (cljc_DOT_core_SLASH_Nil) = make_closure (NULL, NULL);
 	PTABLE_NAME (cljc_DOT_core_SLASH_Nil) = alloc_ptable (TYPE_Nil, VAR_NAME (cljc_DOT_core_SLASH_Nil), NULL);
 
+	VAR_NAME (cljc_DOT_core_SLASH_Closure) = make_closure (NULL, NULL);
 	PTABLE_NAME (cljc_DOT_core_SLASH_Closure) = closure_ptable ();
+	closure_ptable ()->constructor = VAR_NAME (cljc_DOT_core_SLASH_Closure);
 
 	VAR_NAME (cljc_DOT_core_SLASH_Integer) = make_closure (NULL, NULL);
 	PTABLE_NAME (cljc_DOT_core_SLASH_Integer) = alloc_ptable (TYPE_Integer, VAR_NAME (cljc_DOT_core_SLASH_Integer), NULL);

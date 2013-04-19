@@ -1278,11 +1278,11 @@
   (assert (= (count fred) 2))
   (assert (= (count ethel) 3))
 
-  (comment
   (defrecord A [])
   (assert (= {:foo 'bar} (meta (with-meta (A.) {:foo 'bar}))))
   (assert (= 'bar (:foo (assoc (A.) :foo 'bar))))
 
+  (comment
   ;; dot
   (let [s "abc"]
     (assert (= 3 (.-length s)))
@@ -1299,6 +1299,7 @@
     (assert (= "ABC" (. "abc" (toUpperCase))))
     (assert (= "BC" (. (. s (toUpperCase)) substring 1)))
     (assert (= 2 (.-length (. (. s (toUpperCase)) substring 1)))))
+  )
 
   (assert (= (conj fred {:wife :ethel :friend :ricky})
              (map->Person {:firstname "Fred" :lastname "Mertz" :wife :ethel :friend :ricky})))
@@ -1311,19 +1312,16 @@
   (assert (= (dissoc ethel :husband)
              (map->Person {:firstname "Ethel" :lastname "Mertz"})))
 
-  (defrecord A [x])
+  (defrecord C [x])
   (defrecord B [x])
-  (assert (not= (A. nil) (B. nil)))
+  (assert (not= (C. nil) (B. nil)))
 
-  (assert (instance? js/Object 1))
-  (assert (instance? js/Number 1))
-  (assert (instance? js/Object "foo"))
-  (assert (instance? js/String "foo"))
-  (assert (instance? js/Object (array)))
-  (assert (instance? js/Array (array)))
-  (assert (instance? js/Object (fn [])))
-  (assert (instance? js/Function (fn [])))
+  (assert (instance? cljc.core/Integer 1))
+  (assert (instance? cljc.core/String "foo"))
+  (assert (instance? cljc.core/Array (array)))
+  (assert (instance? cljc.core/Closure (fn [])))
 
+  (comment
   (defprotocol IFoo (foo [this]))
   (assert (= (meta (with-meta (reify IFoo (foo [this] :foo)) {:foo :bar}))
              {:foo :bar}))
