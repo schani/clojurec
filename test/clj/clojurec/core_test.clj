@@ -15,6 +15,24 @@
 (defmacro core-run-and-print [& exprs]
   `(core-run '(do ~@(map #(list 'println %) exprs))))
 
+(deftest c-decl
+  (testing "emitting declarations"
+    (is (= (run '(do
+                   (c-decl* "static long fooconst = 314;")
+                   (cljc.core/print (c* "make_integer (fooconst)"))))
+           [314]))
+    (is (= (run '(do
+                   (defn myfunc []
+                     159)
+                   (c-decl* "static value_t* foofunc (void) { return invoke0 (~{}); }" myfunc)
+                   (cljc.core/print (c* "foofunc ()"))))
+           [159]))
+    (is (= (run '(loop [i 0]
+                   (when (< i 5)
+                     (pthread-once (cljc.core/print 123))
+                     (recur (+ i 1)))))
+           [123]))))
+
 (deftest basic
   (testing "very basic stuff"
     (is (= (run '(cljc.core/print nil)) [nil]))

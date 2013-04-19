@@ -933,9 +933,30 @@
                            (recur (rest (rest segs))
                                   (rest arg-names))))))))
 
+(defmethod emit :c-decl
+  [{:keys [env code segs args]}]
+  (emit-declaration
+   (if code
+     (emits code)
+     (let [arg-names (loop [segs segs
+                            args args
+                            arg-names []]
+                       (if (seq args)
+                         (recur (rest (rest segs))
+                                (rest args)
+                                (conj arg-names (emit-c-arg (second segs) env (first args))))
+                         arg-names))]
+       (loop [segs segs
+              arg-names arg-names]
+         (emits (first segs))
+         (when (seq arg-names)
+           (emits (first arg-names))
+           (recur (rest (rest segs))
+                  (rest arg-names))))))))
+
 (declare analyze analyze-symbol analyze-seq)
 
-(def specials '#{if def fn* do let* loop* letfn* throw try* recur new set! ns defprotocol* deftype* deftype-ptable* . c* & quote})
+(def specials '#{if def fn* do let* loop* letfn* throw try* recur new set! ns defprotocol* deftype* deftype-ptable* . c* c-decl* & quote})
 
 (def ^:dynamic *recur-frames* nil)
 (def ^:dynamic *loop-lets* nil)
@@ -1485,8 +1506,7 @@
 (defmethod parse-c-expr :sym [_ _ form]
 	   form)
 
-(defmethod parse 'c*
-  [op env [_ jsform & args :as form] _]
+(defn parse-c [op env jsform args form]
   (assert (string? jsform))
   (if args
     (disallowing-recur
@@ -1508,7 +1528,7 @@
 			  (rest args)
 			  (conj segs prefix type)
 			  (conj argexprs (parse-c-expr type enve (first args))))))))]
-       {:env env :op :c :segs segs :args argexprs
+       {:env env :op op :segs segs :args argexprs
         :tag (-> form meta :tag) :form form :children argexprs}))
     (let [interp (fn interp [^String s]
                    (let [idx (.indexOf s "~{")]
@@ -1517,8 +1537,16 @@
                        (let [end (.indexOf s "}" idx)
                              inner (:name (resolve-existing-var env (symbol (subs s (+ 2 idx) end))))]
                          (cons (subs s 0 idx) (cons inner (interp (subs s (inc end)))))))))]
-      {:env env :op :c :form form :code (apply str (interp jsform))
+      {:env env :op op :form form :code (apply str (interp jsform))
        :tag (-> form meta :tag)})))
+
+(defmethod parse 'c*
+  [op env [_ jsform & args :as form] _]
+  (parse-c :c env jsform args form))
+
+(defmethod parse 'c-decl*
+  [op env [_ jsform & args :as form] _]
+  (parse-c :c-decl env jsform args form))
 
 (defn parse-invoke
   [env [f & args :as form]]

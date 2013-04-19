@@ -677,6 +677,16 @@
            ~@body
            (recur (inc ~i)))))))
 
+(defmacro pthread-once [& body]
+  (let [once (gensym "once")]
+    `(do
+       (~'c-decl* "static pthread_once_t ~{str} = PTHREAD_ONCE_INIT;" ~once)
+       (defn ~once []
+         ~@body)
+       (~'c-decl* "static void once_func_~{str} (void) { invoke0 (~{}); }" ~once ~once)
+       (~'c* "pthread_once (&~{str}, once_func_~{str});" ~once ~once)
+       nil)))
+
 ;; FIXME: we need these for the `for` macro to work
 (defmacro .nth [coll idx & rest]
   `(-nth ~coll ~idx ~@rest))
