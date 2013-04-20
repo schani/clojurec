@@ -3376,18 +3376,7 @@ reduces them without incurring seq initialization"
     (-lookup coll k not-found))
 
   IPrintable
-  (-pr-seq [coll opts] (pr-sequential pr-seq "[" " " "]" opts coll))
-
-
-  ;; ISeqable
-  ;; (-seq [coll]
-  ;;   (let [subvec-seq (fn subvec-seq [i]
-  ;;                      (when-not (== i end)
-  ;;                        (cons (-nth v i)
-  ;;                              (lazy-seq
-  ;;                               (subvec-seq (inc i))))))]
-  ;;     (subvec-seq start)))
-  )
+  (-pr-seq [coll opts] (pr-sequential pr-seq "[" " " "]" opts coll)))
 
 (defn subvec
   "Returns a persistent vector of the items in vector from
