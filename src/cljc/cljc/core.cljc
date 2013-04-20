@@ -1201,6 +1201,22 @@ reduces them without incurring seq initialization"
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Seq fns ;;;;;;;;;;;;;;;;
 
+(declare compare)
+
+(defn ^:private compare-seqs [x y]
+  (loop [x x
+         y y]
+    (if x
+      (if y
+        (let [c (compare (first x) (first y))]
+          (if (zero? c)
+            (recur (next x) (next y))
+            c))
+        1)
+      (if y
+        -1
+        0))))
+
 (defn compare
   "Comparator. Returns a negative number, zero, or a positive number
   when x is logically 'less than', 'equal to', or 'greater than'
@@ -1215,7 +1231,10 @@ reduces them without incurring seq initialization"
                                   (< x y) -1
                                   (> x y) 1
                                   :else 0)
-   (and (have-same-type? x y) (satisfies? IComparable x)) (-compare x y)
+   (have-same-type? x y) (cond
+                          (satisfies? IComparable x) (-compare x y)
+                          (satisfies? ISeqable x) (compare-seqs (seq x) (seq y))
+                          :else (throw (Exception. "compare of non-comparable type")))
    :else (throw (Exception. "compare on non-nil objects of different types"))))
 
 (defn ^:private compare-indexed

@@ -1460,7 +1460,6 @@
   (assert (=  1 (compare [1 1 1] [1 2])))
   (assert (=  1 (compare [1 1 2] [1 1 1])))
 
-  (comment
   (assert (= -1 (compare (subvec [1 2 3] 1) (subvec [1 2 4] 1))))
   (assert (=  0 (compare (subvec [1 2 3] 1) (subvec [1 2 3] 1))))
   (assert (=  1 (compare (subvec [1 2 4] 1) (subvec [1 2 3] 1))))
@@ -1506,7 +1505,6 @@
   (assert (= nil (next (range 1 2))))
   (assert (= '(2 3) (next (range 1 4))))
 
-  )
   :ok
   )
 
