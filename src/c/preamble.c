@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <setjmp.h>
 #include <math.h>
+#include <pthread.h>
 
 #include "khash.h"
 
