@@ -953,7 +953,8 @@
          (when (seq arg-names)
            (emits (first arg-names))
            (recur (rest (rest segs))
-                  (rest arg-names))))))))
+                  (rest arg-names))))))
+   (emitln)))
 
 (declare analyze analyze-symbol analyze-seq)
 

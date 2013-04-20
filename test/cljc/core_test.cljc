@@ -1329,6 +1329,7 @@
   (defmulti foo2 identity)
   (defmethod foo2 0 [x] x)
   (assert (= foo2 (ffirst {foo2 1})))
+  )
 
   (defprotocol IMutate
     (mutate [this]))
@@ -1357,6 +1358,7 @@
 
   (assert (= 1 ((FnLikeB. 1))))
 
+  (comment
   ;; hashing bug in many JS runtimes CLJ-118
   (let [g #{(conj #{:2} :alt)}
         h #{#{:2 :alt}}]
