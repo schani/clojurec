@@ -670,6 +670,10 @@ reduces them without incurring seq initialization"
   (-hash [s]
     (c* "make_integer (string_hash_code (symbol_get_utf8 (~{})) + 1)" s))
 
+  IComparable
+  (-compare [s o]
+    (c* "make_integer (g_utf8_collate (symbol_get_utf8 (~{}), symbol_get_utf8 (~{})))" s o))
+
   IPrintable
   (-pr-seq [s opts]
     (list (str s))))
