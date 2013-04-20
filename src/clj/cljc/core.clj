@@ -225,6 +225,28 @@
            ~gexpr ~expr]
        ~(emit gpred gexpr clauses))))
 
+(defmacro case [e & clauses]
+  (let [default (if (odd? (count clauses))
+                  (last clauses)
+                  `(throw (cljc.core/Exception. (core/str "No matching clause: " ~e))))
+        assoc-test (fn assoc-test [m test expr]
+                         (if (contains? m test)
+                           (throw (clojure.core/IllegalArgumentException.
+                                   (core/str "Duplicate case test constant '"
+                                             test "'"
+                                             (when (:line &env)
+                                               (core/str " on line " (:line &env) " "
+                                                         cljc.compiler/*cljs-file*)))))
+                           (assoc m test expr)))
+        pairs (reduce (fn [m [test expr]]
+                        (if (seq? test)
+                          (reduce #(assoc-test %1 %2 expr) m test)
+                          (assoc-test m test expr)))
+                      {} (partition 2 clauses))]
+   `(cond
+     ~@(mapcat (fn [[m c]] `((cljc.core/= ~m ~e) ~c)) pairs)
+     :else ~default)))
+
 (defmacro deftype [t fields & impls]
   (let [adorn-params (fn [[_ & meths]]
                        (let [meths (if (vector? (first meths))

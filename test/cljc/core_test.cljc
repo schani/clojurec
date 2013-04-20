@@ -1358,7 +1358,6 @@
 
   (assert (= 1 ((FnLikeB. 1))))
 
-  (comment
   ;; hashing bug in many JS runtimes CLJ-118
   (let [g #{(conj #{:2} :alt)}
         h #{#{:2 :alt}}]
@@ -1385,8 +1384,8 @@
     IFn
     (-invoke [[x]] x)
     (-invoke [this x] this)
-    Object
-    (toString [[x]] (str x))
+    IPrintable
+    (-pr-seq [[x] opts] (list (str x)))
     IHasFirst
     (-get-first [[x]] x)
     IFindsFirst
@@ -1396,7 +1395,7 @@
         fs (First. "asdf")]
     (assert (= (fv) 1))
     (assert (= (fs) \a))
-    (assert (= (str fs) \a))
+    (assert (= (str fs) "a"))
     (assert (= (-get-first fv) 1))
     (assert (= (-get-first fs) \a))
     (assert (= (-find-first fv [1]) 1))
@@ -1423,6 +1422,7 @@
                  [:a :b] :ok)
                :ok)))
 
+  (comment
   ;; IComparable
   (assert (=  0 (compare false false)))
   (assert (= -1 (compare false true)))
