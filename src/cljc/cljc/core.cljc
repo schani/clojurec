@@ -444,6 +444,12 @@
   (-hash [o]
     (if (identical? o true) 1 0))
 
+  IComparable
+  (-compare [x y]
+    (if x
+      (if y 0 1)
+      (if y -1 0)))
+
   IPrintable
   (-pr-seq [o opts] (list (if o "true" "false"))))
 

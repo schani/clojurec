@@ -1422,7 +1422,6 @@
                  [:a :b] :ok)
                :ok)))
 
-  (comment
   ;; IComparable
   (assert (=  0 (compare false false)))
   (assert (= -1 (compare false true)))
@@ -1434,6 +1433,7 @@
   (assert (=  1 (compare  1  0)))
   (assert (=  1 (compare  1 -1)))
 
+  (comment
   (assert (=  0 (compare "cljs" "cljs")))
   (assert (=  0 (compare :cljs :cljs)))
   (assert (=  0 (compare 'cljs 'cljs)))
