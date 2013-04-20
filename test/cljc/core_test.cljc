@@ -1321,11 +1321,11 @@
   (assert (instance? cljc.core/Array (array)))
   (assert (instance? cljc.core/Closure (fn [])))
 
-  (comment
   (defprotocol IFoo (foo [this]))
   (assert (= (meta (with-meta (reify IFoo (foo [this] :foo)) {:foo :bar}))
              {:foo :bar}))
 
+  (comment
   (defmulti foo2 identity)
   (defmethod foo2 0 [x] x)
   (assert (= foo2 (ffirst {foo2 1})))

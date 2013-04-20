@@ -71,6 +71,22 @@
        (~'c* "make_float (integer_get (~{}))" x#)
        x#)))
 
+(defmacro reify [& impls]
+  (let [t      (gensym "t")
+        meta-sym (gensym "meta")
+        this-sym (gensym "_")
+        locals (keys (:locals &env))]
+    `(do
+       (pthread-once
+         (deftype ~t [~@locals ~meta-sym]
+           IWithMeta
+           (~'-with-meta [~this-sym ~meta-sym]
+             (new ~t ~@locals ~meta-sym))
+           IMeta
+           (~'-meta [~this-sym] ~meta-sym)
+           ~@impls))
+       (new ~t ~@locals nil))))
+
 (defmacro extend-type [tsym & impls]
   (let [resolve #(let [ret (cljc.compiler/resolve-existing-var (dissoc &env :locals) %)]
                    (assert (:name ret) (core/str "Can't resolve: " %))
