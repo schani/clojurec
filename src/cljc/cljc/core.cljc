@@ -55,16 +55,25 @@
     (c* "fputs (string_get_utf8 (~{}), stdout)" s)
     nil))
 
-(defn ^boolean not
-  "Returns true if x is logical false, false otherwise."
-  [x] (if x false true))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; arrays ;;;;;;;;;;;;;;;;
 
 (defn aclone
   "Returns a array, cloned from the passed in array"
   [array]
   (cljc.core/aclone array))
+
+(declare inc seq first next count make-array)
+
+(defn array [& args]
+  (let [n (count args)
+	a (make-array n)]
+    (if-let [args (seq args)]
+      (loop [i 0
+	     args args]
+	(aset a i (first args))
+	(if-let [args (next args)]
+	  (recur (inc i) args))))
+    a))
 
 (defn make-array [size]
   (c* "make_array (integer_get (~{}))" size))
@@ -86,50 +95,18 @@
   [array]
   (cljc.core/alength array))
 
-(defn array-copy
-  "Copies n elements from src array, beginning at position specified by src_pos,
-  to dst array, beginning at position specified by dst_pos. If src_pos and
-  dst_pos aren't specified then elements are copied from beginning of src to
-  beginning of dst. If n is also not specified, then all elements of src is
-  copied to dst."
-  ([src dst]
-     (c* "array_copy (~{}, 0, ~{}, 0, array_length (~{}))"
-         src dst src))
-  ([src dst n]
-     (c* "array_copy (~{}, 0, ~{}, 0, integer_get (~{}))"
-         src dst n))
-  ([src src_pos dst dst_pos n]
-     (c* "array_copy (~{}, integer_get (~{}), ~{}, integer_get (~{}), integer_get (~{}))"
-         src src_pos dst dst_pos n)))
+(declare reduce)
 
-(defn aclone
-  "Returns array, cloned from the passed in array"
-  [array-like]
-  (array-copy array-like (make-array (alength array-like))))
-
-(declare inc seq first next count)
-
-(defn array [& args]
-  (let [n (count args)
-	a (make-array n)]
-    (if-let [args (seq args)]
-      (loop [i 0
-	     args args]
-	(aset a i (first args))
-	(if-let [args (next args)]
-	  (recur (inc i) args))))
-    a))
-
-(comment
-(defprotocol IFn
-  (-invoke [& args]))
-)
+;;;;;;;;;;;;;;;;;;;;;;;;;;; core protocols ;;;;;;;;;;;;;
 
 (defprotocol ICounted
   (-count [coll] "constant time count"))
 
 (defprotocol IEmptyableCollection
   (-empty [coll]))
+
+(defprotocol ICollection
+  (-conj [coll o]))
 
 (defprotocol IIndexed
   (-nth [coll n] [coll n not-found]))
@@ -159,36 +136,6 @@
   (-key [coll])
   (-val [coll]))
 
-(defprotocol IEquiv
-  (-equiv [o other]))
-
-(defprotocol IHash
-  (-hash [o]))
-
-(defprotocol ISeqable
-  (-seq [o]))
-
-(defprotocol ISequential
-  "Marker interface indicating a persistent collection of sequential items")
-
-(defprotocol IList
-  "Marker interface indicating a persistent list")
-
-(defprotocol IRecord
-  "Marker interface indicating a record object")
-
-(defprotocol ICollection
-  (-conj [coll o]))
-
-(defprotocol IReversible
-  (-rseq [coll]))
-
-(defprotocol ISorted
-  (-sorted-seq [coll ascending?])
-  (-sorted-seq-from [coll k ascending?])
-  (-entry-key [coll entry])
-  (-comparator [coll]))
-
 (defprotocol ISet
   (-disjoin [coll v]))
 
@@ -214,11 +161,38 @@
 (defprotocol IKVReduce
   (-kv-reduce [coll f init]))
 
-(defprotocol IPending
-  (-realized? [d]))
+(defprotocol IEquiv
+  (-equiv [o other]))
+
+(defprotocol IHash
+  (-hash [o]))
+
+(defprotocol ISeqable
+  (-seq [o]))
+
+(defprotocol ISequential
+  "Marker interface indicating a persistent collection of sequential items")
+
+(defprotocol IList
+  "Marker interface indicating a persistent list")
+
+(defprotocol IRecord
+  "Marker interface indicating a record object")
+
+(defprotocol IReversible
+  (-rseq [coll]))
+
+(defprotocol ISorted
+  (-sorted-seq [coll ascending?])
+  (-sorted-seq-from [coll k ascending?])
+  (-entry-key [coll entry])
+  (-comparator [coll]))
 
 (defprotocol IPrintable
   (-pr-seq [o opts]))
+
+(defprotocol IPending
+  (-realized? [d]))
 
 (defprotocol IWatchable
   (-notify-watches [this oldval newval])
@@ -258,43 +232,6 @@
 (defprotocol IChunkedNext
   (-chunked-next [coll]))
 
-(declare pr-sequential pr-seq list hash-coll cons inc equiv-sequential str string-quote with-meta)
-
-(deftype Cons [meta first rest ^:mutable __hash]
-  IWithMeta
-  (-with-meta [coll meta] (Cons. meta first rest __hash))
-
-  IMeta
-  (-meta [coll] meta)
-
-  ASeq
-  ISeq
-  (-first [coll] first)
-  (-rest [coll] (if (nil? rest) () rest))
-
-  INext
-  (-next [coll] (if (nil? rest) nil (-seq rest)))
-
-  ISequential
-  IEquiv
-  (-equiv [coll other] (equiv-sequential coll other))
-
-  ISeqable
-  (-seq [coll] coll)
-
-  ICollection
-  (-conj [coll o] (Cons. nil o coll nil))
-
-  IEmptyableCollection
-  (-empty [coll] (with-meta cljc.core.List/EMPTY meta))
-
-  IHash
-  (-hash [coll]
-    (caching-hash coll hash-coll __hash))
-
-  IPrintable
-  (-pr-seq [coll opts] (pr-sequential pr-seq "(" " " ")" opts coll)))
-
 ;;;;;;;;;;;;;;;;;;; fundamentals ;;;;;;;;;;;;;;;
 (defn ^boolean identical?
   "Tests if 2 arguments are the same object"
@@ -319,47 +256,8 @@
          (= y (first more)))
        false)))
 
-(declare reduce hash-map nth deref associative?)
-
-(defn conj
-  "conj[oin]. Returns a new collection with the xs
-  'added'. (conj nil item) returns (item).  The 'addition' may
-  happen at different 'places' depending on the concrete type."
-  ([coll x]
-     (-conj coll x))
-  ([coll x & xs]
-     (if xs
-       (recur (conj coll x) (first xs) (next xs))
-       (conj coll x))))
-
-(defn empty
-  "Returns an empty collection of the same category as coll, or nil"
-  [coll]
-  (-empty coll))
-
-(defn ^boolean reversible? [coll]
-  (satisfies? IReversible coll))
-
-(defn rseq [coll]
-  (-rseq coll))
-
-(defn reverse
-  "Returns a seq of the items in coll in reverse order. Not lazy."
-  [coll]
-  (if (reversible? coll)
-    (rseq coll)
-    (reduce conj () coll)))
-
-(defn list
-  ([] ())
-  ([x] (conj () x))
-  ([x y] (conj (list y) x))
-  ([x y z] (conj (list y z) x))
-  ([x y z & items]
-     (conj (conj (conj (reduce conj () (reverse items))
-                       z) y) x)))
-
 ;;;;;;;;;;;;;;;;;;; protocols on primitives ;;;;;;;;
+(declare hash-map list equiv-sequential)
 
 (extend-type Nil
   IEquiv
@@ -458,9 +356,9 @@
   (-hash [o]
     (c* "make_integer ((long)~{})" o)))
 
-;; FIXME: implement once we have Reduced
-(defn reduced? [r]
-  false)
+(defn inc
+  "Returns a number one greater than num."
+  [x] (cljc.core/+ x 1))
 
 (defn- ci-reduce
   "Accepts any collection which satisfies the ICount and IIndexed protocols and
@@ -488,6 +386,8 @@ reduces them without incurring seq initialization"
            (let [nval (f val (-nth cicoll n))]
              (recur nval (inc n)))
            val)))))
+
+(declare cons pr-str pr-sequential pr-seq)
 
 (deftype IndexedSeq [a i]
   ISeqable
@@ -569,114 +469,7 @@ reduces them without incurring seq initialization"
   (-pr-seq [a opts]
     (pr-sequential pr-seq "#<Array [" ", " "]>" opts a)))
 
-(extend-type Character
-  IEquiv
-  (-equiv [c o]
-    (and (has-type? o Character)
-         (c* "make_boolean (character_get (~{}) == character_get (~{}))" c o)))
-
-  IHash
-  (-hash [c]
-    (c* "make_integer (character_get (~{}))" c))
-
-  IPrintable
-  (-pr-seq [c opts]
-    (list "\\" (c* "make_string_from_unichar (character_get (~{}))" c))))
-
-(extend-type String
-  IEquiv
-  (-equiv [s o]
-    (and (has-type? o String)
-         (c* "make_boolean (g_utf8_collate (string_get_utf8 (~{}), string_get_utf8 (~{})) == 0)" s o)))
-
-  IComparable
-  (-compare [s o]
-    (c* "make_integer (g_utf8_collate (string_get_utf8 (~{}), string_get_utf8 (~{})))" s o))
-
-  IHash
-  (-hash [s]
-    (c* "make_integer (string_hash_code (string_get_utf8 (~{})))" s))
-
-  ISeqable
-  (-seq [string] (prim-seq string 0))
-
-  ICounted
-  ;; FIXME: cache the count!
-  (-count [s] (c* "make_integer (g_utf8_strlen (string_get_utf8 (~{}), -1))" s))
-
-  IIndexed
-  (-nth
-    ([coll n]
-       (c* "make_character (g_utf8_get_char (g_utf8_offset_to_pointer (string_get_utf8 (~{}), integer_get (~{}))))"
-           coll n))
-    ([coll n not-found]
-       (if (and (<= 0 n) (< n (count coll)))
-         (-nth coll n)
-         not-found)))
-
-  ILookup
-  (-lookup
-    ([string k]
-       (-nth string k))
-    ([string k not_found]
-       (-nth string k not_found)))
-
-  IReduce
-  (-reduce
-    ([string f]
-       (ci-reduce string f))
-    ([string f start]
-       (ci-reduce string f start)))
-
-  IPrintable
-  (-pr-seq [s opts]
-    (if (:readably opts)
-      (list "\"" (string-quote s) "\"")
-      (list s))))
-
-(extend-type Keyword
-  IEquiv
-  (-equiv [k o]
-    (identical? k o))
-
-  IComparable
-  (-compare [s o]
-    (c* "make_integer (g_utf8_collate (keyword_get_utf8 (~{}), keyword_get_utf8 (~{})))" s o))
-
-  IFn
-  (-invoke [k coll]
-	   (when-not (nil? coll)
-	     (-lookup coll k nil)))
-
-  IHash
-  (-hash [k]
-    (c* "make_integer (string_hash_code (keyword_get_utf8 (~{})) + 2)" k))
-
-  IPrintable
-  (-pr-seq [k opts]
-    (list (str k))))
-
-(extend-type Symbol
-  IEquiv
-  (-equiv [s o]
-    (identical? s o))
-
-  IFn
-  (-invoke [k coll]
-	   (when-not (nil? coll)
-	     (-lookup coll k nil)))
-
-  IHash
-  (-hash [s]
-    (c* "make_integer (string_hash_code (symbol_get_utf8 (~{})) + 1)" s))
-
-  IComparable
-  (-compare [s o]
-    (c* "make_integer (g_utf8_collate (symbol_get_utf8 (~{}), symbol_get_utf8 (~{})))" s o))
-
-  IPrintable
-  (-pr-seq [s opts]
-    (list (str s))))
+(declare not)
 
 (defn seq
   "Returns a seq on the collection. If the collection is
@@ -754,304 +547,224 @@ reduces them without incurring seq initialization"
       (recur sn)
       (first s))))
 
-(defn +
-  "Returns the sum of nums. (+) returns 0."
-  ([] 0)
-  ([x] x)
-  ([x y] (cljc.core/+ x y))
-  ([x y & more] (reduce + (cljc.core/+ x y) more)))
+(defn ^boolean not
+  "Returns true if x is logical false, false otherwise."
+  [x] (if x false true))
 
-(defn -
-  "If no ys are supplied, returns the negation of x, else subtracts
-  the ys from x and returns the result."
-  ([x] (cljc.core/- x))
-  ([x y] (cljc.core/- x y))
-  ([x y & more] (reduce - (cljc.core/- x y) more)))
+(defn conj
+  "conj[oin]. Returns a new collection with the xs
+  'added'. (conj nil item) returns (item).  The 'addition' may
+  happen at different 'places' depending on the concrete type."
+  ([coll x]
+     (-conj coll x))
+  ([coll x & xs]
+     (if xs
+       (recur (conj coll x) (first xs) (next xs))
+       (conj coll x))))
 
-(defn *
-  "Returns the product of nums. (*) returns 1."
-  ([] 1)
-  ([x] x)
-  ([x y] (cljc.core/* x y))
-  ([x y & more] (reduce * (cljc.core/* x y) more)))
+(defn empty
+  "Returns an empty collection of the same category as coll, or nil"
+  [coll]
+  (-empty coll))
 
-(defn /
-  "If no denominators are supplied, returns 1/numerator,
-  else returns numerator divided by all of the denominators."
-  ([x] (/ 1 x))
-  ([x y] (c* "make_float (float_get (~{}) / float_get (~{}))" (number-as-float x) (number-as-float y))) ;; FIXME: waiting on cljs.core//
-  ([x y & more] (reduce / (/ x y) more)))
+(declare counted?)
 
-(defn ^boolean <
-  "Returns non-nil if nums are in monotonically increasing order,
-  otherwise false."
-  ([x] true)
-  ([x y] (cljc.core/< x y))
-  ([x y & more]
-     (if (cljc.core/< x y)
-       (if (next more)
-         (recur y (first more) (next more))
-         (cljc.core/< y (first more)))
-       false)))
+(defn- accumulating-seq-count [coll]
+  (loop [s (seq coll) acc 0]
+    (if (counted? s) ; assumes nil is counted, which it currently is
+      (+ acc (-count s))
+      (recur (next s) (inc acc)))))
 
-(defn ^boolean <=
-  "Returns non-nil if nums are in monotonically non-decreasing order,
-  otherwise false."
-  ([x] true)
-  ([x y] (cljc.core/<= x y))
-  ([x y & more]
-   (if (cljc.core/<= x y)
-     (if (next more)
-       (recur y (first more) (next more))
-       (cljc.core/<= y (first more)))
-     false)))
+(defn count
+  "Returns the number of items in the collection. (count nil) returns
+  0.  Also works on strings, arrays, and Maps"
+  [coll]
+  (if (counted? coll)
+    (-count coll)
+    (accumulating-seq-count coll)))
 
-(defn ^boolean >
-  "Returns non-nil if nums are in monotonically decreasing order,
-  otherwise false."
-  ([x] true)
-  ([x y] (cljc.core/> x y))
-  ([x y & more]
-   (if (cljc.core/> x y)
-     (if (next more)
-       (recur y (first more) (next more))
-       (cljc.core/> y (first more)))
-     false)))
+(declare indexed? dec)
 
-(defn ^boolean >=
-  "Returns non-nil if nums are in monotonically non-increasing order,
-  otherwise false."
-  ([x] true)
-  ([x y] (cljc.core/>= x y))
-  ([x y & more]
-   (if (cljc.core/>= x y)
-     (if (next more)
-       (recur y (first more) (next more))
-       (cljc.core/>= y (first more)))
-     false)))
+(defn- linear-traversal-nth
+  ([coll n]
+     (cond
+       (nil? coll)     (error "Index out of bounds")
+       (zero? n)       (if (seq coll)
+                         (first coll)
+                         (error "Index out of bounds"))
+       (indexed? coll) (-nth coll n)
+       (seq coll)      (linear-traversal-nth (next coll) (dec n))
+       true            (error "Index out of bounds")))
+  ([coll n not-found]
+     (cond
+       (nil? coll)     not-found
+       (zero? n)       (if (seq coll)
+                         (first coll)
+                         not-found)
+       (indexed? coll) (-nth coll n not-found)
+       (seq coll)      (linear-traversal-nth (next coll) (dec n) not-found)
+       true            not-found)))
 
-(defn inc
-  "Returns a number one greater than num."
-  [x] (cljc.core/+ x 1))
+(declare int)
 
-(defn dec
-  "Returns a number one less than num."
-  [x] (- x 1))
+(defn nth
+  "Returns the value at the index. get returns nil if index out of
+  bounds, nth throws an exception unless not-found is supplied.  nth
+  also works for strings, arrays, regex Matchers and Lists, and,
+  in O(n) time, for sequences."
+  ([coll n]
+     (when-not (nil? coll)
+       (if (satisfies? IIndexed coll)
+         (-nth coll (int n))
+         (linear-traversal-nth coll (int n)))))
+  ([coll n not-found]
+     (if-not (nil? coll)
+       (if (satisfies? IIndexed coll)
+         (-nth coll (int n) not-found)
+         (linear-traversal-nth coll (int n) not-found))
+       not-found)))
 
-(defn max
-  "Returns the greatest of the nums."
-  ([x] x)
-  ([x y] (if (> x y) x y))
-  ([x y & more]
-     (reduce max (max x y) more)))
+(defn get
+  "Returns the value mapped to key, not-found or nil if key not present."
+  ([o k]
+     (-lookup o k))
+  ([o k not-found]
+     (-lookup o k not-found)))
 
-(defn min
-  "Returns the least of the nums."
-  ([x] x)
-  ([x y] (if (< x y) x y))
-  ([x y & more]
-     (reduce min (min x y) more)))
+(defn assoc
+  "assoc[iate]. When applied to a map, returns a new map of the
+   same (hashed/sorted) type, that contains the mapping of key(s) to
+   val(s). When applied to a vector, returns a new vector that
+   contains val at index."
+  ([coll k v]
+     (-assoc coll k v))
+  ([coll k v & kvs]
+     (let [ret (assoc coll k v)]
+       (if kvs
+         (recur ret (first kvs) (second kvs) (nnext kvs))
+         ret))))
 
-(defn- fix [q]
-  (if (integer? q)
-    q
-    (c* "make_integer ((long)float_get (~{}))" q)))
+(defn dissoc
+  "dissoc[iate]. Returns a new map of the same (hashed/sorted) type,
+  that does not contain a mapping for key(s)."
+  ([coll] coll)
+  ([coll k]
+     (-dissoc coll k))
+  ([coll k & ks]
+     (let [ret (dissoc coll k)]
+       (if ks
+         (recur ret (first ks) (next ks))
+         ret))))
 
-(defn int
-  "Coerce to int by stripping decimal places."
+(defn with-meta
+  "Returns an object of the same type and value as obj, with
+  map m as its metadata."
+  [o meta]
+  (-with-meta o meta))
+
+(defn meta
+  "Returns the metadata of obj, returns nil if there is no metadata."
+  [o]
+  (when (satisfies? IMeta o)
+    (-meta o)))
+
+(defn peek
+  "For a list or queue, same as first, for a vector, same as, but much
+  more efficient than, last. If the collection is empty, returns nil."
+  [coll]
+  (-peek coll))
+
+(defn pop
+  "For a list or queue, returns a new list/queue without the first
+  item, for a vector, returns a new vector without the last item.
+  Note - not the same as next/butlast."
+  [coll]
+  (-pop coll))
+
+(defn disj
+  "disj[oin]. Returns a new set of the same (hashed/sorted) type, that
+  does not contain key(s)."
+  ([coll] coll)
+  ([coll k]
+     (-disjoin coll k))
+  ([coll k & ks]
+     (let [ret (disj coll k)]
+       (if ks
+         (recur ret (first ks) (next ks))
+         ret))))
+
+(defn hash [o]
+  (-hash o))
+
+(defn ^boolean empty?
+  "Returns true if coll has no items - same as (not (seq coll)).
+  Please use the idiom (seq x) rather than (not (empty? x))"
+  [coll] (not (seq coll)))
+
+(defn ^boolean coll?
+  "Returns true if x satisfies ICollection"
   [x]
-  (fix x))
+  (if (nil? x)
+    false
+    (satisfies? ICollection x)))
 
-(defn long
-  "Coerce to long by stripping decimal places. Identical to `int'."
+(defn ^boolean set?
+  "Returns true if x satisfies ISet"
   [x]
-  (fix x))
+  (if (nil? x)
+    false
+    (satisfies? ISet x)))
 
-(defn mod
-  "Modulus of num and div. Truncates toward negative infinity."
-  [n d]
-  (cljc.core/mod n d))
+(defn ^boolean associative?
+ "Returns true if coll implements Associative"
+  [x] (satisfies? IAssociative x))
 
-(defn quot
-  "quot[ient] of dividing numerator by denominator."
-  [n d]
-  (c* "make_integer (integer_get (~{}) / integer_get (~{}))" (fix n) (fix d)))
+(defn ^boolean sequential?
+  "Returns true if coll satisfies ISequential"
+  [x] (satisfies? ISequential x))
 
-(defn rem
-  "remainder of dividing numerator by denominator."
-  [n d]
-  (let [q (quot n d)]
-    (- n (* d q))))
+(defn ^boolean counted?
+  "Returns true if coll implements count in constant time"
+  [x] (satisfies? ICounted x))
 
-(defn ^boolean pos?
-  "Returns true if num is greater than zero, else false"
-  [n] (> n 0))
+(defn ^boolean indexed?
+  "Returns true if coll implements nth in constant time"
+  [x] (satisfies? IIndexed x))
 
-(defn ^boolean zero? [n]
-  (cljc.core/zero? n))
+(defn ^boolean reduceable?
+  "Returns true if coll satisfies IReduce"
+  [x] (satisfies? IReduce x))
 
-(defn ^boolean neg?
-  "Returns true if num is less than zero, else false"
-  [n] (< n 0))
+(defn ^boolean map?
+  "Return true if x satisfies IMap"
+  [x]
+  (if (nil? x)
+    false
+    (satisfies? IMap x)))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; protocols for host types ;;;;;;
+(defn ^boolean vector?
+  "Return true if x satisfies IVector"
+  [x] (satisfies? IVector x))
 
-(defn nthnext
-  "Returns the nth next of coll, (seq coll) when n is 0."
-  [coll n]
-  (loop [n n xs (seq coll)]
-    (if (and xs (pos? n))
-      (recur (dec n) (next xs))
-      xs)))
+(defn ^boolean chunked-seq?
+  [x] (satisfies? IChunkedSeq x))
 
-(defn bit-xor
-  "Bitwise exclusive or"
-  [x y] (cljc.core/bit-xor x y))
-
-(defn bit-and
-  "Bitwise and"
-  [x y] (cljc.core/bit-and x y))
-
-(defn bit-or
-  "Bitwise or"
-  [x y] (cljc.core/bit-or x y))
-
-(defn bit-and-not
-  "Bitwise and"
-  [x y] (cljc.core/bit-and-not x y))
-
-(defn bit-clear
-  "Clear bit at index n"
-  [x n]
-  (cljc.core/bit-clear x n))
-
-(defn bit-flip
-  "Flip bit at index n"
-  [x n]
-  (cljc.core/bit-flip x n))
-
-(defn bit-not
-  "Bitwise complement"
-  [x] (cljc.core/bit-not x))
-
-(defn bit-set
-  "Set bit at index n"
-  [x n]
-  (cljc.core/bit-set x n))
-
-(defn bit-test
-  "Test bit at index n"
-  [x n]
-  (cljc.core/bit-test x n))
-
-(defn bit-shift-left
-  "Bitwise shift left"
-  [x n] (cljc.core/bit-shift-left x n))
-
-(defn bit-shift-right
-  "Bitwise shift right"
-  [x n] (cljc.core/bit-shift-right x n))
-
-(defn ^boolean ==
-  "Returns non-nil if nums all have the equivalent
-  value, otherwise false. Behavior on non nums is
-  undefined."
-  ([x] true)
-  ([x y] (-equiv x y))
-  ([x y & more]
-   (if (== x y)
-     (if (next more)
-       (recur y (first more) (next more))
-       (== y (first more)))
-     false)))
-
-;;;;;;;;;;;;;;;; cons ;;;;;;;;;;;;;;;;
-(deftype List [meta first rest count ^:mutable __hash]
-  IList
-
-  IWithMeta
-  (-with-meta [coll meta] (List. meta first rest count __hash))
-
-  IMeta
-  (-meta [coll] meta)
-
-  ASeq
-  ISeq
-  (-first [coll] first)
-  (-rest [coll]
-    (if (== count 1)
-      ()
-      rest))
-
-  INext
-  (-next [coll]
-    (if (== count 1)
-      nil
-      rest))
-
-  IStack
-  (-peek [coll] first)
-  (-pop [coll] (-rest coll))
-
-  ICollection
-  (-conj [coll o] (List. meta o coll (inc count) nil))
-
-  IEmptyableCollection
-  (-empty [coll] cljc.core.List/EMPTY)
-
-  ISequential
-  IEquiv
-  (-equiv [coll other] (equiv-sequential coll other))
-
-  IHash
-  (-hash [coll] (caching-hash coll hash-coll __hash))
-
-  ISeqable
-  (-seq [coll] coll)
-
-  ICounted
-  (-count [coll] count)
-
-  IPrintable
-  (-pr-seq [coll opts] (pr-sequential pr-seq "(" " " ")" opts coll)))
-
-(deftype EmptyList [meta]
-  IWithMeta
-  (-with-meta [coll meta] (EmptyList. meta))
-
-  IMeta
-  (-meta [coll] meta)
-
-  ISeq
-  (-first [coll] nil)
-  (-rest [coll] ())
-
-  INext
-  (-next [coll] nil)
-
-  ISeqable
-  (-seq [coll] nil)
-
-  ICollection
-  (-conj [coll o] (List. meta o nil 1 nil))
-
-  IEmptyableCollection
-  (-empty [coll] coll)
-
-  ISequential
-  IEquiv
-  (-equiv [coll other] (equiv-sequential coll other))
-
-  ICounted
-  (-count [_] 0)
-
-  IHash
-  (-hash [coll] 0)
-
-  IPrintable
-  (-pr-seq [coll opts] (list "()")))
-
-(set! cljc.core.List/EMPTY (cljc.core/EmptyList. nil))
+;;;;;;;;;;;;;;;;;;;; js primitives ;;;;;;;;;;;;
+(defn array-copy
+  "Copies n elements from src array, beginning at position specified by src_pos,
+  to dst array, beginning at position specified by dst_pos. If src_pos and
+  dst_pos aren't specified then elements are copied from beginning of src to
+  beginning of dst. If n is also not specified, then all elements of src is
+  copied to dst."
+  ([src dst]
+     (c* "array_copy (~{}, 0, ~{}, 0, array_length (~{}))"
+         src dst src))
+  ([src dst n]
+     (c* "array_copy (~{}, 0, ~{}, 0, integer_get (~{}))"
+         src dst n))
+  ([src src_pos dst dst_pos n]
+     (c* "array_copy (~{}, integer_get (~{}), ~{}, integer_get (~{}), integer_get (~{}))"
+         src src_pos dst dst_pos n)))
 
 ;;;;;;;;;;;;;;;; preds ;;;;;;;;;;;;;;;;;;
 
@@ -1068,9 +781,6 @@ reduces them without incurring seq initialization"
 (defn ^boolean instance? [t o]
   (c* "make_boolean (~{}->ptable->constructor == ~{})" o t))
 
-(defn ^boolean boolean [x]
-  (if x true false))
-
 (defn ^boolean seq?
   "Return true if s satisfies ISeq"
   [s]
@@ -1082,6 +792,9 @@ reduces them without incurring seq initialization"
   "Return true if s satisfies ISeqable"
   [s]
   (satisfies? ISeqable s))
+
+(defn ^boolean boolean [x]
+  (if x true false))
 
 (defn ^boolean char?
   [s]
@@ -1129,59 +842,6 @@ reduces them without incurring seq initialization"
              (associative? coll)
              (contains? coll k))
     [k (-lookup coll k)]))
-
-(defn ^boolean map?
-  "Return true if x satisfies IMap"
-  [x]
-  (if (nil? x)
-    false
-    (satisfies? IMap x)))
-
-(defn ^boolean vector?
-  "Return true if x satisfies IVector"
-  [x] (satisfies? IVector x))
-
-(defn ^boolean empty?
-  "Returns true if coll has no items - same as (not (seq coll)).
-  Please use the idiom (seq x) rather than (not (empty? x))"
-  [coll] (not (seq coll)))
-
-(defn ^boolean coll?
-  "Returns true if x satisfies ICollection"
-  [x]
-  (if (nil? x)
-    false
-    (satisfies? ICollection x)))
-
-(defn ^boolean set?
-  "Returns true if x satisfies ISet"
-  [x]
-  (if (nil? x)
-    false
-    (satisfies? ISet x)))
-
-(defn ^boolean associative?
- "Returns true if coll implements Associative"
-  [x] (satisfies? IAssociative x))
-
-(defn ^boolean sequential?
-  "Returns true if coll satisfies ISequential"
-  [x] (satisfies? ISequential x))
-
-(defn ^boolean counted?
-  "Returns true if coll implements count in constant time"
-  [x] (satisfies? ICounted x))
-
-(defn ^boolean indexed?
-  "Returns true if coll implements nth in constant time"
-  [x] (satisfies? IIndexed x))
-
-(defn ^boolean reduceable?
-  "Returns true if coll satisfies IReduce"
-  [x] (satisfies? IReduce x))
-
-(defn ^boolean chunked-seq?
-  [x] (satisfies? IChunkedSeq x))
 
 (defn ^boolean distinct?
   "Returns true if no two of the arguments are ="
@@ -1269,6 +929,8 @@ reduces them without incurring seq initialization"
          r -1
          (f y x) 1
          :else 0)))))
+
+(declare quot)
 
 (defn- merge-sort! [src dst min max comp]
   (let [len (- max min)]
@@ -1377,143 +1039,280 @@ reduces them without incurring seq initialization"
        (-reduce coll f val)
        (seq-reduce f val coll))))
 
-(defn- accumulating-seq-count [coll]
-  (loop [s (seq coll) acc 0]
-    (if (counted? s) ; assumes nil is counted, which it currently is
-      (+ acc (-count s))
-      (recur (next s) (inc acc)))))
+;; FIXME: implement once we have Reduced
+(defn reduced? [r]
+  false)
 
-(defn count
-  "Returns the number of items in the collection. (count nil) returns
-  0.  Also works on strings, arrays, and Maps"
-  [coll]
-  (if (counted? coll)
-    (-count coll)
-    (accumulating-seq-count coll)))
+(defn +
+  "Returns the sum of nums. (+) returns 0."
+  ([] 0)
+  ([x] x)
+  ([x y] (cljc.core/+ x y))
+  ([x y & more] (reduce + (cljc.core/+ x y) more)))
 
-(declare indexed?)
+(defn -
+  "If no ys are supplied, returns the negation of x, else subtracts
+  the ys from x and returns the result."
+  ([x] (cljc.core/- x))
+  ([x y] (cljc.core/- x y))
+  ([x y & more] (reduce - (cljc.core/- x y) more)))
 
-(defn- linear-traversal-nth
-  ([coll n]
-     (cond
-       (nil? coll)     (error "Index out of bounds")
-       (zero? n)       (if (seq coll)
-                         (first coll)
-                         (error "Index out of bounds"))
-       (indexed? coll) (-nth coll n)
-       (seq coll)      (linear-traversal-nth (next coll) (dec n))
-       true            (error "Index out of bounds")))
-  ([coll n not-found]
-     (cond
-       (nil? coll)     not-found
-       (zero? n)       (if (seq coll)
-                         (first coll)
-                         not-found)
-       (indexed? coll) (-nth coll n not-found)
-       (seq coll)      (linear-traversal-nth (next coll) (dec n) not-found)
-       true            not-found)))
+(defn *
+  "Returns the product of nums. (*) returns 1."
+  ([] 1)
+  ([x] x)
+  ([x y] (cljc.core/* x y))
+  ([x y & more] (reduce * (cljc.core/* x y) more)))
 
-(defn nth
-  "Returns the value at the index. get returns nil if index out of
-  bounds, nth throws an exception unless not-found is supplied.  nth
-  also works for strings, arrays, regex Matchers and Lists, and,
-  in O(n) time, for sequences."
-  ([coll n]
-     (when-not (nil? coll)
-       (if (satisfies? IIndexed coll)
-         (-nth coll (int n))
-         (linear-traversal-nth coll (int n)))))
-  ([coll n not-found]
-     (if-not (nil? coll)
-       (if (satisfies? IIndexed coll)
-         (-nth coll (int n) not-found)
-         (linear-traversal-nth coll (int n) not-found))
-       not-found)))
+(defn /
+  "If no denominators are supplied, returns 1/numerator,
+  else returns numerator divided by all of the denominators."
+  ([x] (/ 1 x))
+  ([x y] (c* "make_float (float_get (~{}) / float_get (~{}))" (number-as-float x) (number-as-float y))) ;; FIXME: waiting on cljs.core//
+  ([x y & more] (reduce / (/ x y) more)))
 
-(defn cons
-  "Returns a new seq where x is the first element and seq is the rest."
-  [x coll]
-  (if (or (nil? coll)
-          (satisfies? ISeq coll))
-    (Cons. nil x coll nil)
-    (Cons. nil x (seq coll) nil)))
+(defn ^boolean <
+  "Returns non-nil if nums are in monotonically increasing order,
+  otherwise false."
+  ([x] true)
+  ([x y] (cljc.core/< x y))
+  ([x y & more]
+     (if (cljc.core/< x y)
+       (if (next more)
+         (recur y (first more) (next more))
+         (cljc.core/< y (first more)))
+       false)))
 
-(defn get
-  "Returns the value mapped to key, not-found or nil if key not present."
-  ([o k]
-     (-lookup o k))
-  ([o k not-found]
-     (-lookup o k not-found)))
+(defn ^boolean <=
+  "Returns non-nil if nums are in monotonically non-decreasing order,
+  otherwise false."
+  ([x] true)
+  ([x y] (cljc.core/<= x y))
+  ([x y & more]
+   (if (cljc.core/<= x y)
+     (if (next more)
+       (recur y (first more) (next more))
+       (cljc.core/<= y (first more)))
+     false)))
 
-(defn find
-  "Returns the map entry for key, or nil if key not present."
-  [coll k]
-  (when (and coll
-             (associative? coll)
-             (contains? coll k))
-    [k (-lookup coll k)]))
+(defn ^boolean >
+  "Returns non-nil if nums are in monotonically decreasing order,
+  otherwise false."
+  ([x] true)
+  ([x y] (cljc.core/> x y))
+  ([x y & more]
+   (if (cljc.core/> x y)
+     (if (next more)
+       (recur y (first more) (next more))
+       (cljc.core/> y (first more)))
+     false)))
 
-(defn assoc
-  "assoc[iate]. When applied to a map, returns a new map of the
-   same (hashed/sorted) type, that contains the mapping of key(s) to
-   val(s). When applied to a vector, returns a new vector that
-   contains val at index."
-  ([coll k v]
-     (-assoc coll k v))
-  ([coll k v & kvs]
-     (let [ret (assoc coll k v)]
-       (if kvs
-         (recur ret (first kvs) (second kvs) (nnext kvs))
-         ret))))
+(defn ^boolean >=
+  "Returns non-nil if nums are in monotonically non-increasing order,
+  otherwise false."
+  ([x] true)
+  ([x y] (cljc.core/>= x y))
+  ([x y & more]
+   (if (cljc.core/>= x y)
+     (if (next more)
+       (recur y (first more) (next more))
+       (cljc.core/>= y (first more)))
+     false)))
 
-(defn dissoc
-  "dissoc[iate]. Returns a new map of the same (hashed/sorted) type,
-  that does not contain a mapping for key(s)."
-  ([coll] coll)
-  ([coll k]
-     (-dissoc coll k))
-  ([coll k & ks]
-     (let [ret (dissoc coll k)]
-       (if ks
-         (recur ret (first ks) (next ks))
-         ret))))
+(defn dec
+  "Returns a number one less than num."
+  [x] (- x 1))
 
-(defn with-meta
-  "Returns an object of the same type and value as obj, with
-  map m as its metadata."
-  [o meta]
-  (-with-meta o meta))
+(defn max
+  "Returns the greatest of the nums."
+  ([x] x)
+  ([x y] (if (> x y) x y))
+  ([x y & more]
+     (reduce max (max x y) more)))
 
-(defn meta
-  "Returns the metadata of obj, returns nil if there is no metadata."
-  [o]
-  (when (satisfies? IMeta o)
-    (-meta o)))
+(defn min
+  "Returns the least of the nums."
+  ([x] x)
+  ([x y] (if (< x y) x y))
+  ([x y & more]
+     (reduce min (min x y) more)))
 
-(defn peek
-  "For a list or queue, same as first, for a vector, same as, but much
-  more efficient than, last. If the collection is empty, returns nil."
-  [coll]
-  (-peek coll))
+(defn- fix [q]
+  (if (integer? q)
+    q
+    (c* "make_integer ((long)float_get (~{}))" q)))
 
-(defn pop
-  "For a list or queue, returns a new list/queue without the first
-  item, for a vector, returns a new vector without the last item.
-  Note - not the same as next/butlast."
-  [coll]
-  (-pop coll))
+(defn int
+  "Coerce to int by stripping decimal places."
+  [x]
+  (fix x))
 
-(defn disj
-  "disj[oin]. Returns a new set of the same (hashed/sorted) type, that
-  does not contain key(s)."
-  ([coll] coll)
-  ([coll k]
-     (-disjoin coll k))
-  ([coll k & ks]
-     (let [ret (disj coll k)]
-       (if ks
-         (recur ret (first ks) (next ks))
-         ret))))
+(defn long
+  "Coerce to long by stripping decimal places. Identical to `int'."
+  [x]
+  (fix x))
+
+(defn mod
+  "Modulus of num and div. Truncates toward negative infinity."
+  [n d]
+  (cljc.core/mod n d))
+
+(defn quot
+  "quot[ient] of dividing numerator by denominator."
+  [n d]
+  (c* "make_integer (integer_get (~{}) / integer_get (~{}))" (fix n) (fix d)))
+
+(defn rem
+  "remainder of dividing numerator by denominator."
+  [n d]
+  (let [q (quot n d)]
+    (- n (* d q))))
+
+(defn rand
+  "Returns a random floating point number between 0 (inclusive) and n (default 1) (exclusive)."
+  ([]  (c* "make_float (g_random_double_range (0.0, 1.0))"))
+  ([n] (c* "make_float (g_random_double_range (0.0, float_get (~{})))" (number-as-float n))))
+
+(defn rand-int
+  "Returns a random integer between 0 (inclusive) and n (exclusive)."
+  [n] (c* "make_integer (g_random_int_range (0, integer_get (~{})))" (fix n)))
+
+(defn bit-xor
+  "Bitwise exclusive or"
+  [x y] (cljc.core/bit-xor x y))
+
+(defn bit-and
+  "Bitwise and"
+  [x y] (cljc.core/bit-and x y))
+
+(defn bit-or
+  "Bitwise or"
+  [x y] (cljc.core/bit-or x y))
+
+(defn bit-and-not
+  "Bitwise and"
+  [x y] (cljc.core/bit-and-not x y))
+
+(defn bit-clear
+  "Clear bit at index n"
+  [x n]
+  (cljc.core/bit-clear x n))
+
+(defn bit-flip
+  "Flip bit at index n"
+  [x n]
+  (cljc.core/bit-flip x n))
+
+(defn bit-not
+  "Bitwise complement"
+  [x] (cljc.core/bit-not x))
+
+(defn bit-set
+  "Set bit at index n"
+  [x n]
+  (cljc.core/bit-set x n))
+
+(defn bit-test
+  "Test bit at index n"
+  [x n]
+  (cljc.core/bit-test x n))
+
+(defn bit-shift-left
+  "Bitwise shift left"
+  [x n] (cljc.core/bit-shift-left x n))
+
+(defn bit-shift-right
+  "Bitwise shift right"
+  [x n] (cljc.core/bit-shift-right x n))
+
+(defn ^boolean ==
+  "Returns non-nil if nums all have the equivalent
+  value, otherwise false. Behavior on non nums is
+  undefined."
+  ([x] true)
+  ([x y] (-equiv x y))
+  ([x y & more]
+   (if (== x y)
+     (if (next more)
+       (recur y (first more) (next more))
+       (== y (first more)))
+     false)))
+
+(defn ^boolean pos?
+  "Returns true if num is greater than zero, else false"
+  [n] (> n 0))
+
+(defn ^boolean zero? [n]
+  (cljc.core/zero? n))
+
+(defn ^boolean neg?
+  "Returns true if num is less than zero, else false"
+  [n] (< n 0))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; protocols for host types ;;;;;;
+
+(defn nthnext
+  "Returns the nth next of coll, (seq coll) when n is 0."
+  [coll n]
+  (loop [n n xs (seq coll)]
+    (if (and xs (pos? n))
+      (recur (dec n) (next xs))
+      xs)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;; basics ;;;;;;;;;;;;;;;;;;
+
+(defprotocol IStringBuilder
+  (-append! [sb appendee])
+  (-to-string [sb]))
+
+(declare reverse)
+
+(defn str
+  "With no args, returns the empty string. With one arg x, returns
+  x.toString().  (str nil) returns the empty string. With more than
+  one arg, returns the concatenation of the str values of the args."
+  ([] "")
+  ([x] (cond
+        (string? x) x
+        (symbol? x) (c* "make_string ((gchar*)symbol_get_utf8 (~{}))" x)
+        (keyword? x) (str ":" (c* "make_string ((gchar*)keyword_get_utf8 (~{}))" x))
+        (char? x) (c* "make_string_from_unichar (character_get (~{}))" x)
+        (nil? x) ""
+        (satisfies? IStringBuilder x) (-to-string x)
+        :else (pr-str x)))
+  ([& xs]
+     (loop [xs (seq xs)
+            rstrings ()
+            bytes 0]
+       (if xs
+         (let [s (str (first xs))
+               b (c* "make_integer (strlen (string_get_utf8 (~{})))" s)]
+           (recur (next xs)
+                  (cons [s b] rstrings)
+                  (+ bytes b)))
+         (let [sb (c* "make_string_with_size (integer_get (~{}))" bytes)]
+           (loop [ss (reverse rstrings)
+                  i 0]
+             (if ss
+               (let [[s b] (first ss)]
+                 (c* "memcpy (string_get_utf8 (~{}) + integer_get (~{}), string_get_utf8 (~{}), integer_get (~{}))" sb i s b)
+                 (recur (next ss) (+ i b)))
+               (do
+                 (assert (= i bytes))
+                 (c* "string_get_utf8 (~{}) [integer_get (~{})] = '\\0'" sb i)
+                 sb))))))))
+
+(defn- checked-substring [s start end]
+  (let [len (count s)
+	end (min end len)
+	start (min start end)]
+    (c* "make_string_copy_free (g_utf8_substring (string_get_utf8 (~{}), integer_get (~{}), integer_get (~{})))" s start end)))
+
+(defn subs
+  "Returns the substring of s beginning at start inclusive, and ending
+  at end (defaults to length of string), exclusive."
+  ([s start] (subs s start (count s)))
+  ([s start end] (checked-substring s start end)))
 
 (defn- equiv-sequential
   "Assumes x is sequential. Returns true if x equals y, otherwise
@@ -1526,9 +1325,6 @@ reduces them without incurring seq initialization"
              (nil? ys) false
              (= (first xs) (first ys)) (recur (next xs) (next ys))
              true false)))))
-
-(defn hash [o]
-  (-hash o))
 
 (defn hash-combine [seed hash]
   ; a la boost
@@ -1560,8 +1356,276 @@ reduces them without incurring seq initialization"
                (next s)))
       h)))
 
+;;;;;;;;;;;;;;;; cons ;;;;;;;;;;;;;;;;
+(deftype List [meta first rest count ^:mutable __hash]
+  IList
+
+  IWithMeta
+  (-with-meta [coll meta] (List. meta first rest count __hash))
+
+  IMeta
+  (-meta [coll] meta)
+
+  ASeq
+  ISeq
+  (-first [coll] first)
+  (-rest [coll]
+    (if (== count 1)
+      ()
+      rest))
+
+  INext
+  (-next [coll]
+    (if (== count 1)
+      nil
+      rest))
+
+  IStack
+  (-peek [coll] first)
+  (-pop [coll] (-rest coll))
+
+  ICollection
+  (-conj [coll o] (List. meta o coll (inc count) nil))
+
+  IEmptyableCollection
+  (-empty [coll] cljc.core.List/EMPTY)
+
+  ISequential
+  IEquiv
+  (-equiv [coll other] (equiv-sequential coll other))
+
+  IHash
+  (-hash [coll] (caching-hash coll hash-coll __hash))
+
+  ISeqable
+  (-seq [coll] coll)
+
+  ICounted
+  (-count [coll] count)
+
+  IPrintable
+  (-pr-seq [coll opts] (pr-sequential pr-seq "(" " " ")" opts coll)))
+
+(deftype EmptyList [meta]
+  IWithMeta
+  (-with-meta [coll meta] (EmptyList. meta))
+
+  IMeta
+  (-meta [coll] meta)
+
+  ISeq
+  (-first [coll] nil)
+  (-rest [coll] ())
+
+  INext
+  (-next [coll] nil)
+
+  ISeqable
+  (-seq [coll] nil)
+
+  ICollection
+  (-conj [coll o] (List. meta o nil 1 nil))
+
+  IEmptyableCollection
+  (-empty [coll] coll)
+
+  ISequential
+  IEquiv
+  (-equiv [coll other] (equiv-sequential coll other))
+
+  ICounted
+  (-count [_] 0)
+
+  IHash
+  (-hash [coll] 0)
+
+  IPrintable
+  (-pr-seq [coll opts] (list "()")))
+
+(set! cljc.core.List/EMPTY (cljc.core/EmptyList. nil))
+
+(defn ^boolean reversible? [coll]
+  (satisfies? IReversible coll))
+
+(defn rseq [coll]
+  (-rseq coll))
+
+(defn reverse
+  "Returns a seq of the items in coll in reverse order. Not lazy."
+  [coll]
+  (if (reversible? coll)
+    (rseq coll)
+    (reduce conj () coll)))
+
+(defn list
+  ([] ())
+  ([x] (conj () x))
+  ([x y] (conj (list y) x))
+  ([x y z] (conj (list y z) x))
+  ([x y z & items]
+     (conj (conj (conj (reduce conj () (reverse items))
+                       z) y) x)))
+
+(deftype Cons [meta first rest ^:mutable __hash]
+  IWithMeta
+  (-with-meta [coll meta] (Cons. meta first rest __hash))
+
+  IMeta
+  (-meta [coll] meta)
+
+  ASeq
+  ISeq
+  (-first [coll] first)
+  (-rest [coll] (if (nil? rest) () rest))
+
+  INext
+  (-next [coll] (if (nil? rest) nil (-seq rest)))
+
+  ISequential
+  IEquiv
+  (-equiv [coll other] (equiv-sequential coll other))
+
+  ISeqable
+  (-seq [coll] coll)
+
+  ICollection
+  (-conj [coll o] (Cons. nil o coll nil))
+
+  IEmptyableCollection
+  (-empty [coll] (with-meta cljc.core.List/EMPTY meta))
+
+  IHash
+  (-hash [coll]
+    (caching-hash coll hash-coll __hash))
+
+  IPrintable
+  (-pr-seq [coll opts] (pr-sequential pr-seq "(" " " ")" opts coll)))
+
+(defn cons
+  "Returns a new seq where x is the first element and seq is the rest."
+  [x coll]
+  (if (or (nil? coll)
+          (satisfies? ISeq coll))
+    (Cons. nil x coll nil)
+    (Cons. nil x (seq coll) nil)))
+
+(extend-type Character
+  IEquiv
+  (-equiv [c o]
+    (and (has-type? o Character)
+         (c* "make_boolean (character_get (~{}) == character_get (~{}))" c o)))
+
+  IHash
+  (-hash [c]
+    (c* "make_integer (character_get (~{}))" c))
+
+  IPrintable
+  (-pr-seq [c opts]
+    (list "\\" (c* "make_string_from_unichar (character_get (~{}))" c))))
+
+(declare string-quote)
+
+(extend-type String
+  IEquiv
+  (-equiv [s o]
+    (and (has-type? o String)
+         (c* "make_boolean (g_utf8_collate (string_get_utf8 (~{}), string_get_utf8 (~{})) == 0)" s o)))
+
+  IComparable
+  (-compare [s o]
+    (c* "make_integer (g_utf8_collate (string_get_utf8 (~{}), string_get_utf8 (~{})))" s o))
+
+  IHash
+  (-hash [s]
+    (c* "make_integer (string_hash_code (string_get_utf8 (~{})))" s))
+
+  ISeqable
+  (-seq [string] (prim-seq string 0))
+
+  ICounted
+  ;; FIXME: cache the count!
+  (-count [s] (c* "make_integer (g_utf8_strlen (string_get_utf8 (~{}), -1))" s))
+
+  IIndexed
+  (-nth
+    ([coll n]
+       (c* "make_character (g_utf8_get_char (g_utf8_offset_to_pointer (string_get_utf8 (~{}), integer_get (~{}))))"
+           coll n))
+    ([coll n not-found]
+       (if (and (<= 0 n) (< n (count coll)))
+         (-nth coll n)
+         not-found)))
+
+  ILookup
+  (-lookup
+    ([string k]
+       (-nth string k))
+    ([string k not_found]
+       (-nth string k not_found)))
+
+  IReduce
+  (-reduce
+    ([string f]
+       (ci-reduce string f))
+    ([string f start]
+       (ci-reduce string f start)))
+
+  IPrintable
+  (-pr-seq [s opts]
+    (if (:readably opts)
+      (list "\"" (string-quote s) "\"")
+      (list s))))
+
+(declare str)
+
+(extend-type Keyword
+  IEquiv
+  (-equiv [k o]
+    (identical? k o))
+
+  IComparable
+  (-compare [s o]
+    (c* "make_integer (g_utf8_collate (keyword_get_utf8 (~{}), keyword_get_utf8 (~{})))" s o))
+
+  IFn
+  (-invoke [k coll]
+	   (when-not (nil? coll)
+	     (-lookup coll k nil)))
+
+  IHash
+  (-hash [k]
+    (c* "make_integer (string_hash_code (keyword_get_utf8 (~{})) + 2)" k))
+
+  IPrintable
+  (-pr-seq [k opts]
+    (list (str k))))
+
+(extend-type Symbol
+  IEquiv
+  (-equiv [s o]
+    (identical? s o))
+
+  IFn
+  (-invoke [k coll]
+	   (when-not (nil? coll)
+	     (-lookup coll k nil)))
+
+  IHash
+  (-hash [s]
+    (c* "make_integer (string_hash_code (symbol_get_utf8 (~{})) + 1)" s))
+
+  IComparable
+  (-compare [s o]
+    (c* "make_integer (g_utf8_collate (symbol_get_utf8 (~{}), symbol_get_utf8 (~{})))" s o))
+
+  IPrintable
+  (-pr-seq [s opts]
+    (list (str s))))
+
+; could use reify
 ;;; LazySeq ;;;
-(declare ArrayChunk lazy-seq-value)
+
+(declare lazy-seq-value)
 
 (deftype LazySeq [meta ^:mutable realized ^:mutable x ^:mutable __hash]
   IWithMeta
@@ -1605,6 +1669,8 @@ reduces them without incurring seq initialization"
         (set! (.-realized lazy-seq) true)
         (.-x lazy-seq)))))
 
+(declare ArrayChunk)
+
 (defprotocol IChunkBuffer
   (-add [_ o])
   (-chunk [_ o]))
@@ -1631,6 +1697,38 @@ reduces them without incurring seq initialization"
 
 (defn chunk-buffer [capacity]
   (ChunkBuffer. (make-array capacity) 0))
+
+(deftype ArrayChunk [arr off end]
+  ICounted
+  (-count [_] (- end off))
+
+  IIndexed
+  (-nth [coll i]
+    (aget arr (+ off i)))
+  (-nth [coll i not-found]
+    (if (and (>= i 0) (< i (- end off)))
+      (aget arr (+ off i))
+      not-found))
+
+  IChunk
+  (-drop-first [coll]
+    (if (== off end)
+      (error "-drop-first of empty chunk")
+      (ArrayChunk. arr (inc off) end)))
+
+  IReduce
+  (-reduce [coll f]
+    (if (< off end) (ci-reduce coll f (aget arr off) 1) 0))
+  (-reduce [coll f start]
+    (ci-reduce coll f start 0)))
+
+(defn array-chunk
+  ([arr]
+     (array-chunk arr 0 (alength arr)))
+  ([arr off]
+     (array-chunk arr off (alength arr)))
+  ([arr off end]
+     (ArrayChunk. arr off end)))
 
 (deftype ChunkedCons [chunk more meta ^:mutable __hash]
   IWithMeta
@@ -2189,78 +2287,17 @@ reduces them without incurring seq initialization"
      (assoc m k (apply update-in (get m k) ks f args))
      (assoc m k (apply f (get m k) args)))))
 
+(declare pr-sequential pr-seq list hash-coll cons inc equiv-sequential string-quote with-meta)
+
+(declare reduce hash-map nth deref associative?)
+
 (defn flatten-tail
   [coll]
   (if-let [n (next coll)]
     (cons (first coll) (flatten-tail n))
     (first coll)))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Strings ;;;;;;;;;;;;;;;;
-
-(declare split-string-seq-next-fn vector pr-str)
-
-(deftype SplitStringSeq [string len char first offset]
-  ASeq
-  ISeq
-  (-first [coll] first)
-  (-rest [coll]
-    (or (split-string-seq-next-fn string len char offset) ()))
-
-  INext
-  (-next [coll]
-    (split-string-seq-next-fn string len char offset))
-
-  ISequential
-  IEquiv
-  (-equiv [coll other] (equiv-sequential coll other))
-
-  ISeqable
-  (-seq [coll] coll)
-
-  ICollection
-  (-conj [coll o] (List. nil o coll (inc (count coll)) nil))
-
-  IPrintable
-  (-pr-seq [coll opts]
-    (pr-sequential pr-seq "(" " " ")" opts coll)))
-
-(defn- split-string-seq-next-fn [string len char offset]
-  (when-not (== offset len)
-    (let [next-offset (c* "make_integer (strchr_offset (string_get_utf8 (~{}) + integer_get (~{}), character_get (~{})))"
-			  string offset char)]
-      (if (>= next-offset 0)
-	(SplitStringSeq. string len char
-                         (c* "make_string_copy_free (g_strndup (string_get_utf8 (~{}) + integer_get (~{}), integer_get (~{})))"
-                             string offset next-offset)
-                         (c* "make_integer (g_utf8_next_char (string_get_utf8 (~{}) + integer_get (~{})) - string_get_utf8 (~{}))"
-                             string (+ offset next-offset) string))
-	(SplitStringSeq. string len char
-                         (c* "make_string_copy_free (g_strdup (string_get_utf8 (~{}) + integer_get (~{})))" string offset)
-                         len)))))
-
-(defn split-string-seq [string char]
-  (split-string-seq-next-fn string
-			    (c* "make_integer (strlen (string_get_utf8 (~{})))" string)
-			    char
-			    0))
-
-(defn- checked-substring [s start end]
-  (let [len (count s)
-	end (min end len)
-	start (min start end)]
-    (c* "make_string_copy_free (g_utf8_substring (string_get_utf8 (~{}), integer_get (~{}), integer_get (~{})))" s start end)))
-
-(defn subs
-  "Returns the substring of s beginning at start inclusive, and ending
-  at end (defaults to length of string), exclusive."
-  ([s start] (subs s start (count s)))
-  ([s start end] (checked-substring s start end)))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; String builders ;;;;;;;;;;;;;;;;
-
-(defprotocol IStringBuilder
-  (-append! [sb appendee])
-  (-to-string [sb]))
 
 (deftype StringBuilder [string size used]
   IStringBuilder
@@ -2289,646 +2326,6 @@ reduces them without incurring seq initialization"
   (let [len (c* "make_integer (strlen (string_get_utf8 (~{})))" string)]
     (StringBuilder. string len len)))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defn name
-  "Returns the name String of a string, symbol or keyword."
-  [x]
-  (cond
-   (string? x) x
-   (keyword? x) (let [ptr (c* "make_raw_pointer (g_utf8_strrchr (keyword_get_utf8 (~{}), -1, '/'))" x)]
-		  (if (c* "make_boolean (raw_pointer_get (~{}) == NULL)" ptr)
-		    (c* "make_string ((gchar*)keyword_get_utf8 (~{}))" x)
-		    (c* "make_string (g_utf8_next_char (raw_pointer_get (~{})))" ptr)))
-   (symbol? x) (let [ptr (c* "make_raw_pointer (g_utf8_strrchr (symbol_get_utf8 (~{}), -1, '/'))" x)]
-		 (if (c* "make_boolean (raw_pointer_get (~{}) == NULL)" ptr)
-		   (c* "make_string ((gchar*)symbol_get_utf8 (~{}))" x)
-		   (c* "make_string (g_utf8_next_char (raw_pointer_get (~{})))" ptr)))
-   :else (error (str "Doesn't support name: " x))))
-
-(defn namespace
-  "Returns the namespace String of a symbol or keyword, or nil if not present."
-  [x]
-  (cond
-   (keyword? x) (let [ptr (c* "make_raw_pointer (g_utf8_strrchr (keyword_get_utf8 (~{}), -1, '/'))" x)]
-		  (when (c* "make_boolean (raw_pointer_get (~{}) != NULL)" ptr)
-		    (c* "make_string_from_buf (keyword_get_utf8 (~{}), raw_pointer_get (~{}))" x ptr)))
-   (symbol? x) (let [ptr (c* "make_raw_pointer (g_utf8_strrchr (symbol_get_utf8 (~{}), -1, '/'))" x)]
-		 (when (c* "make_boolean (raw_pointer_get (~{}) != NULL)" ptr)
-		   (c* "make_string_from_buf (symbol_get_utf8 (~{}), raw_pointer_get (~{}))" x ptr)))
-   :else (error (str "Doesn't support namespace: " x))))
-
-(defn zipmap
-  "Returns a map with the keys mapped to the corresponding vals."
-  [keys vals]
-    (loop [map {}
-           ks (seq keys)
-           vs (seq vals)]
-      (if (and ks vs)
-        (recur (assoc map (first ks) (first vs))
-               (next ks)
-               (next vs))
-        map)))
-
-(defn max-key
-  "Returns the x for which (k x), a number, is greatest."
-  ([k x] x)
-  ([k x y] (if (> (k x) (k y)) x y))
-  ([k x y & more]
-   (reduce #(max-key k %1 %2) (max-key k x y) more)))
-
-(defn min-key
-  "Returns the x for which (k x), a number, is least."
-  ([k x] x)
-  ([k x y] (if (< (k x) (k y)) x y))
-  ([k x y & more]
-     (reduce #(min-key k %1 %2) (min-key k x y) more)))
-
-(defn partition-all
-  "Returns a lazy sequence of lists like partition, but may include
-  partitions with fewer than n items at the end."
-  ([n coll]
-     (partition-all n n coll))
-  ([n step coll]
-     (lazy-seq
-      (when-let [s (seq coll)]
-        (cons (take n s) (partition-all n step (drop step s)))))))
-
-(defn take-while
-  "Returns a lazy sequence of successive items from coll while
-  (pred item) returns true. pred must be free of side-effects."
-  [pred coll]
-  (lazy-seq
-   (when-let [s (seq coll)]
-     (when (pred (first s))
-       (cons (first s) (take-while pred (rest s)))))))
-
-(defn mk-bound-fn
-  [sc test key]
-  (fn [e]
-    (let [comp (-comparator sc)]
-      (test (comp (-entry-key sc e) key) 0))))
-
-(defn subseq
-  "sc must be a sorted collection, test(s) one of <, <=, > or
-  >=. Returns a seq of those entries with keys ek for
-  which (test (.. sc comparator (compare ek key)) 0) is true"
-  ([sc test key]
-     (let [include (mk-bound-fn sc test key)]
-       (if (#{> >=} test)
-         (when-let [[e :as s] (-sorted-seq-from sc key true)]
-           (if (include e) s (next s)))
-         (take-while include (-sorted-seq sc true)))))
-  ([sc start-test start-key end-test end-key]
-     (when-let [[e :as s] (-sorted-seq-from sc start-key true)]
-       (take-while (mk-bound-fn sc end-test end-key)
-                   (if ((mk-bound-fn sc start-test start-key) e) s (next s))))))
-
-(deftype Range [meta start end step ^:mutable __hash]
-  IWithMeta
-  (-with-meta [rng meta] (Range. meta start end step __hash))
-
-  IMeta
-  (-meta [rng] meta)
-
-  ISeqable
-  (-seq [rng]
-    (if (pos? step)
-      (when (< start end)
-        rng)
-      (when (> start end)
-        rng)))
-
-  ISeq
-  (-first [rng] start)
-  (-rest [rng]
-    (if-not (nil? (-seq rng))
-      (Range. meta (+ start step) end step nil)
-      ()))
-
-  INext
-  (-next [rng]
-    (if (pos? step)
-      (when (< (+ start step) end)
-        (Range. meta (+ start step) end step nil))
-      (when (> (+ start step) end)
-        (Range. meta (+ start step) end step nil))))
-
-  ICollection
-  (-conj [rng o] (cons o rng))
-
-  IEmptyableCollection
-  (-empty [rng] (with-meta cljc.core.List/EMPTY meta))
-
-  ISequential
-  IEquiv
-  (-equiv [rng other] (equiv-sequential rng other))
-
-  IHash
-  (-hash [rng] (caching-hash rng hash-coll __hash))
-
-  ICounted
-  (-count [rng]
-    (if-not (-seq rng)
-      0
-      (c* "make_integer ((long)ceil (float_get (~{})))" (/ (- end start) step))))
-
-  IIndexed
-  (-nth [rng n]
-    (if (< n (-count rng))
-      (+ start (* n step))
-      (if (and (> start end) (zero? step))
-        start
-        (throw (Exception. "Index out of bounds")))))
-  (-nth [rng n not-found]
-    (if (< n (-count rng))
-      (+ start (* n step))
-      (if (and (> start end) (zero? step))
-        start
-        not-found)))
-
-  IReduce
-  (-reduce [rng f] (ci-reduce rng f))
-  (-reduce [rng f s] (ci-reduce rng f s)))
-
-(defn range
-  "Returns a lazy seq of nums from start (inclusive) to end
-   (exclusive), by step, where start defaults to 0, step to 1,
-   and end to infinity."
-  ([] (range 0 (c* "make_integer (LONG_MAX)") 1))
-  ([end] (range 0 end 1))
-  ([start end] (range start end 1))
-  ([start end step] (Range. nil start end step nil)))
-
-(defn take-nth
-  "Returns a lazy seq of every nth item in coll."
-  [n coll]
-  (lazy-seq
-   (when-let [s (seq coll)]
-     (cons (first s) (take-nth n (drop n s))))))
-
-(defn split-with
-  "Returns a vector of [(take-while pred coll) (drop-while pred coll)]"
-  [pred coll]
-  [(take-while pred coll) (drop-while pred coll)])
-
-(defn partition-by
-  "Applies f to each value in coll, splitting it each time f returns
-   a new value.  Returns a lazy seq of partitions."
-  [f coll]
-  (lazy-seq
-   (when-let [s (seq coll)]
-     (let [fst (first s)
-           fv (f fst)
-           run (cons fst (take-while #(= fv (f %)) (next s)))]
-       (cons run (partition-by f (seq (drop (count run) s))))))))
-
-(defn frequencies
-  "Returns a map from distinct items in coll to the number of times
-  they appear."
-  [coll]
-  (persistent!
-   (reduce (fn [counts x]
-             (assoc! counts x (inc (get counts x 0))))
-           (transient {}) coll)))
-
-(defn reductions
-  "Returns a lazy seq of the intermediate values of the reduction (as
-  per reduce) of coll by f, starting with init."
-  ([f coll]
-     (lazy-seq
-      (if-let [s (seq coll)]
-        (reductions f (first s) (rest s))
-        (list (f)))))
-  ([f init coll]
-     (cons init
-           (lazy-seq
-            (when-let [s (seq coll)]
-              (reductions f (f init (first s)) (rest s)))))))
-
-(defn juxt
-  "Takes a set of functions and returns a fn that is the juxtaposition
-  of those fns.  The returned fn takes a variable number of args, and
-  returns a vector containing the result of applying each fn to the
-  args (left-to-right).
-  ((juxt a b c) x) => [(a x) (b x) (c x)]"
-  ([f]
-     (fn
-       ([] (vector (f)))
-       ([x] (vector (f x)))
-       ([x y] (vector (f x y)))
-       ([x y z] (vector (f x y z)))
-       ([x y z & args] (vector (apply f x y z args)))))
-  ([f g]
-     (fn
-       ([] (vector (f) (g)))
-       ([x] (vector (f x) (g x)))
-       ([x y] (vector (f x y) (g x y)))
-       ([x y z] (vector (f x y z) (g x y z)))
-       ([x y z & args] (vector (apply f x y z args) (apply g x y z args)))))
-  ([f g h]
-     (fn
-       ([] (vector (f) (g) (h)))
-       ([x] (vector (f x) (g x) (h x)))
-       ([x y] (vector (f x y) (g x y) (h x y)))
-       ([x y z] (vector (f x y z) (g x y z) (h x y z)))
-       ([x y z & args] (vector (apply f x y z args) (apply g x y z args) (apply h x y z args)))))
-  ([f g h & fs]
-     (let [fs (list* f g h fs)]
-       (fn
-         ([] (reduce #(conj %1 (%2)) [] fs))
-         ([x] (reduce #(conj %1 (%2 x)) [] fs))
-         ([x y] (reduce #(conj %1 (%2 x y)) [] fs))
-         ([x y z] (reduce #(conj %1 (%2 x y z)) [] fs))
-         ([x y z & args] (reduce #(conj %1 (apply %2 x y z args)) [] fs))))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Printing ;;;;;;;;;;;;;;;;
-
-(defn pr-sequential [print-one begin sep end opts coll]
-  (concat (list begin)
-          (flatten1
-            (interpose (list sep) (map #(print-one % opts) coll)))
-          (list end)))
-
-(defn string-print [x]
-  (*print-fn* x)
-  nil)
-
-(defn str
-  "With no args, returns the empty string. With one arg x, returns
-  x.toString().  (str nil) returns the empty string. With more than
-  one arg, returns the concatenation of the str values of the args."
-  ([] "")
-  ([x] (cond
-        (string? x) x
-        (symbol? x) (c* "make_string ((gchar*)symbol_get_utf8 (~{}))" x)
-        (keyword? x) (str ":" (c* "make_string ((gchar*)keyword_get_utf8 (~{}))" x))
-        (char? x) (c* "make_string_from_unichar (character_get (~{}))" x)
-        (nil? x) ""
-        (satisfies? IStringBuilder x) (-to-string x)
-        :else (pr-str x)))
-  ([& xs]
-     (loop [xs (seq xs)
-            rstrings ()
-            bytes 0]
-       (if xs
-         (let [s (str (first xs))
-               b (c* "make_integer (strlen (string_get_utf8 (~{})))" s)]
-           (recur (next xs)
-                  (cons [s b] rstrings)
-                  (+ bytes b)))
-         (let [sb (c* "make_string_with_size (integer_get (~{}))" bytes)]
-           (loop [ss (reverse rstrings)
-                  i 0]
-             (if ss
-               (let [[s b] (first ss)]
-                 (c* "memcpy (string_get_utf8 (~{}) + integer_get (~{}), string_get_utf8 (~{}), integer_get (~{}))" sb i s b)
-                 (recur (next ss) (+ i b)))
-               (do
-                 (assert (= i bytes))
-                 (c* "string_get_utf8 (~{}) [integer_get (~{})] = '\\0'" sb i)
-                 sb))))))))
-
-(defn flush [] ;stub
-  nil)
-
-(defn- pr-seq [obj opts]
-  ;; FIXME: print meta
-  (if (satisfies? IPrintable obj)
-    (-pr-seq obj opts)
-    (list "#<" (str obj) ">")))
-
-(defn- pr-sb [objs opts]
-  (loop [sb (sb-make "")
-         objs (seq objs)
-         need-sep false]
-    (if objs
-      (recur (loop [sb (if need-sep (-append! sb " ") sb)
-                    strings (seq (pr-seq (first objs) opts))]
-               (if strings
-                 (recur (-append! sb (first strings))
-                        (next strings))
-                 sb))
-             (next objs)
-             true)
-      sb)))
-
-(defn pr-str-with-opts
-  "Prints a sequence of objects to a string, observing all the
-  options given in opts"
-  [objs opts]
-  (str (pr-sb objs opts)))
-
-(defn prn-str-with-opts
-  "Same as pr-str-with-opts followed by (newline)"
-  [objs opts]
-  (let [sb (pr-sb objs opts)]
-    (str (-append! sb "\n"))))
-
-(defn pr-with-opts
-  "Prints a sequence of objects using string-print, observing all
-  the options given in opts"
-  [objs opts]
-  (loop [objs (seq objs)
-         need-sep false]
-    (when objs
-      (when need-sep
-        (string-print " "))
-      (doseq [string (pr-seq (first objs) opts)]
-        (string-print string))
-      (recur (next objs) true))))
-
-(defn newline [opts]
-  (string-print "\n")
-  (when (get opts :flush-on-newline)
-    (flush)))
-
-(def *flush-on-newline* true)
-(def *print-readably* true)
-(def *print-meta* false)
-(def *print-dup* false)
-
-(defn- pr-opts []
-  {:flush-on-newline *flush-on-newline*
-   :readably *print-readably*
-   :meta *print-meta*
-   :dup *print-dup*})
-
-(defn pr-str
-  "pr to a string, returning it. Fundamental entrypoint to IPrintable."
-  [& objs]
-  (pr-str-with-opts objs (pr-opts)))
-
-(defn prn-str
-  "Same as pr-str followed by (newline)"
-  [& objs]
-  (prn-str-with-opts objs (pr-opts)))
-
-(defn pr
-  "Prints the object(s) using string-print.  Prints the
-  object(s), separated by spaces if there is more than one.
-  By default, pr and prn print in a way that objects can be
-  read by the reader"
-  [& objs]
-  (pr-with-opts objs (pr-opts)))
-
-(def ^{:doc
-  "Prints the object(s) using string-print.
-  print and println produce output for human consumption."}
-  print
-  (fn cljs-core-print [& objs]
-    (pr-with-opts objs (assoc (pr-opts) :readably false))))
-
-(defn print-str
-  "print to a string, returning it"
-  [& objs]
-  (pr-str-with-opts objs (assoc (pr-opts) :readably false)))
-
-(defn println
-  "Same as print followed by (newline)"
-  [& objs]
-  (pr-with-opts objs (assoc (pr-opts) :readably false))
-  (newline (pr-opts)))
-
-(defn println-str
-  "println to a string, returning it"
-  [& objs]
-  (prn-str-with-opts objs (assoc (pr-opts) :readably false)))
-
-(defn prn
-  "Same as pr followed by (newline)."
-  [& objs]
-  (pr-with-opts objs (pr-opts))
-  (newline (pr-opts)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Reference Types ;;;;;;;;;;;;;;;;
-
-(deftype Atom [^:mutable state ^:mutable meta ^:mutable validator ^:mutable watches]
-  IEquiv
-  (-equiv [o other] (identical? o other))
-
-  IDeref
-  (-deref [_] state)
-
-  IMeta
-  (-meta [_] meta)
-
-  IPrintable
-  (-pr-seq [a opts]
-    (concat  ["#<Atom: "] (-pr-seq state opts) [">"]))
-
-  IWatchable
-  (-notify-watches [this oldval newval]
-    (doseq [[key f] watches]
-      (f key this oldval newval)))
-  (-add-watch [this key f]
-    (set! (.-watches this) (assoc watches key f)))
-  (-remove-watch [this key]
-    (set! (.-watches this) (dissoc watches key)))
-
-  IHash
-  (-hash [this] (c* "make_integer (identity_hash_code (~{}))" this)))
-
-(defn atom
-  "Creates and returns an Atom with an initial value of x and zero or
-  more options (in any order):
-
-  :meta metadata-map
-
-  :validator validate-fn
-
-  If metadata-map is supplied, it will be come the metadata on the
-  atom. validate-fn must be nil or a side-effect-free fn of one
-  argument, which will be passed the intended new state on any state
-  change. If the new state is unacceptable, the validate-fn should
-  return false or throw an Error.  If either of these error conditions
-  occur, then the value of the atom will not change."
-  ([x] (Atom. x nil nil nil))
-  ([x & {:keys [meta validator]}] (Atom. x meta validator nil)))
-
-(defn reset!
-  "Sets the value of atom to newval without regard for the
-  current value. Returns newval."
-  [a new-value]
-  (when-let [validate (.-validator a)]
-    (assert (validate new-value) "Validator rejected reference state"))
-  (let [old-value (.-state a)]
-    (set! (.-state a) new-value)
-    (-notify-watches a old-value new-value))
-  new-value)
-
-(defn swap!
-  "Atomically swaps the value of atom to be:
-  (apply f current-value-of-atom args). Note that f may be called
-  multiple times, and thus should be free of side effects.  Returns
-  the value that was swapped in."
-  ([a f]
-     (reset! a (f (.-state a))))
-  ([a f x]
-     (reset! a (f (.-state a) x)))
-  ([a f x y]
-     (reset! a (f (.-state a) x y)))
-  ([a f x y z]
-     (reset! a (f (.-state a) x y z)))
-  ([a f x y z & more]
-     (reset! a (apply f (.-state a) x y z more))))
-
-(defn compare-and-set!
-  "Atomically sets the value of atom to newval if and only if the
-  current value of the atom is identical to oldval. Returns true if
-  set happened, else false."
-  [a oldval newval]
-  (if (= (.-state a) oldval)
-    (do (reset! a newval) true)
-    false))
-
-;; generic to all refs
-;; (but currently hard-coded to atom!)
-
-(defn deref
-  [o]
-  (-deref o))
-
-(defn set-validator!
-  "Sets the validator-fn for an atom. validator-fn must be nil or a
-  side-effect-free fn of one argument, which will be passed the intended
-  new state on any state change. If the new state is unacceptable, the
-  validator-fn should return false or throw an Error. If the current state
-  is not acceptable to the new validator, an Error will be thrown and the
-  validator will not be changed."
-  [iref val]
-  (set! (.-validator iref) val))
-
-(defn get-validator
-  "Gets the validator-fn for a var/ref/agent/atom."
-  [iref]
-  (.-validator iref))
-
-(defn alter-meta!
-  "Atomically sets the metadata for a namespace/var/ref/agent/atom to be:
-
-  (apply f its-current-meta args)
-
-  f must be free of side-effects"
-  [iref f & args]
-  (set! (.-meta iref) (apply f (.-meta iref) args)))
-
-(defn reset-meta!
-  "Atomically resets the metadata for an atom"
-  [iref m]
-  (set! (.-meta iref) m))
-
-(defn add-watch
-  "Alpha - subject to change.
-
-  Adds a watch function to an atom reference. The watch fn must be a
-  fn of 4 args: a key, the reference, its old-state, its
-  new-state. Whenever the reference's state might have been changed,
-  any registered watches will have their functions called. The watch
-  fn will be called synchronously. Note that an atom's state
-  may have changed again prior to the fn call, so use old/new-state
-  rather than derefing the reference. Keys must be unique per
-  reference, and can be used to remove the watch with remove-watch,
-  but are otherwise considered opaque by the watch mechanism.  Bear in
-  mind that regardless of the result or action of the watch fns the
-  atom's value will change.  Example:
-
-      (def a (atom 0))
-      (add-watch a :inc (fn [k r o n] (assert (== 0 n))))
-      (swap! a inc)
-      ;; Assertion Error
-      (deref a)
-      ;=> 1"
-  [iref key f]
-  (-add-watch iref key f))
-
-(defn remove-watch
-  "Alpha - subject to change.
-
-  Removes a watch (set by add-watch) from a reference"
-  [iref key]
-  (-remove-watch iref key))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Delay ;;;;;;;;;;;;;;;;;;;;
-
-(deftype Delay [state f]
-  IDeref
-  (-deref [_]
-    (:value (swap! state (fn [{:keys [done] :as curr-state}]
-                           (if done
-                             curr-state,
-                             {:done true :value (f)})))))
-
-  IPending
-  (-realized? [d]
-    (:done @state)))
-
-(defn ^boolean delay?
-  "returns true if x is a Delay created with delay"
-  [x] (instance? cljc.core/Delay x))
-
-(defn force
-  "If x is a Delay, returns the (possibly cached) value of its expression, else returns x"
-  [x]
-  (if (delay? x)
-    (deref x)
-    x))
-
-(defn ^boolean realized?
-  "Returns true if a value has been produced for a promise, delay, future or lazy sequence."
-  [d]
-  (-realized? d))
-
-(defn memoize
-  "Returns a memoized version of a referentially transparent function. The
-  memoized version of the function keeps a cache of the mapping from arguments
-  to results and, when calls with the same arguments are repeated often, has
-  higher performance at the expense of higher memory use."
-  [f]
-  (let [mem (atom {})]
-    (fn [& args]
-      (if-let [v (get @mem args)]
-        v
-        (let [ret (apply f args)]
-          (swap! mem assoc args ret)
-          ret)))))
-
-(defn trampoline
-  "trampoline can be used to convert algorithms requiring mutual
-  recursion without stack consumption. Calls f with supplied args, if
-  any. If f returns a fn, calls that fn with no arguments, and
-  continues to repeat, until the return value is not a fn, then
-  returns that non-fn value. Note that if you want to return a fn as a
-  final value, you must wrap it in some data structure and unpack it
-  after trampoline returns."
-  ([f]
-     (let [ret (f)]
-       (if (fn? ret)
-         (recur ret)
-         ret)))
-  ([f & args]
-     (trampoline #(apply f args))))
-
-(defn rand
-  "Returns a random floating point number between 0 (inclusive) and n (default 1) (exclusive)."
-  ([]  (c* "make_float (g_random_double_range (0.0, 1.0))"))
-  ([n] (c* "make_float (g_random_double_range (0.0, float_get (~{})))" (number-as-float n))))
-
-(defn rand-int
-  "Returns a random integer between 0 (inclusive) and n (exclusive)."
-  [n] (c* "make_integer (g_random_int_range (0, integer_get (~{})))" (fix n)))
-
-(defn group-by
-  "Returns a map of the elements of coll keyed by the result of
-  f on each element. The value at each key will be a vector of the
-  corresponding elements, in the order they appeared in coll."
-  [f coll]
-  (reduce
-   (fn [ret x]
-     (let [k (f x)]
-       (assoc ret k (conj (get ret k []) x))))
-   {} coll))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Strings ;;;;;;;;;;;;;;;;
 
 ;; FIXME: horribly inefficient as well as incomplete
@@ -2946,50 +2343,11 @@ reduces them without incurring seq initialization"
                (next cs)))
       (str sb))))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; I/O ;;;;;;;;;;;;;;;;
-
-(defn slurp [filename]
-  (c* "make_string_copy_free (slurp_file (string_get_utf8 (~{})))" filename))
-
-(deftype ArrayChunk [arr off end]
-  ICounted
-  (-count [_] (- end off))
-
-  IIndexed
-  (-nth [coll i]
-    (aget arr (+ off i)))
-  (-nth [coll i not-found]
-    (if (and (>= i 0) (< i (- end off)))
-      (aget arr (+ off i))
-      not-found))
-
-  IChunk
-  (-drop-first [coll]
-    (if (== off end)
-      (error "-drop-first of empty chunk")
-      (ArrayChunk. arr (inc off) end)))
-
-  IReduce
-  (-reduce [coll f]
-    (if (< off end) (ci-reduce coll f (aget arr off) 1) 0))
-  (-reduce [coll f start]
-    (ci-reduce coll f start 0)))
-
-(defn array-chunk
-  ([arr]
-     (array-chunk arr 0 (alength arr)))
-  ([arr off]
-     (array-chunk arr off (alength arr)))
-  ([arr off end]
-     (ArrayChunk. arr off end)))
-
 ;;; PersistentVector
 (deftype VectorNode [edit arr])
 
-(declare pv-fresh-node pv-aget pv-aset tail-off new-path push-tail array-for
-         do-assoc pop-tail chunked-seq tv-ensure-editable tv-pop-tail
-         tv-push-tail editable-array-for TransientVector tv-editable-root
-         tv-editable-tail)
+(declare tv-editable-root tv-editable-tail TransientVector tail-off do-assoc
+         pv-fresh-node pv-aget pv-aset new-path push-tail pop-tail chunked-seq array-for)
 
 (deftype PersistentVector [meta cnt shift root tail ^:mutable __hash]
   IWithMeta
@@ -3138,11 +2496,6 @@ reduces them without incurring seq initialization"
   ;;     ())))
   )
 
-;; IComparable
-(extend-protocol IComparable
-  PersistentVector
-  (-compare [x y] (compare-indexed x y)))
-
 (defn- pv-fresh-node [edit]
   (VectorNode. edit (make-array 32)))
 
@@ -3223,9 +2576,19 @@ reduces them without incurring seq initialization"
             (pv-aset ret subidx nil)
             ret))))
 
+(declare tv-editable-root tv-editable-tail TransientVector deref
+         pr-sequential pr-seq)
+
+(declare chunked-seq)
+
 (set! cljc.core.PersistentVector/EMPTY_NODE (pv-fresh-node nil))
 (set! cljc.core.PersistentVector/EMPTY
       (PersistentVector. nil 0 5 cljc.core.PersistentVector/EMPTY_NODE (make-array 0) 0))
+
+(defn vec [coll]
+  (persistent! (reduce conj! (-as-transient []) coll)))
+
+(defn vector [& args] (vec args))
 
 (deftype ChunkedSeq [vec node i off meta]
   IWithMeta
@@ -3390,6 +2753,8 @@ reduces them without incurring seq initialization"
      (if (<= start end)
        (Subvec. nil v start end nil)
        (error "Invalid subvec range"))))
+
+(declare tv-ensure-editable tv-pop-tail tv-push-tail editable-array-for)
 
 (deftype TransientVector [^:mutable cnt
                           ^:mutable shift
@@ -3574,10 +2939,7 @@ reduces them without incurring seq initialization"
     (error
      (str "No item " i " in transient vector of length " (.-cnt tv)))))
 
-(defn vec [coll]
-  (persistent! (reduce conj! (-as-transient []) coll)))
-
-(defn vector [& args] (vec args))
+;;; FIXME: PersistentQueue ;;;
 
 (deftype NeverEquiv []
   IEquiv
@@ -3837,38 +3199,9 @@ reduces them without incurring seq initialization"
       (recur (assoc! out (aget arr i) (aget arr (inc i))) (+ i 2))
       out)))
 
-;;;PersistentHashMap
-(defprotocol INode
-  (-inode-assoc [inode shift hash key val added-leaf?])
-  (-inode-without [inode shift hash key])
-  (-inode-lookup [inode shift hash key not-found])
-  (-inode-find [inode shift hash key not-found])
-  (-inode-seq [inode])
-  (-ensure-editable [inode e])
-  (-inode-assoc! [inode edit shift hash key val added-leaf?])
-  (-inode-without! [inode edit shift hash key removed-leaf?]))
+;;; PersistentHashMap
 
-(defprotocol IBitmapIndexedNode
-  (-edit-and-remove-pair [inode e bit i]))
-
-(defprotocol IHashCollisionNode
-  (-ensure-editable-array [inode e count array]))
-
-(defprotocol ITransientHashMap
-  (-without! [tcoll k]))
-
-(deftype EditSentinel [])
-
-(declare create-inode-seq create-array-node-seq reset! create-node atom deref)
-
-(defn ^boolean key-test [key other]
-  (if ^boolean (has-type? key String)
-      ;; Note the below test is an optimisation used in java and JS
-      ;; impls relying on all strings being interned constats, and thus
-      ;; there is only one string created with the same char sequence
-      ;;(identical? key other)
-      (= key other)
-    (= key other)))
+(declare create-inode-seq create-array-node-seq create-node)
 
 (defn- clone-and-set
   ([arr i a]
@@ -3885,6 +3218,22 @@ reduces them without incurring seq initialization"
     (array-copy arr (* 2 (inc i)) new-arr (* 2 i) (- (alength new-arr) (* 2 i)))
     new-arr))
 
+(defn- bitmap-indexed-node-index [bitmap bit]
+  (bit-count (bit-and bitmap (dec bit))))
+
+(defprotocol IBitmapIndexedNode
+  (-edit-and-remove-pair [inode e bit i]))
+
+(defprotocol INode
+  (-inode-assoc [inode shift hash key val added-leaf?])
+  (-inode-without [inode shift hash key])
+  (-inode-lookup [inode shift hash key not-found])
+  (-inode-find [inode shift hash key not-found])
+  (-inode-seq [inode])
+  (-ensure-editable [inode e])
+  (-inode-assoc! [inode edit shift hash key val added-leaf?])
+  (-inode-without! [inode edit shift hash key removed-leaf?]))
+
 (defn- edit-and-set
   ([inode edit i a]
      (let [editable (-ensure-editable inode edit)]
@@ -3896,8 +3245,14 @@ reduces them without incurring seq initialization"
        (aset (.-arr editable) j b)
        editable)))
 
-(defn- bitmap-indexed-node-index [bitmap bit]
-  (bit-count (bit-and bitmap (dec bit))))
+(defn ^boolean key-test [key other]
+  (if ^boolean (has-type? key String)
+      ;; Note the below test is an optimisation used in java and JS
+      ;; impls relying on all strings being interned constats, and thus
+      ;; there is only one string created with the same char sequence
+      ;;(identical? key other)
+      (= key other)
+    (= key other)))
 
 (declare ArrayNode)
 
@@ -4202,6 +3557,9 @@ reduces them without incurring seq initialization"
           (recur (+ i 2)))
         -1))))
 
+(defprotocol IHashCollisionNode
+  (-ensure-editable-array [inode e count array]))
+
 (deftype HashCollisionNode [edit
                             ^:mutable collision-hash
                             ^:mutable cnt
@@ -4445,6 +3803,8 @@ reduces them without incurring seq initialization"
                (recur (inc j))))))
        (ArrayNodeSeq. meta nodes i s nil))))
 
+(deftype EditSentinel [])
+
 (declare TransientHashMap)
 
 (deftype PersistentHashMap [meta cnt root ^boolean has-nil? nil-val ^:mutable __hash]
@@ -4542,6 +3902,9 @@ reduces them without incurring seq initialization"
 
 (set! cljc.core.PersistentHashMap/EMPTY (PersistentHashMap. nil 0 nil false nil 0))
 
+(defprotocol ITransientHashMap
+  (-without! [tcoll k]))
+
 (deftype TransientHashMap [^:mutable ^boolean edit
                            ^:mutable root
                            ^:mutable count
@@ -4638,6 +4001,8 @@ reduces them without incurring seq initialization"
 
   ITransientMap
   (-dissoc! [tcoll key] (-without! tcoll key)))
+
+(declare create-inode-seq create-array-node-seq reset! create-node atom deref)
 
 ;;; PersistentTreeMap
 
@@ -5571,26 +4936,607 @@ reduces them without incurring seq initialization"
                  xs seen)))]
     (step coll #{})))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; main function support ;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defn name
+  "Returns the name String of a string, symbol or keyword."
+  [x]
+  (cond
+   (string? x) x
+   (keyword? x) (let [ptr (c* "make_raw_pointer (g_utf8_strrchr (keyword_get_utf8 (~{}), -1, '/'))" x)]
+		  (if (c* "make_boolean (raw_pointer_get (~{}) == NULL)" ptr)
+		    (c* "make_string ((gchar*)keyword_get_utf8 (~{}))" x)
+		    (c* "make_string (g_utf8_next_char (raw_pointer_get (~{})))" ptr)))
+   (symbol? x) (let [ptr (c* "make_raw_pointer (g_utf8_strrchr (symbol_get_utf8 (~{}), -1, '/'))" x)]
+		 (if (c* "make_boolean (raw_pointer_get (~{}) == NULL)" ptr)
+		   (c* "make_string ((gchar*)symbol_get_utf8 (~{}))" x)
+		   (c* "make_string (g_utf8_next_char (raw_pointer_get (~{})))" ptr)))
+   :else (error (str "Doesn't support name: " x))))
 
-(defn vector-from-c-string-array [argc argv]
-  (loop [acc []
-         i 1]
-    (if (< i argc)
-      (let [arg (c* "make_string (RAW_POINTER_GET (~{}, gchar**) [integer_get (~{})])" argv i)]
-        (recur (conj acc arg)
-               (inc i)))
-      acc)))
+(defn namespace
+  "Returns the namespace String of a symbol or keyword, or nil if not present."
+  [x]
+  (cond
+   (keyword? x) (let [ptr (c* "make_raw_pointer (g_utf8_strrchr (keyword_get_utf8 (~{}), -1, '/'))" x)]
+		  (when (c* "make_boolean (raw_pointer_get (~{}) != NULL)" ptr)
+		    (c* "make_string_from_buf (keyword_get_utf8 (~{}), raw_pointer_get (~{}))" x ptr)))
+   (symbol? x) (let [ptr (c* "make_raw_pointer (g_utf8_strrchr (symbol_get_utf8 (~{}), -1, '/'))" x)]
+		 (when (c* "make_boolean (raw_pointer_get (~{}) != NULL)" ptr)
+		   (c* "make_string_from_buf (symbol_get_utf8 (~{}), raw_pointer_get (~{}))" x ptr)))
+   :else (error (str "Doesn't support namespace: " x))))
 
-(defn main-exit-value [value]
-  (cond (integer? value)
-        value
-        (nil? value)
-        0
-        :else
-        1))
+(defn zipmap
+  "Returns a map with the keys mapped to the corresponding vals."
+  [keys vals]
+    (loop [map {}
+           ks (seq keys)
+           vs (seq vals)]
+      (if (and ks vs)
+        (recur (assoc map (first ks) (first vs))
+               (next ks)
+               (next vs))
+        map)))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; multimethods ;;;;;;;;;;;;;;;;
+(defn max-key
+  "Returns the x for which (k x), a number, is greatest."
+  ([k x] x)
+  ([k x y] (if (> (k x) (k y)) x y))
+  ([k x y & more]
+   (reduce #(max-key k %1 %2) (max-key k x y) more)))
+
+(defn min-key
+  "Returns the x for which (k x), a number, is least."
+  ([k x] x)
+  ([k x y] (if (< (k x) (k y)) x y))
+  ([k x y & more]
+     (reduce #(min-key k %1 %2) (min-key k x y) more)))
+
+(defn partition-all
+  "Returns a lazy sequence of lists like partition, but may include
+  partitions with fewer than n items at the end."
+  ([n coll]
+     (partition-all n n coll))
+  ([n step coll]
+     (lazy-seq
+      (when-let [s (seq coll)]
+        (cons (take n s) (partition-all n step (drop step s)))))))
+
+(defn take-while
+  "Returns a lazy sequence of successive items from coll while
+  (pred item) returns true. pred must be free of side-effects."
+  [pred coll]
+  (lazy-seq
+   (when-let [s (seq coll)]
+     (when (pred (first s))
+       (cons (first s) (take-while pred (rest s)))))))
+
+(defn mk-bound-fn
+  [sc test key]
+  (fn [e]
+    (let [comp (-comparator sc)]
+      (test (comp (-entry-key sc e) key) 0))))
+
+(defn subseq
+  "sc must be a sorted collection, test(s) one of <, <=, > or
+  >=. Returns a seq of those entries with keys ek for
+  which (test (.. sc comparator (compare ek key)) 0) is true"
+  ([sc test key]
+     (let [include (mk-bound-fn sc test key)]
+       (if (#{> >=} test)
+         (when-let [[e :as s] (-sorted-seq-from sc key true)]
+           (if (include e) s (next s)))
+         (take-while include (-sorted-seq sc true)))))
+  ([sc start-test start-key end-test end-key]
+     (when-let [[e :as s] (-sorted-seq-from sc start-key true)]
+       (take-while (mk-bound-fn sc end-test end-key)
+                   (if ((mk-bound-fn sc start-test start-key) e) s (next s))))))
+
+(deftype Range [meta start end step ^:mutable __hash]
+  IWithMeta
+  (-with-meta [rng meta] (Range. meta start end step __hash))
+
+  IMeta
+  (-meta [rng] meta)
+
+  ISeqable
+  (-seq [rng]
+    (if (pos? step)
+      (when (< start end)
+        rng)
+      (when (> start end)
+        rng)))
+
+  ISeq
+  (-first [rng] start)
+  (-rest [rng]
+    (if-not (nil? (-seq rng))
+      (Range. meta (+ start step) end step nil)
+      ()))
+
+  INext
+  (-next [rng]
+    (if (pos? step)
+      (when (< (+ start step) end)
+        (Range. meta (+ start step) end step nil))
+      (when (> (+ start step) end)
+        (Range. meta (+ start step) end step nil))))
+
+  ICollection
+  (-conj [rng o] (cons o rng))
+
+  IEmptyableCollection
+  (-empty [rng] (with-meta cljc.core.List/EMPTY meta))
+
+  ISequential
+  IEquiv
+  (-equiv [rng other] (equiv-sequential rng other))
+
+  IHash
+  (-hash [rng] (caching-hash rng hash-coll __hash))
+
+  ICounted
+  (-count [rng]
+    (if-not (-seq rng)
+      0
+      (c* "make_integer ((long)ceil (float_get (~{})))" (/ (- end start) step))))
+
+  IIndexed
+  (-nth [rng n]
+    (if (< n (-count rng))
+      (+ start (* n step))
+      (if (and (> start end) (zero? step))
+        start
+        (throw (Exception. "Index out of bounds")))))
+  (-nth [rng n not-found]
+    (if (< n (-count rng))
+      (+ start (* n step))
+      (if (and (> start end) (zero? step))
+        start
+        not-found)))
+
+  IReduce
+  (-reduce [rng f] (ci-reduce rng f))
+  (-reduce [rng f s] (ci-reduce rng f s)))
+
+(defn range
+  "Returns a lazy seq of nums from start (inclusive) to end
+   (exclusive), by step, where start defaults to 0, step to 1,
+   and end to infinity."
+  ([] (range 0 (c* "make_integer (LONG_MAX)") 1))
+  ([end] (range 0 end 1))
+  ([start end] (range start end 1))
+  ([start end step] (Range. nil start end step nil)))
+
+(defn take-nth
+  "Returns a lazy seq of every nth item in coll."
+  [n coll]
+  (lazy-seq
+   (when-let [s (seq coll)]
+     (cons (first s) (take-nth n (drop n s))))))
+
+(defn split-with
+  "Returns a vector of [(take-while pred coll) (drop-while pred coll)]"
+  [pred coll]
+  [(take-while pred coll) (drop-while pred coll)])
+
+(defn partition-by
+  "Applies f to each value in coll, splitting it each time f returns
+   a new value.  Returns a lazy seq of partitions."
+  [f coll]
+  (lazy-seq
+   (when-let [s (seq coll)]
+     (let [fst (first s)
+           fv (f fst)
+           run (cons fst (take-while #(= fv (f %)) (next s)))]
+       (cons run (partition-by f (seq (drop (count run) s))))))))
+
+(defn frequencies
+  "Returns a map from distinct items in coll to the number of times
+  they appear."
+  [coll]
+  (persistent!
+   (reduce (fn [counts x]
+             (assoc! counts x (inc (get counts x 0))))
+           (transient {}) coll)))
+
+(defn reductions
+  "Returns a lazy seq of the intermediate values of the reduction (as
+  per reduce) of coll by f, starting with init."
+  ([f coll]
+     (lazy-seq
+      (if-let [s (seq coll)]
+        (reductions f (first s) (rest s))
+        (list (f)))))
+  ([f init coll]
+     (cons init
+           (lazy-seq
+            (when-let [s (seq coll)]
+              (reductions f (f init (first s)) (rest s)))))))
+
+(defn juxt
+  "Takes a set of functions and returns a fn that is the juxtaposition
+  of those fns.  The returned fn takes a variable number of args, and
+  returns a vector containing the result of applying each fn to the
+  args (left-to-right).
+  ((juxt a b c) x) => [(a x) (b x) (c x)]"
+  ([f]
+     (fn
+       ([] (vector (f)))
+       ([x] (vector (f x)))
+       ([x y] (vector (f x y)))
+       ([x y z] (vector (f x y z)))
+       ([x y z & args] (vector (apply f x y z args)))))
+  ([f g]
+     (fn
+       ([] (vector (f) (g)))
+       ([x] (vector (f x) (g x)))
+       ([x y] (vector (f x y) (g x y)))
+       ([x y z] (vector (f x y z) (g x y z)))
+       ([x y z & args] (vector (apply f x y z args) (apply g x y z args)))))
+  ([f g h]
+     (fn
+       ([] (vector (f) (g) (h)))
+       ([x] (vector (f x) (g x) (h x)))
+       ([x y] (vector (f x y) (g x y) (h x y)))
+       ([x y z] (vector (f x y z) (g x y z) (h x y z)))
+       ([x y z & args] (vector (apply f x y z args) (apply g x y z args) (apply h x y z args)))))
+  ([f g h & fs]
+     (let [fs (list* f g h fs)]
+       (fn
+         ([] (reduce #(conj %1 (%2)) [] fs))
+         ([x] (reduce #(conj %1 (%2 x)) [] fs))
+         ([x y] (reduce #(conj %1 (%2 x y)) [] fs))
+         ([x y z] (reduce #(conj %1 (%2 x y z)) [] fs))
+         ([x y z & args] (reduce #(conj %1 (apply %2 x y z args)) [] fs))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Printing ;;;;;;;;;;;;;;;;
+
+(defn pr-sequential [print-one begin sep end opts coll]
+  (concat (list begin)
+          (flatten1
+            (interpose (list sep) (map #(print-one % opts) coll)))
+          (list end)))
+
+(defn string-print [x]
+  (*print-fn* x)
+  nil)
+
+(defn flush [] ;stub
+  nil)
+
+(defn- pr-seq [obj opts]
+  ;; FIXME: print meta
+  (if (satisfies? IPrintable obj)
+    (-pr-seq obj opts)
+    (list "#<" (str obj) ">")))
+
+(defn- pr-sb [objs opts]
+  (loop [sb (sb-make "")
+         objs (seq objs)
+         need-sep false]
+    (if objs
+      (recur (loop [sb (if need-sep (-append! sb " ") sb)
+                    strings (seq (pr-seq (first objs) opts))]
+               (if strings
+                 (recur (-append! sb (first strings))
+                        (next strings))
+                 sb))
+             (next objs)
+             true)
+      sb)))
+
+(defn pr-str-with-opts
+  "Prints a sequence of objects to a string, observing all the
+  options given in opts"
+  [objs opts]
+  (str (pr-sb objs opts)))
+
+(defn prn-str-with-opts
+  "Same as pr-str-with-opts followed by (newline)"
+  [objs opts]
+  (let [sb (pr-sb objs opts)]
+    (str (-append! sb "\n"))))
+
+(defn pr-with-opts
+  "Prints a sequence of objects using string-print, observing all
+  the options given in opts"
+  [objs opts]
+  (loop [objs (seq objs)
+         need-sep false]
+    (when objs
+      (when need-sep
+        (string-print " "))
+      (doseq [string (pr-seq (first objs) opts)]
+        (string-print string))
+      (recur (next objs) true))))
+
+(defn newline [opts]
+  (string-print "\n")
+  (when (get opts :flush-on-newline)
+    (flush)))
+
+(def *flush-on-newline* true)
+(def *print-readably* true)
+(def *print-meta* false)
+(def *print-dup* false)
+
+(defn- pr-opts []
+  {:flush-on-newline *flush-on-newline*
+   :readably *print-readably*
+   :meta *print-meta*
+   :dup *print-dup*})
+
+(defn pr-str
+  "pr to a string, returning it. Fundamental entrypoint to IPrintable."
+  [& objs]
+  (pr-str-with-opts objs (pr-opts)))
+
+(defn prn-str
+  "Same as pr-str followed by (newline)"
+  [& objs]
+  (prn-str-with-opts objs (pr-opts)))
+
+(defn pr
+  "Prints the object(s) using string-print.  Prints the
+  object(s), separated by spaces if there is more than one.
+  By default, pr and prn print in a way that objects can be
+  read by the reader"
+  [& objs]
+  (pr-with-opts objs (pr-opts)))
+
+(def ^{:doc
+  "Prints the object(s) using string-print.
+  print and println produce output for human consumption."}
+  print
+  (fn cljs-core-print [& objs]
+    (pr-with-opts objs (assoc (pr-opts) :readably false))))
+
+(defn print-str
+  "print to a string, returning it"
+  [& objs]
+  (pr-str-with-opts objs (assoc (pr-opts) :readably false)))
+
+(defn println
+  "Same as print followed by (newline)"
+  [& objs]
+  (pr-with-opts objs (assoc (pr-opts) :readably false))
+  (newline (pr-opts)))
+
+(defn println-str
+  "println to a string, returning it"
+  [& objs]
+  (prn-str-with-opts objs (assoc (pr-opts) :readably false)))
+
+(defn prn
+  "Same as pr followed by (newline)."
+  [& objs]
+  (pr-with-opts objs (pr-opts))
+  (newline (pr-opts)))
+
+;; FIXME: extend-protocol IPrintable
+
+;; IComparable
+(extend-protocol IComparable
+  PersistentVector
+  (-compare [x y] (compare-indexed x y)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Reference Types ;;;;;;;;;;;;;;;;
+
+(deftype Atom [^:mutable state ^:mutable meta ^:mutable validator ^:mutable watches]
+  IEquiv
+  (-equiv [o other] (identical? o other))
+
+  IDeref
+  (-deref [_] state)
+
+  IMeta
+  (-meta [_] meta)
+
+  IPrintable
+  (-pr-seq [a opts]
+    (concat  ["#<Atom: "] (-pr-seq state opts) [">"]))
+
+  IWatchable
+  (-notify-watches [this oldval newval]
+    (doseq [[key f] watches]
+      (f key this oldval newval)))
+  (-add-watch [this key f]
+    (set! (.-watches this) (assoc watches key f)))
+  (-remove-watch [this key]
+    (set! (.-watches this) (dissoc watches key)))
+
+  IHash
+  (-hash [this] (c* "make_integer (identity_hash_code (~{}))" this)))
+
+(defn atom
+  "Creates and returns an Atom with an initial value of x and zero or
+  more options (in any order):
+
+  :meta metadata-map
+
+  :validator validate-fn
+
+  If metadata-map is supplied, it will be come the metadata on the
+  atom. validate-fn must be nil or a side-effect-free fn of one
+  argument, which will be passed the intended new state on any state
+  change. If the new state is unacceptable, the validate-fn should
+  return false or throw an Error.  If either of these error conditions
+  occur, then the value of the atom will not change."
+  ([x] (Atom. x nil nil nil))
+  ([x & {:keys [meta validator]}] (Atom. x meta validator nil)))
+
+(defn reset!
+  "Sets the value of atom to newval without regard for the
+  current value. Returns newval."
+  [a new-value]
+  (when-let [validate (.-validator a)]
+    (assert (validate new-value) "Validator rejected reference state"))
+  (let [old-value (.-state a)]
+    (set! (.-state a) new-value)
+    (-notify-watches a old-value new-value))
+  new-value)
+
+(defn swap!
+  "Atomically swaps the value of atom to be:
+  (apply f current-value-of-atom args). Note that f may be called
+  multiple times, and thus should be free of side effects.  Returns
+  the value that was swapped in."
+  ([a f]
+     (reset! a (f (.-state a))))
+  ([a f x]
+     (reset! a (f (.-state a) x)))
+  ([a f x y]
+     (reset! a (f (.-state a) x y)))
+  ([a f x y z]
+     (reset! a (f (.-state a) x y z)))
+  ([a f x y z & more]
+     (reset! a (apply f (.-state a) x y z more))))
+
+(defn compare-and-set!
+  "Atomically sets the value of atom to newval if and only if the
+  current value of the atom is identical to oldval. Returns true if
+  set happened, else false."
+  [a oldval newval]
+  (if (= (.-state a) oldval)
+    (do (reset! a newval) true)
+    false))
+
+;; generic to all refs
+;; (but currently hard-coded to atom!)
+
+(defn deref
+  [o]
+  (-deref o))
+
+(defn set-validator!
+  "Sets the validator-fn for an atom. validator-fn must be nil or a
+  side-effect-free fn of one argument, which will be passed the intended
+  new state on any state change. If the new state is unacceptable, the
+  validator-fn should return false or throw an Error. If the current state
+  is not acceptable to the new validator, an Error will be thrown and the
+  validator will not be changed."
+  [iref val]
+  (set! (.-validator iref) val))
+
+(defn get-validator
+  "Gets the validator-fn for a var/ref/agent/atom."
+  [iref]
+  (.-validator iref))
+
+(defn alter-meta!
+  "Atomically sets the metadata for a namespace/var/ref/agent/atom to be:
+
+  (apply f its-current-meta args)
+
+  f must be free of side-effects"
+  [iref f & args]
+  (set! (.-meta iref) (apply f (.-meta iref) args)))
+
+(defn reset-meta!
+  "Atomically resets the metadata for an atom"
+  [iref m]
+  (set! (.-meta iref) m))
+
+(defn add-watch
+  "Alpha - subject to change.
+
+  Adds a watch function to an atom reference. The watch fn must be a
+  fn of 4 args: a key, the reference, its old-state, its
+  new-state. Whenever the reference's state might have been changed,
+  any registered watches will have their functions called. The watch
+  fn will be called synchronously. Note that an atom's state
+  may have changed again prior to the fn call, so use old/new-state
+  rather than derefing the reference. Keys must be unique per
+  reference, and can be used to remove the watch with remove-watch,
+  but are otherwise considered opaque by the watch mechanism.  Bear in
+  mind that regardless of the result or action of the watch fns the
+  atom's value will change.  Example:
+
+      (def a (atom 0))
+      (add-watch a :inc (fn [k r o n] (assert (== 0 n))))
+      (swap! a inc)
+      ;; Assertion Error
+      (deref a)
+      ;=> 1"
+  [iref key f]
+  (-add-watch iref key f))
+
+(defn remove-watch
+  "Alpha - subject to change.
+
+  Removes a watch (set by add-watch) from a reference"
+  [iref key]
+  (-remove-watch iref key))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Delay ;;;;;;;;;;;;;;;;;;;;
+
+(deftype Delay [state f]
+  IDeref
+  (-deref [_]
+    (:value (swap! state (fn [{:keys [done] :as curr-state}]
+                           (if done
+                             curr-state,
+                             {:done true :value (f)})))))
+
+  IPending
+  (-realized? [d]
+    (:done @state)))
+
+(defn ^boolean delay?
+  "returns true if x is a Delay created with delay"
+  [x] (instance? cljc.core/Delay x))
+
+(defn force
+  "If x is a Delay, returns the (possibly cached) value of its expression, else returns x"
+  [x]
+  (if (delay? x)
+    (deref x)
+    x))
+
+(defn ^boolean realized?
+  "Returns true if a value has been produced for a promise, delay, future or lazy sequence."
+  [d]
+  (-realized? d))
+
+(defn memoize
+  "Returns a memoized version of a referentially transparent function. The
+  memoized version of the function keeps a cache of the mapping from arguments
+  to results and, when calls with the same arguments are repeated often, has
+  higher performance at the expense of higher memory use."
+  [f]
+  (let [mem (atom {})]
+    (fn [& args]
+      (if-let [v (get @mem args)]
+        v
+        (let [ret (apply f args)]
+          (swap! mem assoc args ret)
+          ret)))))
+
+(defn trampoline
+  "trampoline can be used to convert algorithms requiring mutual
+  recursion without stack consumption. Calls f with supplied args, if
+  any. If f returns a fn, calls that fn with no arguments, and
+  continues to repeat, until the return value is not a fn, then
+  returns that non-fn value. Note that if you want to return a fn as a
+  final value, you must wrap it in some data structure and unpack it
+  after trampoline returns."
+  ([f]
+     (let [ret (f)]
+       (if (fn? ret)
+         (recur ret)
+         ret)))
+  ([f & args]
+     (trampoline #(apply f args))))
+
+(defn group-by
+  "Returns a map of the elements of coll keyed by the result of
+  f on each element. The value at each key will be a vector of the
+  corresponding elements, in the order they appeared in coll."
+  [f coll]
+  (reduce
+   (fn [ret x]
+     (let [k (f x)]
+       (assoc ret k (conj (get ret k []) x))))
+   {} coll))
 
 (defn make-hierarchy
   "Creates a hierarchy object for use with derive, isa? etc."
@@ -5830,3 +5776,76 @@ reduces them without incurring seq initialization"
 (defn prefers
   "Given a multimethod, returns a map of preferred value -> set of other values"
   [multifn] (-prefers multifn))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Strings ;;;;;;;;;;;;;;;;
+
+(declare split-string-seq-next-fn vector pr-str)
+
+(deftype SplitStringSeq [string len char first offset]
+  ASeq
+  ISeq
+  (-first [coll] first)
+  (-rest [coll]
+    (or (split-string-seq-next-fn string len char offset) ()))
+
+  INext
+  (-next [coll]
+    (split-string-seq-next-fn string len char offset))
+
+  ISequential
+  IEquiv
+  (-equiv [coll other] (equiv-sequential coll other))
+
+  ISeqable
+  (-seq [coll] coll)
+
+  ICollection
+  (-conj [coll o] (List. nil o coll (inc (count coll)) nil))
+
+  IPrintable
+  (-pr-seq [coll opts]
+    (pr-sequential pr-seq "(" " " ")" opts coll)))
+
+(defn- split-string-seq-next-fn [string len char offset]
+  (when-not (== offset len)
+    (let [next-offset (c* "make_integer (strchr_offset (string_get_utf8 (~{}) + integer_get (~{}), character_get (~{})))"
+			  string offset char)]
+      (if (>= next-offset 0)
+	(SplitStringSeq. string len char
+                         (c* "make_string_copy_free (g_strndup (string_get_utf8 (~{}) + integer_get (~{}), integer_get (~{})))"
+                             string offset next-offset)
+                         (c* "make_integer (g_utf8_next_char (string_get_utf8 (~{}) + integer_get (~{})) - string_get_utf8 (~{}))"
+                             string (+ offset next-offset) string))
+	(SplitStringSeq. string len char
+                         (c* "make_string_copy_free (g_strdup (string_get_utf8 (~{}) + integer_get (~{})))" string offset)
+                         len)))))
+
+(defn split-string-seq [string char]
+  (split-string-seq-next-fn string
+			    (c* "make_integer (strlen (string_get_utf8 (~{})))" string)
+			    char
+			    0))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; I/O ;;;;;;;;;;;;;;;;
+
+(defn slurp [filename]
+  (c* "make_string_copy_free (slurp_file (string_get_utf8 (~{})))" filename))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; main function support ;;;;;;;;;;;;;;;;
+
+(defn vector-from-c-string-array [argc argv]
+  (loop [acc []
+         i 1]
+    (if (< i argc)
+      (let [arg (c* "make_string (RAW_POINTER_GET (~{}, gchar**) [integer_get (~{})])" argv i)]
+        (recur (conj acc arg)
+               (inc i)))
+      acc)))
+
+(defn main-exit-value [value]
+  (cond (integer? value)
+        value
+        (nil? value)
+        0
+        :else
+        1))
