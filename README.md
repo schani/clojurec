@@ -1,6 +1,6 @@
 # ClojureC
 
-This is compiler for the Clojure programming language that targets C as a backend.
+This is compiler for the Clojure programming language that targets C as a backend.  It is based on ClojureScript and was started off ClojureScript's commit `0e0aa7fdd379649bf87f8fff5c6a64e37fe616a4`.
 
 ## Community and Organization
 
@@ -34,7 +34,7 @@ All tests should pass.
 
 ## Using ClojureC
 
-Note that ClojureC is still in its experimental phase, so please don't expect a polish experience, yet.
+Note that ClojureC is still in its experimental phase, so please don't expect a polished experience, yet.
 
 ### From the command line
 
@@ -65,5 +65,5 @@ The easiest way to play around with ClojureC interactively is in the namespace `
 ### Android
   See the README.md file in "clojurec/run/android".
 
-### iOS 
+### iOS
   See the README.md file in "clojurec/run/ios".
