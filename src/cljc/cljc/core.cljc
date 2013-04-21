@@ -5589,3 +5589,244 @@ reduces them without incurring seq initialization"
         0
         :else
         1))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; multimethods ;;;;;;;;;;;;;;;;
+
+(defn make-hierarchy
+  "Creates a hierarchy object for use with derive, isa? etc."
+  [] {:parents {} :descendants {} :ancestors {}})
+
+(def
+  ^{:private true}
+  global-hierarchy (atom (make-hierarchy)))
+
+(defn ^boolean isa?
+  "Returns true if (= child parent), or child is directly or indirectly derived from
+  parent, either via a JavaScript type inheritance relationship or a
+  relationship established via derive. h must be a hierarchy obtained
+  from make-hierarchy, if not supplied defaults to the global
+  hierarchy"
+  ([child parent] (isa? @global-hierarchy child parent))
+  ([h child parent]
+     (or (= child parent)
+         ;; (and (class? parent) (class? child)
+         ;;    (. ^Class parent isAssignableFrom child))
+         (contains? ((:ancestors h) child) parent)
+         ;;(and (class? child) (some #(contains? ((:ancestors h) %) parent) (supers child)))
+         (and (vector? parent) (vector? child)
+              (== (count parent) (count child))
+              (loop [ret true i 0]
+                (if (or (not ret) (== i (count parent)))
+                  ret
+                  (recur (isa? h (child i) (parent i)) (inc i))))))))
+
+(defn parents
+  "Returns the immediate parents of tag, either via a JavaScript type
+  inheritance relationship or a relationship established via derive. h
+  must be a hierarchy obtained from make-hierarchy, if not supplied
+  defaults to the global hierarchy"
+  ([tag] (parents @global-hierarchy tag))
+  ([h tag] (not-empty (get (:parents h) tag))))
+
+(defn ancestors
+  "Returns the immediate and indirect parents of tag, either via a JavaScript type
+  inheritance relationship or a relationship established via derive. h
+  must be a hierarchy obtained from make-hierarchy, if not supplied
+  defaults to the global hierarchy"
+  ([tag] (ancestors @global-hierarchy tag))
+  ([h tag] (not-empty (get (:ancestors h) tag))))
+
+(defn descendants
+  "Returns the immediate and indirect children of tag, through a
+  relationship established via derive. h must be a hierarchy obtained
+  from make-hierarchy, if not supplied defaults to the global
+  hierarchy. Note: does not work on JavaScript type inheritance
+  relationships."
+  ([tag] (descendants @global-hierarchy tag))
+  ([h tag] (not-empty (get (:descendants h) tag))))
+
+(defn derive
+  "Establishes a parent/child relationship between parent and
+  tag. Parent must be a namespace-qualified symbol or keyword and
+  child can be either a namespace-qualified symbol or keyword or a
+  class. h must be a hierarchy obtained from make-hierarchy, if not
+  supplied defaults to, and modifies, the global hierarchy."
+  ([tag parent]
+   (assert (namespace parent))
+   ;; (assert (or (class? tag) (and (instance? cljs.core.Named tag) (namespace tag))))
+   (swap! global-hierarchy derive tag parent) nil)
+  ([h tag parent]
+   (assert (not= tag parent))
+   ;; (assert (or (class? tag) (instance? clojure.lang.Named tag)))
+   ;; (assert (instance? clojure.lang.INamed tag))
+   ;; (assert (instance? clojure.lang.INamed parent))
+   (let [tp (:parents h)
+         td (:descendants h)
+         ta (:ancestors h)
+         tf (fn [m source sources target targets]
+              (reduce (fn [ret k]
+                        (assoc ret k
+                               (reduce conj (get targets k #{}) (cons target (targets target)))))
+                      m (cons source (sources source))))]
+     (or
+      (when-not (contains? (tp tag) parent)
+        (when (contains? (ta tag) parent)
+          (throw (Exception. (str tag "already has" parent "as ancestor"))))
+        (when (contains? (ta parent) tag)
+          (throw (Exception. (str "Cyclic derivation:" parent "has" tag "as ancestor"))))
+        {:parents (assoc (:parents h) tag (conj (get tp tag #{}) parent))
+         :ancestors (tf (:ancestors h) tag td parent ta)
+         :descendants (tf (:descendants h) parent ta tag td)})
+      h))))
+
+(defn- reset-cache
+  [method-cache method-table cached-hierarchy hierarchy]
+  (swap! method-cache (fn [_] (deref method-table)))
+  (swap! cached-hierarchy (fn [_] (deref hierarchy))))
+
+(defn- prefers*
+  [x y prefer-table]
+  (let [xprefs (@prefer-table x)]
+    (or
+     (when (and xprefs (xprefs y))
+       true)
+     (loop [ps (parents y)]
+       (when (pos? (count ps))
+         (when (prefers* x (first ps) prefer-table)
+           true)
+         (recur (rest ps))))
+     (loop [ps (parents x)]
+       (when (pos? (count ps))
+         (when (prefers* (first ps) y prefer-table)
+           true)
+         (recur (rest ps))))
+     false)))
+
+(defn- dominates
+  [x y prefer-table]
+  (or (prefers* x y prefer-table) (isa? x y)))
+
+(defn- find-and-cache-best-method
+  [name dispatch-val hierarchy method-table prefer-table method-cache cached-hierarchy]
+  (let [best-entry (reduce (fn [be [k _ :as e]]
+                             (if (isa? dispatch-val k)
+                               (let [be2 (if (or (nil? be) (dominates k (first be) prefer-table))
+                                           e
+                                           be)]
+                                 (when-not (dominates (first be2) k prefer-table)
+                                   (throw (Exception.
+                                           (str "Multiple methods in multimethod '" name
+                                                "' match dispatch value: " dispatch-val " -> " k
+                                                " and " (first be2) ", and neither is preferred"))))
+                                 be2)
+                               be))
+                           nil @method-table)]
+    (when best-entry
+      (if (= @cached-hierarchy @hierarchy)
+        (do
+          (swap! method-cache assoc dispatch-val (second best-entry))
+          (second best-entry))
+        (do
+          (reset-cache method-cache method-table cached-hierarchy hierarchy)
+          (find-and-cache-best-method name dispatch-val hierarchy method-table prefer-table
+                                      method-cache cached-hierarchy))))))
+
+(defprotocol IMultiFn
+  (-reset [mf])
+  (-add-method [mf dispatch-val method])
+  (-remove-method [mf dispatch-val])
+  (-prefer-method [mf dispatch-val dispatch-val-y])
+  (-get-method [mf dispatch-val])
+  (-methods [mf])
+  (-prefers [mf])
+  (-dispatch [mf args]))
+
+(defn- do-dispatch
+  [mf dispatch-fn args]
+  (let [dispatch-val (apply dispatch-fn args)
+        target-fn (-get-method mf dispatch-val)]
+    (when-not target-fn
+      (throw (Exception. (str "No method in multimethod '" name "' for dispatch value: " dispatch-val))))
+    (apply target-fn args)))
+
+(deftype MultiFn [name dispatch-fn default-dispatch-val hierarchy
+                  method-table prefer-table method-cache cached-hierarchy]
+  IMultiFn
+  (-reset [mf]
+    (swap! method-table (fn [mf] {}))
+    (swap! method-cache (fn [mf] {}))
+    (swap! prefer-table (fn [mf] {}))
+    (swap! cached-hierarchy (fn [mf] nil))
+    mf)
+
+  (-add-method [mf dispatch-val method]
+    (swap! method-table assoc dispatch-val method)
+    (reset-cache method-cache method-table cached-hierarchy hierarchy)
+    mf)
+
+  (-remove-method [mf dispatch-val]
+    (swap! method-table dissoc dispatch-val)
+    (reset-cache method-cache method-table cached-hierarchy hierarchy)
+    mf)
+
+  (-get-method [mf dispatch-val]
+    (when-not (= @cached-hierarchy @hierarchy)
+      (reset-cache method-cache method-table cached-hierarchy hierarchy))
+    (if-let [target-fn (@method-cache dispatch-val)]
+      target-fn
+      (if-let [target-fn (find-and-cache-best-method name dispatch-val hierarchy method-table
+                                                     prefer-table method-cache cached-hierarchy)]
+        target-fn
+        (@method-table default-dispatch-val))))
+
+  (-prefer-method [mf dispatch-val-x dispatch-val-y]
+    (when (prefers* dispatch-val-x dispatch-val-y prefer-table)
+      (throw (Exception. (str "Preference conflict in multimethod '" name "': " dispatch-val-y
+                   " is already preferred to " dispatch-val-x))))
+    (swap! prefer-table
+           (fn [old]
+             (assoc old dispatch-val-x
+                    (conj (get old dispatch-val-x #{})
+                          dispatch-val-y))))
+    (reset-cache method-cache method-table cached-hierarchy hierarchy))
+
+  (-methods [mf] @method-table)
+  (-prefers [mf] @prefer-table)
+
+  (-dispatch [mf args] (do-dispatch mf dispatch-fn args))
+
+  IHash
+  (-hash [this] (c* "make_integer (identity_hash_code (~{}))" this))
+
+  IFn
+  (-invoke [this & args]
+    (-dispatch this args)))
+
+(defn remove-all-methods
+  "Removes all of the methods of multimethod."
+ [multifn]
+ (-reset multifn))
+
+(defn remove-method
+  "Removes the method of multimethod associated with dispatch-value."
+ [multifn dispatch-val]
+ (-remove-method multifn dispatch-val))
+
+(defn prefer-method
+  "Causes the multimethod to prefer matches of dispatch-val-x over dispatch-val-y
+   when there is a conflict"
+  [multifn dispatch-val-x dispatch-val-y]
+  (-prefer-method multifn dispatch-val-x dispatch-val-y))
+
+(defn methods
+  "Given a multimethod, returns a map of dispatch values -> dispatch fns"
+  [multifn] (-methods multifn))
+
+(defn get-method
+  "Given a multimethod and a dispatch value, returns the dispatch fn
+  that would apply to that value, or nil if none apply and no default"
+  [multifn dispatch-val] (-get-method multifn dispatch-val))
+
+(defn prefers
+  "Given a multimethod, returns a map of preferred value -> set of other values"
+  [multifn] (-prefers multifn))

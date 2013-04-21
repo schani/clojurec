@@ -3,14 +3,6 @@
 (ns cljc.core-test)
 
 (defn test-stuff []
-  ;; js primitives
-
-  (comment
-  (let [keys #(vec (js-keys %))]
-    (assert (= [] (keys (js-obj)) (keys (apply js-obj []))))
-    (assert (= ["x"] (keys (js-obj "x" "y")) (keys (apply js-obj ["x" "y"])))))
-  )
-
   ;; -equiv
   (assert (= 1))
   (assert (= 1 1))
@@ -808,9 +800,8 @@
   (assert (= {:a 1} (meta (vary-meta [] assoc :a 1))))
   (assert (= {:a 1 :b 2} (meta (vary-meta (with-meta [] {:b 2}) assoc :a 1))))
 
-  (comment
   ;; multi-methods
-  (swap! global-hierarchy make-hierarchy)
+  (swap! global-hierarchy (fn [_] (make-hierarchy)))
 
   ;; hierarchy tests
   (derive ::rect ::shape)
@@ -822,11 +813,11 @@
   (assert (true? (isa? 42 42)))
   (assert (true? (isa? ::square ::shape)))
 
-  (derive cljs.core.ObjMap ::collection)
-  (derive cljs.core.PersistentHashSet ::collection)
-  (assert (true? (isa? cljs.core.ObjMap ::collection)))
-  (assert (true? (isa? cljs.core.PersistentHashSet ::collection)))
-  (assert (false? (isa? cljs.core.IndexedSeq ::collection)))
+  (derive cljc.core/List ::collection)
+  (derive cljc.core/PersistentHashSet ::collection)
+  (assert (true? (isa? cljc.core/List ::collection)))
+  (assert (true? (isa? cljc.core/PersistentHashSet ::collection)))
+  (assert (false? (isa? cljc.core/IndexedSeq ::collection)))
   ;; ?? (isa? String Object)
   (assert (true? (isa? [::square ::rect] [::shape ::shape])))
   ;; ?? (ancestors java.util.ArrayList)
@@ -875,7 +866,7 @@
   (defmethod area :Rect [r]
     (* (:wd r) (:ht r)))
   (defmethod area :Circle [c]
-    (*  Math/PI (* (:radius c) (:radius c))))
+    (* 3.141592 (* (:radius c) (:radius c))))
   (defmethod area :default [x] :oops)
   (def r (rect 4 13))
   (def c (circle 12))
@@ -896,7 +887,6 @@
     ([x y] :two)
     ([x y & r] [:three r]))
   (assert (= [:three '(2)] (apply apply-multi-test [0 1 2])))
-  )
 
   ;; Range
   (assert (= (range 0 10 3) (list 0 3 6 9)))
@@ -1325,11 +1315,9 @@
   (assert (= (meta (with-meta (reify IFoo (foo [this] :foo)) {:foo :bar}))
              {:foo :bar}))
 
-  (comment
   (defmulti foo2 identity)
   (defmethod foo2 0 [x] x)
   (assert (= foo2 (ffirst {foo2 1})))
-  )
 
   (defprotocol IMutate
     (mutate [this]))
