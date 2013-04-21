@@ -145,6 +145,22 @@ struct ptable {
 
 static value_t *value_nil = NULL;
 
+static int next_protocol = FIRST_PROTOCOL;
+
+static int
+register_protocol (void)
+{
+	return next_protocol++;
+}
+
+static int next_type = FIRST_TYPE;
+
+static int
+register_type (void)
+{
+	return next_type++;
+}
+
 static closure_t*
 get_protocol (value_t *val, int protocol_num, int fn_index)
 {

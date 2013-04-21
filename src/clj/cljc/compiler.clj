@@ -845,10 +845,11 @@
 (defmethod emit :defprotocol*
   [{:keys [p index methods]}]
   (emit-declaration
-   (emitln "#define PROTOCOL_" (str p) " (FIRST_PROTOCOL + " index ")")
+   (emitln "static int PROTOCOL_" (str p) ";")
    (emitln "#define PROTOCOL_VTABLE_SIZE_" (str p) " " (count methods))
    (doseq [[i method] (map-indexed #(vector %1 (first %2)) methods)]
-     (emitln "#define MEMBER_" (str (munge method) " " i)))))
+     (emitln "#define MEMBER_" (str (munge method) " " i))))
+  (emitln "PROTOCOL_" (str p) " = register_protocol ();"))
 
 (defmethod emit :deftype*
   [{:keys [t fields pmasks index form]}]
@@ -857,7 +858,7 @@
 	new-fields (set/difference (set fields) @defined-fields)]
     (swap! defined-fields set/union new-fields)
     (emit-declaration
-     (emitln "#define TYPE_" (str t) " (FIRST_TYPE + " index ")")
+     (emitln "static int TYPE_" (str t) ";")
      (emitln "static ptable_t* PTABLE_NAME (" t ") = NULL;")
      (doseq [[i field] (map vector (range first-field-num (+ first-field-num (count new-fields))) new-fields)]
        (emitln "#define FIELD_" (munge field) " (FIRST_FIELD + " i ")"))
@@ -874,7 +875,8 @@
      (emitln "default: assert_not_reached ();")
      (emitln "}")
      (emitln "return value_nil;")
-     (emitln "}"))))
+     (emitln "}"))
+    (emitln "TYPE_" (str t) " = register_type ();")))
 
 (defmethod emit :deftype-ptable*
   [{:keys [t fields pmasks index form]}]
