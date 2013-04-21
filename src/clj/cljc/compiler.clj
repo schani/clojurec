@@ -542,7 +542,7 @@
    ;; defining inits in preamble.c for apply and print, which would
    ;; conflict with core.cljc.  It's probably better to make them
    ;; non-defining.
-   (emitln "static value_t *VAR_NAME (" name ");"))
+   (emitln (if init "" "extern ") "value_t *VAR_NAME (" name ");"))
   (when init
     (let [init-name (emit init)]
       (emitln "VAR_NAME (" name ") = " init-name ";")
