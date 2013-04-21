@@ -854,29 +854,29 @@
 (defmethod emit :deftype*
   [{:keys [t fields pmasks index form]}]
   ;; FIXME: this is very unatomic!
-  (let [first-field-num (count @defined-fields)
-	new-fields (set/difference (set fields) @defined-fields)]
+  (let [new-fields (set/difference (set fields) @defined-fields)]
     (swap! defined-fields set/union new-fields)
     (emit-declaration
      (emitln "static int TYPE_" (str t) ";")
      (emitln "static ptable_t* PTABLE_NAME (" t ") = NULL;")
-     (doseq [[i field] (map vector (range first-field-num (+ first-field-num (count new-fields))) new-fields)]
-       (emitln "#define FIELD_" (munge field) " (FIRST_FIELD + " i ")"))
+     (doseq [field new-fields]
+       (emitln "static int FIELD_" (munge field) ";"))
      (emitln "static value_t* FIELD_ACCESS_FN_NAME (" t ") (value_t *val, int field, value_t *new_val) {")
      (emitln "deftype_t *dt = (deftype_t*)val;")
      (emitln "assert (val->ptable->type == TYPE_NAME (" t "));")
-     (emitln "switch (field) {")
      (doseq [[i field] (map-indexed vector fields)]
-       (emitln "case FIELD_NAME (" (munge field) "):")
+       (emitln "if (field == FIELD_NAME (" (munge field) ")) {")
        (if (:mutable (meta field))
          (emitln "if (new_val != VALUE_NONE) { dt->fields [" i "] = new_val; }")
          (emitln "assert (new_val == VALUE_NONE);"))
-       (emitln "return dt->fields [" i "];"))
-     (emitln "default: assert_not_reached ();")
-     (emitln "}")
+       (emitln "return dt->fields [" i "];")
+       (emitln "}"))
+     (emitln "assert_not_reached ();")
      (emitln "return value_nil;")
      (emitln "}"))
-    (emitln "TYPE_" (str t) " = register_type ();")))
+    (emitln "TYPE_" (str t) " = register_type ();")
+    (doseq [field new-fields]
+      (emitln "FIELD_" (munge field) " = register_field (" (wrap-in-double-quotes (escape-string (str (munge field)))) ");"))))
 
 (defmethod emit :deftype-ptable*
   [{:keys [t fields pmasks index form]}]

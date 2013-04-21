@@ -161,6 +161,29 @@ register_type (void)
 	return next_type++;
 }
 
+static GHashTable *field_hash_table = NULL;
+static int next_field = FIRST_FIELD;
+
+static int
+register_field (const gchar *name)
+{
+	gpointer result;
+	int field;
+
+	if (!field_hash_table)
+		field_hash_table = g_hash_table_new (g_str_hash, g_str_equal);
+
+	result = g_hash_table_lookup (field_hash_table, name);
+	if (result)
+		return (int)result;
+
+	field = next_field++;
+
+	g_hash_table_insert (field_hash_table, name, (gpointer)field);
+
+	return field;
+}
+
 static closure_t*
 get_protocol (value_t *val, int protocol_num, int fn_index)
 {
