@@ -28,8 +28,6 @@
 
 (defonce namespaces-init '{cljc.core {:defs {IFn {:protocol-symbol true :name cljc_DOT_core_SLASH_IFn}}}})
 (defonce namespaces (atom namespaces-init))
-(defonce num-protocols (atom 0))
-(defonce num-types (atom 0))
 (defonce protocols-init '{cljc.core {IFn {:name cljc_DOT_core_SLASH_IFn, :methods ((-invoke [f & args]))}}})
 (defonce protocols (atom protocols-init))
 (defonce declarations (atom []))
@@ -37,8 +35,6 @@
 
 (defn reset-namespaces! []
   (reset! namespaces namespaces-init)
-  (reset! num-protocols 0)
-  (reset! num-types 0)
   (reset! protocols protocols-init)
   (reset! declarations [])
   (reset! defined-fields #{}))
@@ -843,7 +839,7 @@
   nil)
 
 (defmethod emit :defprotocol*
-  [{:keys [p index methods]}]
+  [{:keys [p methods]}]
   (emit-declaration
    (emitln "static int PROTOCOL_" (str p) ";")
    (emitln "#define PROTOCOL_VTABLE_SIZE_" (str p) " " (count methods))
@@ -852,7 +848,7 @@
   (emitln "PROTOCOL_" (str p) " = register_protocol ();"))
 
 (defmethod emit :deftype*
-  [{:keys [t fields pmasks index form]}]
+  [{:keys [t fields pmasks form]}]
   ;; FIXME: this is very unatomic!
   (let [new-fields (set/difference (set fields) @defined-fields)]
     (swap! defined-fields set/union new-fields)
@@ -1386,8 +1382,7 @@
 (defmethod parse 'defprotocol*
   [_ env [_ psym & methods :as form] _]
   (let [p (munge (:name (resolve-var (dissoc env :locals) psym)))
-	ns-name (-> env :ns :name)
-	index (dec (swap! num-protocols inc))]
+	ns-name (-> env :ns :name)]
     (swap! protocols
            (fn [protocols]
              (update-in protocols [ns-name psym]
@@ -1398,13 +1393,11 @@
      :op :defprotocol*
      :as form
      :p p
-     :index index
      :methods methods}))
 
 (defmethod parse 'deftype*
   [_ env [_ tsym fields pmasks :as form] _]
-  (let [t (munge (:name (resolve-var (dissoc env :locals) tsym)))
-	index (dec (swap! num-types inc))]
+  (let [t (munge (:name (resolve-var (dissoc env :locals) tsym)))]
     (swap! namespaces update-in [(-> env :ns :name) :defs tsym]
            (fn [m]
              (let [m (assoc (or m {})
@@ -1417,7 +1410,7 @@
                      (assoc :file *cljs-file*)
                      (assoc :line line))
                  m))))
-    {:env env :op :deftype* :as form :t t :fields fields :pmasks pmasks :index index}))
+    {:env env :op :deftype* :as form :t t :fields fields :pmasks pmasks}))
 
 (defmethod parse 'deftype-ptable*
   [_ env [_ tsym :as form] _]
