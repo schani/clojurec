@@ -9,7 +9,7 @@ pom.xml
 .lein-failures
 .lein-plugins
 run/cljc
-run/cljc.c
+run/driver.c
 run/gc-7.2
 run/libgc
 run/cljc.dSYM

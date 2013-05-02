@@ -30,14 +30,19 @@
 (defonce namespaces (atom namespaces-init))
 (defonce protocols-init '{cljc.core {IFn {:name cljc_DOT_core_SLASH_IFn, :methods ((-invoke [f & args]))}}})
 (defonce protocols (atom protocols-init))
-(defonce declarations (atom []))
 (defonce defined-fields (atom #{}))
+
+(defonce exports-init [])
+(defonce exports (atom exports-init))
+
+(defonce declarations (atom []))
 
 (defn reset-namespaces! []
   (reset! namespaces namespaces-init)
   (reset! protocols protocols-init)
-  (reset! declarations [])
-  (reset! defined-fields #{}))
+  (reset! defined-fields #{})
+  (reset! exports exports-init)
+  (reset! declarations []))
 
 (def ^:dynamic *cljs-ns* 'cljc.user)
 (def ^:dynamic *cljs-file* nil)
@@ -48,6 +53,9 @@
 (def ^:dynamic *unchecked-if* (atom false))
 (def ^:dynamic *cljs-static-fns* false)
 (def ^:dynamic *position* nil)
+
+(def ^:dynamic *read-exports-fn* (fn [namespace]
+                                   (throw (Error. (str "Don't know how to read exports file for namespace " namespace)))))
 
 (defmacro ^:private debug-prn
   [& args]
@@ -841,7 +849,7 @@
 (defmethod emit :defprotocol*
   [{:keys [p methods]}]
   (emit-declaration
-   (emitln "static int PROTOCOL_" (str p) ";")
+   (emitln "int PROTOCOL_" (str p) ";")
    (emitln "#define PROTOCOL_VTABLE_SIZE_" (str p) " " (count methods))
    (doseq [[i method] (map-indexed #(vector %1 (first %2)) methods)]
      (emitln "#define MEMBER_" (str (munge method) " " i))))
@@ -852,11 +860,12 @@
   ;; FIXME: this is very unatomic!
   (let [new-fields (set/difference (set fields) @defined-fields)]
     (swap! defined-fields set/union new-fields)
+    (swap! exports conj [:defined-fields new-fields])
     (emit-declaration
-     (emitln "static int TYPE_" (str t) ";")
+     (emitln "int TYPE_" (str t) ";")
      (emitln "static ptable_t* PTABLE_NAME (" t ") = NULL;")
      (doseq [field new-fields]
-       (emitln "static int FIELD_" (munge field) ";"))
+       (emitln "int FIELD_" (munge field) ";"))
      (emitln "static value_t* FIELD_ACCESS_FN_NAME (" t ") (value_t *val, int field, value_t *new_val) {")
      (emitln "deftype_t *dt = (deftype_t*)val;")
      (emitln "assert (val->ptable->type == TYPE_NAME (" t "));")
@@ -1071,25 +1080,24 @@
           (warning env
             (str "WARNING: " (symbol (str ns-name) (str sym))
                  " no longer fn, references are stale"))))
-      (swap! namespaces update-in [ns-name :defs sym]
-             (fn [m]
-               (let [m (assoc (or m {}) :name name)]
-                 (merge m
-                   (when tag {:tag tag})
-                   (when dynamic {:dynamic true})
-                   (when-let [line (:line env)]
-                     {:file *cljs-file* :line line})
-                   (when protocol
-                     {:protocol protocol})
-                   (when-let [protocol-symbol (-> sym meta :protocol-symbol)]
-                     {:protocol-symbol protocol-symbol})
-                   (when fn-var?
-                     {:fn-var true
-                      :variadic (:variadic init-expr)
-                      :max-fixed-arity (:max-fixed-arity init-expr)
-                      :method-params (map (fn [m]
-                                            (:params m))
-                                          (:methods init-expr))})))))
+      (let [entry (merge {:name name}
+                         (when tag {:tag tag})
+                         (when dynamic {:dynamic true})
+                         (when-let [line (:line env)]
+                           {:file *cljs-file* :line line})
+                         (when protocol
+                           {:protocol protocol})
+                         (when-let [protocol-symbol (-> sym meta :protocol-symbol)]
+                           {:protocol-symbol protocol-symbol})
+                         (when fn-var?
+                           {:fn-var true
+                            :variadic (:variadic init-expr)
+                            :max-fixed-arity (:max-fixed-arity init-expr)
+                            :method-params (map (fn [m]
+                                                  (:params m))
+                                                (:methods init-expr))}))]
+        (swap! namespaces update-in [ns-name :defs sym] merge entry)
+        (swap! exports conj [:namespaces [ns-name :defs sym] entry]))
       (merge {:env env :op :def :form form
               :name name :doc doc :init init-expr}
              (when tag {:tag tag})
@@ -1315,14 +1323,34 @@
 (defn ns->relpath [s]
   (str (string/replace (munge s) \. \/) ".cljs"))
 
-(declare analyze-files)
-
 (defn analyze-deps [deps]
   (doseq [dep deps]
-    (when-not (:defs (@namespaces dep))
-      (let [relpath (ns->relpath dep)]
-        (when (io/resource relpath)
-          (analyze-files [relpath]))))))
+    (doseq [[kind info entry] (read-string ((var-get #'*read-exports-fn*) dep))]
+      (case kind
+        :defined-fields
+        (emit-declaration
+         (doseq [field info]
+           (emitln "extern int FIELD_" (munge field) ";")))
+
+        :namespaces
+        (let [[ns-name key sym] info]
+          (swap! namespaces update-in info merge entry)
+          (emit-declaration
+           (when (= key :defs)
+             (emitln "extern value_t *VAR_NAME (" (:name entry) ");"))
+           (when (:num-fields entry)
+             (emitln "extern int TYPE_" (str (:name entry)) ";"))))
+
+        :protocols
+        (do
+          (swap! protocols update-in info (constantly entry))
+          (emit-declaration
+           (emitln "extern int PROTOCOL_" (str (:name entry)) ";")
+           (emitln "#define PROTOCOL_VTABLE_SIZE_" (str (:name entry)) " " (count (:methods entry)))
+           (doseq [[i method] (map-indexed #(vector %1 (first %2)) (:methods entry))]
+             (emitln "#define MEMBER_" (str (munge method) " " i)))))
+
+        (throw (Error. (str "Unknown export " kind)))))))
 
 (defmethod parse 'ns
   [_ env [_ name & args :as form] _]
@@ -1366,29 +1394,24 @@
     (require 'cljc.core)
     (doseq [nsym (concat (vals requires-macros) (vals uses-macros))]
       (clojure.core/require nsym))
-    (swap! namespaces #(-> %
-                           (assoc-in [name :name] name)
-                           (assoc-in [name :excludes] excludes)
-                           (assoc-in [name :uses] uses)
-                           (assoc-in [name :requires] requires)
-                           (assoc-in [name :uses-macros] uses-macros)
-                           (assoc-in [name :requires-macros]
-                                     (into {} (map (fn [[alias nsym]]
-                                                     [alias (find-ns nsym)])
-                                                   requires-macros)))))
+    (let [requires-macros (into {} (map (fn [[alias nsym]]
+                                          [alias (find-ns nsym)])
+                                        requires-macros))
+          entry {:name name :excludes excludes :uses uses
+                 :requires requires :uses-macros uses-macros :requires-macros requires-macros}]
+      (swap! namespaces update-in [name] merge entry)
+      (swap! exports conj [:namespaces [name] entry]))
     {:env env :op :ns :form form :name name :uses uses :requires requires
      :uses-macros uses-macros :requires-macros requires-macros :excludes excludes}))
 
 (defmethod parse 'defprotocol*
   [_ env [_ psym & methods :as form] _]
   (let [p (munge (:name (resolve-var (dissoc env :locals) psym)))
-	ns-name (-> env :ns :name)]
-    (swap! protocols
-           (fn [protocols]
-             (update-in protocols [ns-name psym]
-                        (fn [m]
-                          {:name p
-			   :methods methods}))))
+	ns-name (-> env :ns :name)
+        entry {:name p
+               :methods methods}]
+    (swap! protocols update-in [ns-name psym] (constantly entry))
+    (swap! exports conj [:protocols [ns-name psym] entry])
     {:env env
      :op :defprotocol*
      :as form
@@ -1397,19 +1420,17 @@
 
 (defmethod parse 'deftype*
   [_ env [_ tsym fields pmasks :as form] _]
-  (let [t (munge (:name (resolve-var (dissoc env :locals) tsym)))]
-    (swap! namespaces update-in [(-> env :ns :name) :defs tsym]
-           (fn [m]
-             (let [m (assoc (or m {})
-                       :name t
-		       :defrecord (:defrecord (meta tsym))
-		       :fields fields
-                       :num-fields (count fields))]
-               (if-let [line (:line env)]
-                 (-> m
-                     (assoc :file *cljs-file*)
-                     (assoc :line line))
-                 m))))
+  (let [t (munge (:name (resolve-var (dissoc env :locals) tsym)))
+        ns-name (-> env :ns :name)
+        entry (merge {:name t
+                      :defrecord (:defrecord (meta tsym))
+                      :fields fields
+                      :num-fields (count fields)}
+                     (if-let [line (:line env)]
+                       {:file *cljs-file* :line line}
+                       {}))]
+    (swap! namespaces update-in [ns-name :defs tsym] merge entry)
+    (swap! exports conj [:namespaces [ns-name :defs tsym] entry])
     {:env env :op :deftype* :as form :t t :fields fields :pmasks pmasks}))
 
 (defmethod parse 'deftype-ptable*
@@ -1697,9 +1718,9 @@
        (loop [asts []
               files files]
          (if (seq files)
-           (recur (let [f (first files)
-                        res (if (= \/ (first f)) (.toURL (io/file f)) (io/resource f))]
-                    (assert res (str "Can't find " f " in classpath"))
+           (recur (let [f (io/file (first files))
+                        res (.toURL f)]
+                    (assert (.exists f) (str "Can't find source file " f))
                     (binding [*cljs-ns* 'cljc.user
                               *cljs-file* (.getPath ^java.net.URL res)]
                       (loop [asts asts

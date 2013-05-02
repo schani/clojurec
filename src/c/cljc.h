@@ -258,4 +258,9 @@ extern gchar* slurp_file (const char *filename);
 extern long strchr_offset (const gchar *str, gunichar c);
 extern void cljc_init (void);
 
+/* These will be generated when compiling cljc.core and needed in the driver: */
+extern value_t* VAR_NAME (cljc_DOT_core_SLASH_main_exit_value);
+extern value_t* VAR_NAME (cljc_DOT_core_SLASH_vector_from_c_string_array);
+extern void init_cljc_DOT_core (void);
+
 #endif

@@ -62,3 +62,4 @@
                        (count (dissoc m1 3))
                        (every? boolean v))))))))))
 
+(use-fixtures :once (fn [f] (clean-default-run-dir true) (f)))

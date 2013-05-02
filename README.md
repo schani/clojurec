@@ -47,7 +47,9 @@ ClojureC provides a very simple command line compiler interface.  Let's say you 
 
 Then if you do the following in the `clojurec` directory
 
-    lein run /tmp/echo.cljc run/cljc.c cljc.user/main
+    lein run -c src/cljc/cljc/core.cljc cljc.core run run
+    lein run -c /tmp/echo.cljc cljc.user run run
+	lein run -d cljc.user/main run
     cd run
     make
 

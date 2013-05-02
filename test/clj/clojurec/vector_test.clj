@@ -207,3 +207,5 @@
                         (println (count (pop! v1)))
                         (println (vec (dec (count vec))))
                         (println (count vec))))))))
+
+(use-fixtures :once (fn [f] (clean-default-run-dir true) (f)))

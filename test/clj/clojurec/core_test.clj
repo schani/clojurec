@@ -954,3 +954,5 @@
                         (recur (-append! sb (first (-pr-seq i nil))) (inc i))
                         (str sb)))))
            ['abc012345678910111213141516171819]))))
+
+(use-fixtures :once (fn [f] (clean-default-run-dir true) (f)))
