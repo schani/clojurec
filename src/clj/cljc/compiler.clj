@@ -31,6 +31,8 @@
 (defonce protocols-init '{cljc.core {IFn {:name cljc_DOT_core_SLASH_IFn, :methods ((-invoke [f & args]))}}})
 (defonce protocols (atom protocols-init))
 (defonce defined-fields (atom #{}))
+(defonce used-namespaces-init #{})
+(defonce used-namespaces (atom used-namespaces-init))
 
 (defonce exports-init [])
 (defonce exports (atom exports-init))
@@ -41,6 +43,7 @@
   (reset! namespaces namespaces-init)
   (reset! protocols protocols-init)
   (reset! defined-fields #{})
+  (reset! used-namespaces used-namespaces-init)
   (reset! exports exports-init)
   (reset! declarations []))
 
@@ -1389,7 +1392,8 @@
                                            libs))))
                 {} (remove (fn [[r]] (= r :refer-clojure)) args))]
     (when (seq @deps)
-      (analyze-deps @deps))
+      (analyze-deps @deps)
+      (swap! used-namespaces set/union @deps))
     (set! *cljs-ns* name)
     (require 'cljc.core)
     (doseq [nsym (concat (vals requires-macros) (vals uses-macros))]

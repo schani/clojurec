@@ -30,8 +30,14 @@
 (defn inspect-expr [ns-name with-core expr]
   (inspect-ast (last (analyze ns-name with-core expr))))
 
-(defn init-or-main-function [init-name main-name main-code]
-  (apply str [(if main-name
+(defn init-function-name [namespace]
+  (str (cljc/munge (symbol (str "init-" namespace)))))
+
+(defn init-or-main-function [init-name main-name main-code used-namespaces]
+  (apply str [(apply str (map (fn [ns]
+                                (str "extern void " (init-function-name ns) " (void);\n"))
+                              used-namespaces))
+              (if main-name
                 "int MAIN_FUNCTION_NAME"
                 (str "void " init-name))
               "("
@@ -43,7 +49,10 @@
               (if main-name
                 (str "cljc_init ();\n"
                      "BEGIN_MAIN_CODE;\n")
-                "")
+                (apply str
+                       (map (fn [ns]
+                              (str (init-function-name ns) " ();\n"))
+                            used-namespaces)))
               (if main-code
                 main-code
                 "")
@@ -69,10 +78,7 @@
         main-name (:main-function-name *build-options*)]
     (apply str
 	   (concat @cljc/declarations
-                   [(init-or-main-function init-name main-name main-code)]))))
-
-(defn init-function-name [namespace]
-  (str (cljc/munge (symbol (str "init-" namespace)))))
+                   [(init-or-main-function init-name main-name main-code @cljc/used-namespaces)]))))
 
 (def default-run-dir (io/file (java.lang.System/getProperty "user.dir") "run"))
 
@@ -119,7 +125,8 @@
                                            (str (if with-core
                                                   (str (init-function-name 'cljc.core) " ();\n")
                                                   "")
-                                                init-name " ();\n"))]
+                                                init-name " ();\n")
+                                           nil)]
     (spit-code (io/file out-dir "driver.c")
                (str "extern void " init-name " (void);\n"
                     (if (not= main-name :none)
