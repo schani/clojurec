@@ -312,7 +312,7 @@ ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_RawPointer) = NULL;
 value_t*
 make_integer (long x)
 {
-	integer_t *integer = (integer_t*) alloc_value (PTABLE_NAME (cljc_DOT_core_SLASH_Integer), sizeof (integer_t));
+	cljc_integer_t *integer = (cljc_integer_t*) alloc_value (PTABLE_NAME (cljc_DOT_core_SLASH_Integer), sizeof (cljc_integer_t));
 	integer->x = x;
 	return &integer->val;
 }
@@ -320,7 +320,7 @@ make_integer (long x)
 long
 integer_get (value_t *v)
 {
-	integer_t *i = (integer_t*)v;
+	cljc_integer_t *i = (cljc_integer_t*)v;
 	assert (v->ptable->type == TYPE_Integer);
 	return i->x;
 }
@@ -668,7 +668,7 @@ cljc_core_print (int nargs, closure_t *closure, value_t *arg1, value_t *arg2, va
 			break;
 		}
 		case TYPE_Integer: {
-			integer_t *i = (integer_t*)arg1;
+			cljc_integer_t *i = (cljc_integer_t*)arg1;
 			printf ("%ld", i->x);
 			break;
 		}

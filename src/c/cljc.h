@@ -43,7 +43,7 @@ struct closure {
 typedef struct {
 	value_t val;
 	long x;
-} integer_t;
+} cljc_integer_t;
 
 typedef struct {
 	value_t val;
