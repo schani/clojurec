@@ -788,3 +788,19 @@
   `(-nth ~coll ~idx ~@rest))
 (defmacro unchecked-inc [x]
   `(inc ~x))
+
+;;; Objective-C
+(defmacro § [x & ys]
+  (cond (empty? ys)
+        (if (symbol? x)
+          (list 'c* (core/str "make_objc_object ([" (core/str x) " class])"))
+          (throw (clojure.core/IllegalArgumentException. "Sole argument to § must be a symbol denoting an Objective-C class.")))
+
+        (= (count ys) 1)
+        (list 'cljc.objc/objc-msg-send x (list 'c* (core/str "make_objc_selector (@selector (" (name (first ys)) "))")))
+
+        :else
+        (let [selector-kws (take-nth 2 ys)
+              args (take-nth 2 (rest ys))
+              selector (apply core/str (map #(core/str (name %) ":") selector-kws))]
+          (apply list 'cljc.objc/objc-msg-send x (list 'c* (core/str "make_objc_selector (@selector (" selector "))")) args))))

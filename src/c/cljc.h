@@ -126,7 +126,11 @@ struct ptable {
 #define TYPE_Symbol	9
 #define TYPE_Keyword	10
 #define TYPE_RawPointer	11
-#define FIRST_TYPE	12
+#ifdef HAVE_OBJC
+#define TYPE_ObjCObject	12
+#define TYPE_ObjCSelector	13
+#endif
+#define FIRST_TYPE	14
 
 #define FIRST_FIELD	1
 
@@ -264,5 +268,24 @@ extern void cljc_init (void);
 extern value_t* VAR_NAME (cljc_DOT_core_SLASH_main_exit_value);
 extern value_t* VAR_NAME (cljc_DOT_core_SLASH_vector_from_c_string_array);
 extern void init_cljc_DOT_core (void);
+
+#ifdef HAVE_OBJC
+typedef struct {
+	value_t val;
+	id obj;
+} objc_object_t;
+
+typedef struct {
+	value_t val;
+	SEL sel;
+} objc_selector_t;
+
+extern value_t* make_objc_object (id obj);
+extern value_t* make_objc_selector (SEL sel);
+
+extern value_t* objc_object_send_message (int nargs, closure_t *closure, value_t *obj, value_t *sel, value_t *arg1, value_t **argrest);
+#endif
+
+extern void cljc_objc_init (void);
 
 #endif

@@ -33,6 +33,8 @@
 (defn init-function-name [namespace]
   (str (cljc/munge (symbol (str "init-" namespace)))))
 
+(def ^:dynamic *generate-objc* false)
+
 (defn init-or-main-function [init-name main-name main-code used-namespaces]
   (apply str [(apply str (map (fn [ns]
                                 (str "extern void " (init-function-name ns) " (void);\n"))
@@ -48,6 +50,9 @@
               "environment_t *env = NULL;\n"
               (if main-name
                 (str "cljc_init ();\n"
+                     (if *generate-objc*
+                       "cljc_objc_init ();\n"
+                       "")
                      "BEGIN_MAIN_CODE;\n")
                 (apply str
                        (map (fn [ns]
@@ -113,8 +118,11 @@
               :run-error)))
         {:compile-error "Makefile ERROR"}))))
 
+(defn c-file-extension []
+  (if *generate-objc* ".m" ".c"))
+
 (defn c-file-name [namespace]
-  (str (cljc/munge namespace) ".c"))
+  (str (cljc/munge namespace) (c-file-extension)))
 
 (defn exports-file-name [namespace]
   (str (cljc/munge namespace) "-exports.clj"))
@@ -127,7 +135,7 @@
                                                   "")
                                                 init-name " ();\n")
                                            nil)]
-    (spit-code (io/file out-dir "driver.c")
+    (spit-code (io/file out-dir (str "driver" (c-file-extension)))
                (str "extern void " init-name " (void);\n"
                     (if (not= main-name :none)
                       (str "extern value_t *VAR_NAME (" (str (cljc/munge main-name)) ");\n")
@@ -227,13 +235,15 @@
   (let [[options remaining usage]
         (cli args
              ["-c" "--compile" "Compile a ClojureC file." :flag true]
-             ["-d" "--driver" "Generate the driver C file." :flag true])]
+             ["-d" "--driver" "Generate the driver C file." :flag true]
+             ["-m" "--objc" "Generate Objective-C code." :flag true])]
     (cond
      (:compile options)
      (if (= (count remaining) 4)
        (let [[source namespace out-dir exports-dir] remaining
              namespace (symbol namespace)]
-         (compile-file-to-dirs source namespace out-dir exports-dir))
+         (binding [*generate-objc* (:objc options)]
+           (compile-file-to-dirs source namespace out-dir exports-dir)))
        (do
          (print-usage)
          (System/exit 1)))
@@ -242,7 +252,8 @@
      (if (= (count remaining) 2)
        (let [[main-name out-dir] remaining
              main-name (symbol main-name)]
-         (spit-driver nil main-name true out-dir))
+         (binding [*generate-objc* (:objc options)]
+           (spit-driver nil main-name true out-dir)))
        (do
          (print-usage)
          (System/exit 1)))

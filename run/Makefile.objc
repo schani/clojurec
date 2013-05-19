@@ -1,0 +1,17 @@
+all : cljc
+
+include Makefile.common
+
+CC := clang
+objc_sources := $(shell echo *.m)
+sources := $(c_sources) $(objc_sources)
+objs := runtime.o runtime-objc.o $(c_sources:.c=.o) $(objc_sources:.m=.o)
+
+cljc : $(objs)
+	$(CC) -o $@ $(objs) `pkg-config --libs bdw-gc glib-2.0` -lm -framework AppKit
+
+runtime-objc.o : ../src/c/runtime-objc.m
+	$(CC) -DHAVE_OBJC=1 -Wall -Wno-unused-variable -Wno-unused-value -Wno-unused-function -I../src/c -I../run/thirdparty/klib -g -O0 `pkg-config --cflags bdw-gc glib-2.0` -c $<
+
+%.o : %.m
+	$(CC) -DHAVE_OBJC=1 -Wall -Wno-unused-variable -Wno-unused-value -Wno-unused-function -I../src/c -I../run/thirdparty/klib -g -O0 `pkg-config --cflags bdw-gc glib-2.0` -framework AppKit -c $<

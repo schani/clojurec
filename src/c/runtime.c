@@ -896,4 +896,8 @@ cljc_init (void)
 
 	VAR_NAME (cljc_DOT_core_SLASH_print) = make_closure (cljc_core_print, NULL);
 	VAR_NAME (cljc_DOT_core_SLASH_apply) = make_closure (cljc_core_apply, NULL);
+
+#ifdef HAVE_OBJC
+	cljc_objc_init ();
+#endif
 }

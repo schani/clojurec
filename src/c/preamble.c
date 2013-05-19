@@ -10,6 +10,10 @@
 #include <math.h>
 #include <pthread.h>
 
+#ifdef HAVE_OBJC
+#import <AppKit/AppKit.h>
+#endif
+
 #include "khash.h"
 
 #include "cljc.h"

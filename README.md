@@ -41,7 +41,7 @@ Note that ClojureC is still in its experimental phase, so please don't expect a 
 ClojureC provides a very simple command line compiler interface.  Let's say you have the following in the file `/tmp/echo.cljc`:
 
     (ns cljc.user)
-    (defn main [& args]
+    (defn -main [& args]
       (doseq [arg args]
         (pr arg "\n")))
 
@@ -49,11 +49,33 @@ Then if you do the following in the `clojurec` directory
 
     lein run -c src/cljc/cljc/core.cljc cljc.core run run
     lein run -c /tmp/echo.cljc cljc.user run run
-	lein run -d cljc.user/main run
+	lein run -d cljc.user/-main run
     cd run
     make
 
 you should have a `cljc` executable in the `run` directory that acts a little like `echo`.
+
+### Objective-C bridge
+
+ClojureC features a very rudimentary Objective-C bridge.  Here's an example:
+
+    (ns cljc.user
+      (:require [cljc.objc :as objc]))
+    (defn -main [& args]
+      (let [app (§ (§ NSApplication) sharedApplication)
+            date (§ (§ NSDate) :dateWithTimeIntervalSinceNow 3600)
+            locale (§ (§ NSLocale) currentLocale)
+            desc (§ date :descriptionWithLocale locale)]
+        (println "Hello, NSApplication:" desc)))
+
+If you have that code in `/tmp/nsdate.cljc`, then this will build and run it:
+
+    lein run -c src/cljc/cljc/core.cljc cljc.core run run
+    lein run -c src/cljc/cljc/objc.cljc cljc.objc run run -m
+    lein run -c /tmp/nsdate.cljc cljc.user run run -m
+	lein run -d cljc.user/-main run -m
+	cd run
+	make
 
 ### From the REPL
 
