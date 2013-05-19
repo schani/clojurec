@@ -223,6 +223,7 @@ extern value_t* make_integer (long x);
 extern long integer_get (value_t *v);
 extern value_t* make_float (double x);
 extern double float_get (value_t *v);
+extern double number_get (value_t *v);
 extern value_t* make_array_from (long len, value_t **src);
 extern value_t* make_array (long len);
 extern long array_length (value_t *v);

@@ -341,6 +341,14 @@ float_get (value_t *v)
 	return f->x;
 }
 
+double
+number_get (value_t *v)
+{
+	if (v->ptable->type == TYPE_Integer)
+		return integer_get (v);
+	return float_get (v);
+}
+
 value_t*
 make_array_from (long len, value_t **src)
 {
