@@ -468,10 +468,17 @@ make_string_from_buf (const gchar *start, const gchar *end)
 }
 
 value_t*
-make_string_copy_free (gchar *utf8)
+make_string_copy (const gchar *utf8)
 {
 	size_t len = strlen (utf8);
 	value_t *s = make_string_from_buf (utf8, utf8 + len);
+	return s;
+}
+
+value_t*
+make_string_copy_free (gchar *utf8)
+{
+	value_t *s = make_string_copy (utf8);
 	free (utf8);
 	return s;
 }

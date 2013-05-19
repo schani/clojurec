@@ -236,6 +236,7 @@ extern value_t* make_string (gchar *utf8);
 extern value_t* make_string_from_unichar (gunichar c);
 extern value_t* make_string_with_size (long bytes);
 extern value_t* make_string_from_buf (const gchar *start, const gchar *end);
+extern value_t* make_string_copy (const gchar *utf8);
 extern value_t* make_string_copy_free (gchar *utf8);
 extern gchar* string_get_utf8 (value_t *v);
 extern uint32_t string_hash_code (const gchar *utf8);
