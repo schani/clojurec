@@ -57,27 +57,28 @@ register_field (const gchar *name)
 	return field;
 }
 
-closure_t*
-get_protocol (value_t *val, int protocol_num, int fn_index)
+closure_t**
+ptable_get_vtable (ptable_t *ptable, int protocol_num)
 {
-	ptable_t *ptable = val->ptable;
 	int i;
 	for (i = 0; ptable->entries [i].num >= 0; ++i)
 		if (ptable->entries [i].num == protocol_num)
-			return ptable->entries [i].vtable [fn_index];
-	assert_not_reached ();
-	return (closure_t*)value_nil;
+			return ptable->entries [i].vtable;
+	return NULL;
+}
+
+closure_t*
+get_protocol (value_t *val, int protocol_num, int fn_index)
+{
+	closure_t **vtable = ptable_get_vtable (val->ptable, protocol_num);
+	assert (vtable != NULL);
+	return vtable [fn_index];
 }
 
 bool
 value_satisfies_protocol (value_t *val, int protocol_num)
 {
-	ptable_t *ptable = val->ptable;
-	int i;
-	for (i = 0; ptable->entries [i].num >= 0; ++i)
-		if (ptable->entries [i].num == protocol_num)
-			return true;
-	return false;
+	return ptable_get_vtable (val->ptable, protocol_num) != NULL;
 }
 
 value_t*

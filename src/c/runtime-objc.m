@@ -6,21 +6,90 @@
 
 #import <Foundation/Foundation.h>
 
+#include "khash.h"
+
 #include "cljc.h"
 
 #ifdef HAVE_OBJC
 
-ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_ObjCObject) = NULL;
-value_t* VAR_NAME (cljc_DOT_core_SLASH_ObjCObject) = VALUE_NONE;
-
 ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_ObjCSelector) = NULL;
 value_t* VAR_NAME (cljc_DOT_core_SLASH_ObjCSelector) = VALUE_NONE;
+
+static ptable_t* objc_class_ptable (Class class);
+
+static ptable_t*
+objc_class_alloc_ptable (Class class)
+{
+	static value_t *constructor = NULL;
+
+	Class superclass = [class superclass];
+	ptable_t *ptable;
+
+	if (constructor == NULL)
+		constructor = make_closure (NULL, NULL);
+
+	ptable = alloc_ptable (TYPE_ObjCObject, constructor, NULL);
+	if (superclass != nil) {
+		ptable_t *sc_ptable = objc_class_ptable (superclass);
+		ptable_entry_t *entry;
+		for (entry = sc_ptable->entries; entry->num >= 0; ++entry)
+			extend_ptable (ptable, entry->num, entry->vtable);
+	}
+	return ptable;
+}
+
+#define class_hash_func(key)	(khint32_t)(key)
+KHASH_INIT(CLASSES, Class, ptable_t*, 1, class_hash_func, kh_int_hash_equal);
+static khash_t(CLASSES) *class_hash = NULL;
+
+static ptable_t*
+objc_class_ptable (Class class)
+{
+	khiter_t iter;
+	int ret;
+
+	if (class_hash == NULL) {
+		class_hash = kh_init (CLASSES);
+		assert (class_hash != NULL);
+	}
+	assert (class_hash != NULL);
+
+	iter = kh_put (CLASSES, class_hash, class, &ret);
+	if (ret != 0)
+		kh_value (class_hash, iter) = objc_class_alloc_ptable (class);
+	return kh_value (class_hash, iter);
+}
+
+void
+objc_class_extend_ptable (Class class, int protocol_num, closure_t **vtable)
+{
+	ptable_t *ptable = objc_class_ptable (class);
+	closure_t **old_vtable = ptable_get_vtable (ptable, protocol_num);
+	khiter_t iter;
+
+	extend_ptable (ptable, protocol_num, vtable);
+
+	for (iter = kh_begin (class_hash); iter != kh_end (class_hash); ++iter) {
+		Class subclass;
+		ptable_t *sub_ptable;
+		closure_t **sub_vtable;
+		if (!kh_exist (class_hash, iter))
+			continue;
+		subclass = kh_key (class_hash, iter);
+		if (![subclass isSubclassOfClass: class])
+			continue;
+		sub_ptable = kh_value (class_hash, iter);
+		sub_vtable = ptable_get_vtable (sub_ptable, protocol_num);
+		assert (old_vtable == NULL || sub_vtable != NULL);
+		if (old_vtable == NULL || sub_vtable == old_vtable)
+			extend_ptable (sub_ptable, protocol_num, vtable);
+	}
+}
 
 value_t*
 make_objc_object (id obj)
 {
-	objc_object_t *o = (objc_object_t*) alloc_value (PTABLE_NAME (cljc_DOT_core_SLASH_ObjCObject),
-							 sizeof (objc_object_t));
+	objc_object_t *o = (objc_object_t*) alloc_value (objc_class_ptable ([obj class]), sizeof (objc_object_t));
 	/* FIXME: release in finalizer! */
 	o->obj = [obj retain];
 	return &o->val;
@@ -313,9 +382,6 @@ objc_object_send_message (int nargs, closure_t *closure, value_t *obj, value_t *
 void
 cljc_objc_init (void)
 {
-	VAR_NAME (cljc_DOT_core_SLASH_ObjCObject) = make_closure (NULL, NULL);
-	PTABLE_NAME (cljc_DOT_core_SLASH_ObjCObject) = alloc_ptable (TYPE_ObjCObject, VAR_NAME (cljc_DOT_core_SLASH_ObjCObject), NULL);
-
 	VAR_NAME (cljc_DOT_core_SLASH_ObjCSelector) = make_closure (NULL, NULL);
 	PTABLE_NAME (cljc_DOT_core_SLASH_ObjCSelector) = alloc_ptable (TYPE_ObjCSelector, VAR_NAME (cljc_DOT_core_SLASH_ObjCSelector), NULL);
 }

@@ -104,7 +104,18 @@
                                         (core/str "WARNING: Symbol " % " is not a protocol")))
                                     (cljc.compiler/warning &env
 							   (core/str "WARNING: Can't resolve protocol symbol " %)))))
-	[t fields] (resolve tsym)
+	extend-maker (cond
+                      (symbol? tsym)
+                      (let [t (first (resolve tsym))]
+                        (fn [psym]
+                          (core/str "extend_ptable (PTABLE_NAME (" t "), PROTOCOL_NAME (" psym "), RAW_POINTER_GET (~{}, closure_t**))")))
+
+                      (and (list? tsym) (= (count tsym) 2) (= (first tsym) '§))
+                      (fn [psym]
+                        (core/str "objc_class_extend_ptable ([" (second tsym) " class], PROTOCOL_NAME (" psym "), RAW_POINTER_GET (~{}, closure_t**))"))
+
+                      :else
+                      (throw (Error. (core/str "Cannot resolve type " tsym))))
 	assign-impls (fn [[p sigs]]
 		       (let [[psym _] (resolve p)
 			     vtable (gensym "vtable")]
@@ -117,7 +128,7 @@
                                               ~vtable
                                               (fn ~@meths))))
                                    sigs)
-			    (~'c* ~(core/str "extend_ptable (PTABLE_NAME (" t "), PROTOCOL_NAME (" psym "), RAW_POINTER_GET (~{}, closure_t**))") ~vtable))))]
+			    (~'c* ~(extend-maker psym) ~vtable))))]
     (concat '(do) (map assign-impls impl-map))))
 
 (defmacro defprotocol [psym & doc+methods]

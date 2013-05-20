@@ -61,12 +61,18 @@ ClojureC features a very rudimentary Objective-C bridge.  Here's an example:
 
     (ns cljc.user
       (:require [cljc.objc :as objc]))
+
+    (extend-type (§ NSString)
+      ICounted
+      (-count [self]
+        (§ self length)))
+
     (defn -main [& args]
       (let [app (§ (§ NSApplication) sharedApplication)
             date (§ (§ NSDate) :dateWithTimeIntervalSinceNow 3600)
             locale (§ (§ NSLocale) currentLocale)
             desc (§ date :descriptionWithLocale locale)]
-        (println "Hello, NSApplication:" desc)))
+        (println "Hello, NSApplication: `" desc "` has count " (count desc))))
 
 If you have that code in `/tmp/nsdate.cljc`, then this will build and run it:
 

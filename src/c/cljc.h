@@ -199,6 +199,7 @@ extern int register_protocol (void);
 extern int register_type (void);
 extern int register_field (const gchar *name);
 
+extern closure_t** ptable_get_vtable (ptable_t *ptable, int protocol_num);
 extern closure_t* get_protocol (value_t *val, int protocol_num, int fn_index);
 extern bool value_satisfies_protocol (value_t *val, int protocol_num);
 extern value_t* protcall0 (value_t *target, int protocol_num, int fn_index);
@@ -279,6 +280,8 @@ typedef struct {
 	value_t val;
 	SEL sel;
 } objc_selector_t;
+
+extern void objc_class_extend_ptable (Class class, int protocol_num, closure_t **vtable);
 
 extern value_t* make_objc_object (id obj);
 extern value_t* make_objc_selector (SEL sel);
