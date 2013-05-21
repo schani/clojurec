@@ -34,11 +34,12 @@ register_type (void)
 	return next_type++;
 }
 
+/* FIXME: use khash */
 static GHashTable *field_hash_table = NULL;
 static int next_field = FIRST_FIELD;
 
 int
-register_field (const gchar *name)
+register_field (const char *name)
 {
 	gpointer result;
 	int field;
@@ -429,7 +430,7 @@ character_get (value_t *v)
 }
 
 value_t*
-make_string (gchar *utf8)
+make_string (char *utf8)
 {
 	string_t *s = (string_t*) alloc_value (PTABLE_NAME (cljc_DOT_core_SLASH_String), sizeof (string_t));
 	s->utf8 = utf8;
@@ -439,7 +440,7 @@ make_string (gchar *utf8)
 value_t*
 make_string_from_unichar (gunichar c)
 {
-	gchar *buf = GC_malloc (7);
+	char *buf = GC_malloc (7);
 	string_t *s = (string_t*) alloc_value (PTABLE_NAME (cljc_DOT_core_SLASH_String), sizeof (string_t));
 	buf [g_unichar_to_utf8 (c, buf)] = '\0';
 	s->utf8 = buf;
@@ -449,18 +450,18 @@ make_string_from_unichar (gunichar c)
 value_t*
 make_string_with_size (long bytes)
 {
-	gchar *buf = GC_malloc (bytes + 1);
+	char *buf = GC_malloc (bytes + 1);
 	buf [0] = '\0';
 	return make_string (buf);
 }
 
 value_t*
-make_string_from_buf (const gchar *start, const gchar *end)
+make_string_from_buf (const char *start, const char *end)
 {
 	assert (start <= end);
 
 	size_t len = end - start;
-	gchar *copy = GC_malloc (len + 1);
+	char *copy = GC_malloc (len + 1);
 	string_t *s = (string_t*) alloc_value (PTABLE_NAME (cljc_DOT_core_SLASH_String), sizeof (string_t));
 	memcpy (copy, start, len);
 	copy [len] = '\0';
@@ -469,7 +470,7 @@ make_string_from_buf (const gchar *start, const gchar *end)
 }
 
 value_t*
-make_string_copy (const gchar *utf8)
+make_string_copy (const char *utf8)
 {
 	size_t len = strlen (utf8);
 	value_t *s = make_string_from_buf (utf8, utf8 + len);
@@ -477,14 +478,14 @@ make_string_copy (const gchar *utf8)
 }
 
 value_t*
-make_string_copy_free (gchar *utf8)
+make_string_copy_free (char *utf8)
 {
 	value_t *s = make_string_copy (utf8);
 	free (utf8);
 	return s;
 }
 
-gchar*
+char*
 string_get_utf8 (value_t *v)
 {
 	string_t *s = (string_t*)v;
@@ -551,7 +552,7 @@ hashmurmur3_32(const void *data, size_t nbytes)
 }
 
 uint32_t
-string_hash_code (const gchar *utf8)
+string_hash_code (const char *utf8)
 {
         size_t len;
         len = strlen (utf8);
@@ -559,7 +560,7 @@ string_hash_code (const gchar *utf8)
 }
 
 static symbol_t*
-make_symbol (const gchar *utf8)
+make_symbol (const char *utf8)
 {
 	symbol_t *sym = (symbol_t*)alloc_value_retired (PTABLE_NAME (cljc_DOT_core_SLASH_Symbol), sizeof (symbol_t));
 	sym->utf8 = utf8;
@@ -570,7 +571,7 @@ KHASH_MAP_INIT_STR (SYMBOLS, symbol_t*);
 static khash_t(SYMBOLS) *symbol_hash = NULL;
 
 value_t*
-intern_symbol (const gchar *utf8, bool copy)
+intern_symbol (const char *utf8, bool copy)
 {
 	khiter_t iter;
 	int ret;
@@ -590,7 +591,7 @@ intern_symbol (const gchar *utf8, bool copy)
 	return &kh_value (symbol_hash, iter)->val;
 }
 
-const gchar*
+const char*
 symbol_get_utf8 (value_t *v)
 {
 	symbol_t *s = (symbol_t*)v;
@@ -599,7 +600,7 @@ symbol_get_utf8 (value_t *v)
 }
 
 static keyword_t*
-make_keyword (const gchar *utf8)
+make_keyword (const char *utf8)
 {
 	keyword_t *kw = (keyword_t*)alloc_value_retired (PTABLE_NAME (cljc_DOT_core_SLASH_Keyword), sizeof (keyword_t));
 	kw->utf8 = utf8;
@@ -610,7 +611,7 @@ KHASH_MAP_INIT_STR (KEYWORDS, keyword_t*);
 static khash_t(KEYWORDS) *keyword_hash = NULL;
 
 value_t*
-intern_keyword (const gchar *utf8, bool copy)
+intern_keyword (const char *utf8, bool copy)
 {
 	khiter_t iter;
 	int ret;
@@ -630,7 +631,7 @@ intern_keyword (const gchar *utf8, bool copy)
 	return &kh_value (keyword_hash, iter)->val;
 }
 
-const gchar*
+const char*
 keyword_get_utf8 (value_t *v)
 {
 	keyword_t *k = (keyword_t*)v;
@@ -821,19 +822,19 @@ assert_not_recur (value_t *val)
 	return val;
 }
 
-gchar*
+char*
 slurp_file (const char *filename)
 {
-	gchar *contents;
+	char *contents;
 	if (!g_file_get_contents (filename, &contents, NULL, NULL))
 		assert_not_reached ();
 	return contents;
 }
 
 long
-strchr_offset (const gchar *str, gunichar c)
+strchr_offset (const char *str, gunichar c)
 {
-	gchar *p = g_utf8_strchr (str, -1, c);
+	char *p = g_utf8_strchr (str, -1, c);
 	if (p == NULL)
 		return -1;
 	return p - str;

@@ -63,17 +63,17 @@ typedef struct {
 
 typedef struct {
 	value_t val;
-	gchar *utf8;
+	char *utf8;
 } string_t;
 
 typedef struct {
 	value_t val;
-	const gchar *utf8;
+	const char *utf8;
 } symbol_t;
 
 typedef struct {
 	value_t val;
-	const gchar *utf8;
+	const char *utf8;
 } keyword_t;
 
 typedef struct {
@@ -197,7 +197,7 @@ extern ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_RawPointer);
 
 extern int register_protocol (void);
 extern int register_type (void);
-extern int register_field (const gchar *name);
+extern int register_field (const char *name);
 
 extern closure_t** ptable_get_vtable (ptable_t *ptable, int protocol_num);
 extern closure_t* get_protocol (value_t *val, int protocol_num, int fn_index);
@@ -237,18 +237,18 @@ extern void array_set (value_t *v, long index, value_t *x);
 extern value_t* array_copy (value_t *src, long src_pos, value_t *dst, long dst_pos, long len);
 extern value_t* make_character (gunichar c);
 extern gunichar character_get (value_t *v);
-extern value_t* make_string (gchar *utf8);
 extern value_t* make_string_from_unichar (gunichar c);
+extern value_t* make_string (char *utf8);
 extern value_t* make_string_with_size (long bytes);
-extern value_t* make_string_from_buf (const gchar *start, const gchar *end);
-extern value_t* make_string_copy (const gchar *utf8);
-extern value_t* make_string_copy_free (gchar *utf8);
-extern gchar* string_get_utf8 (value_t *v);
-extern uint32_t string_hash_code (const gchar *utf8);
-extern value_t* intern_symbol (const gchar *utf8, bool copy);
-extern const gchar* symbol_get_utf8 (value_t *v);
-extern value_t* intern_keyword (const gchar *utf8, bool copy);
-extern const gchar* keyword_get_utf8 (value_t *v);
+extern value_t* make_string_copy (const char *utf8);
+extern value_t* make_string_copy_free (char *utf8);
+extern value_t* make_string_from_buf (const char *start, const char *end);
+extern char* string_get_utf8 (value_t *v);
+extern uint32_t string_hash_code (const char *utf8);
+extern value_t* intern_symbol (const char *utf8, bool copy);
+extern const char* symbol_get_utf8 (value_t *v);
+extern value_t* intern_keyword (const char *utf8, bool copy);
+extern const char* keyword_get_utf8 (value_t *v);
 extern value_t* make_raw_pointer (void *ptr);
 extern void* raw_pointer_get (value_t *v);
 extern value_t* make_boolean (bool x);
@@ -261,8 +261,8 @@ extern value_t* throw_exception (value_t *exception);
 extern value_t* get_exception (void);
 extern void rethrow_exception (void);
 extern value_t* assert_not_recur (value_t *val);
-extern gchar* slurp_file (const char *filename);
-extern long strchr_offset (const gchar *str, gunichar c);
+extern char* slurp_file (const char *filename);
+extern long strchr_offset (const char *str, cljc_unichar_t c);
 extern void cljc_init (void);
 
 /* These will be generated when compiling cljc.core and needed in the driver: */

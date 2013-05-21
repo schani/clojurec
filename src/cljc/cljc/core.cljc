@@ -5837,7 +5837,7 @@ reduces them without incurring seq initialization"
   (loop [acc []
          i 1]
     (if (< i argc)
-      (let [arg (c* "make_string (RAW_POINTER_GET (~{}, gchar**) [integer_get (~{})])" argv i)]
+      (let [arg (c* "make_string (RAW_POINTER_GET (~{}, char**) [integer_get (~{})])" argv i)]
         (recur (conj acc arg)
                (inc i)))
       acc)))
