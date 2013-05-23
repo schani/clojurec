@@ -34,28 +34,25 @@ register_type (void)
 	return next_type++;
 }
 
-/* FIXME: use khash */
-static GHashTable *field_hash_table = NULL;
+KHASH_MAP_INIT_STR (FIELDS, int);
+static khash_t(FIELDS) *field_hash = NULL;
 static int next_field = FIRST_FIELD;
 
 int
 register_field (const char *name)
 {
-	gpointer result;
-	int field;
+	khiter_t iter;
+	int ret;
 
-	if (!field_hash_table)
-		field_hash_table = g_hash_table_new (g_str_hash, g_str_equal);
+	if (field_hash == NULL) {
+		field_hash = kh_init (FIELDS);
+		assert (field_hash != NULL);
+	}
 
-	result = g_hash_table_lookup (field_hash_table, name);
-	if (result)
-		return (int)(long)result;
-
-	field = next_field++;
-
-	g_hash_table_insert (field_hash_table, (gpointer)name, (gpointer)(long)field);
-
-	return field;
+	iter = kh_put (FIELDS, field_hash, name, &ret);
+	if (ret != 0)
+		kh_value (field_hash, iter) = next_field++;
+	return kh_value (field_hash, iter);
 }
 
 closure_t**
