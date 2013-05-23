@@ -36,6 +36,11 @@
 
 (def EMPTY nil)
 
+(ns cljc.objc)
+
+(if-objc
+ (declare objc-msg-send))
+
 (ns cljc.core)
 
 (declare print)
@@ -320,7 +325,11 @@
   (-hash [o] o)
 
   IPrintable
-  (-pr-seq [i opts] (list (c* "make_string_copy_free (g_strdup_printf (\"%ld\", integer_get (~{})))" i))))
+  (-pr-seq [i opts]
+    (list
+     (if-objc
+       (c* "make_objc_object ([NSString stringWithFormat: @\"%ld\", integer_get (~{})])" i)
+       (c* "make_string_copy_free (g_strdup_printf (\"%ld\", integer_get (~{})))" i)))))
 
 (extend-type Float
   IEquiv
@@ -335,7 +344,11 @@
     (c* "make_integer (hashmurmur3_32 (&((floating_t*)(~{}))->x, sizeof (double)))" o))
 
   IPrintable
-  (-pr-seq [f opts] (list (c* "make_string_copy_free (g_strdup_printf (\"%f\", float_get (~{})))" f))))
+  (-pr-seq [f opts]
+    (list
+     (if-objc
+       (c* "make_objc_object ([NSString stringWithFormat: @\"%f\", float_get (~{})])" f)
+       (c* "make_string_copy_free (g_strdup_printf (\"%f\", float_get (~{})))" f)))))
 
 (extend-type Boolean
   IHash
@@ -802,7 +815,10 @@ reduces them without incurring seq initialization"
 
 (defn ^boolean string?
   [s]
-  (has-type? s String))
+  (if-objc
+    (and (has-type? s ObjCObject)
+         (c* "make_boolean ([[objc_object_get (~{}) class] isSubclassOfClass: [NSString class]])" s))
+    (has-type? s String)))
 
 (defn ^boolean keyword?
   [s]
@@ -1267,6 +1283,7 @@ reduces them without incurring seq initialization"
 
 (declare reverse)
 
+;; FIXME: use StringBuilder
 (defn str
   "With no args, returns the empty string. With one arg x, returns
   x.toString().  (str nil) returns the empty string. With more than
@@ -1281,38 +1298,52 @@ reduces them without incurring seq initialization"
         (satisfies? IStringBuilder x) (-to-string x)
         :else (pr-str x)))
   ([& xs]
-     (loop [xs (seq xs)
-            rstrings ()
-            bytes 0]
-       (if xs
-         (let [s (str (first xs))
-               b (c* "make_integer (strlen (string_get_utf8 (~{})))" s)]
-           (recur (next xs)
-                  (cons [s b] rstrings)
-                  (+ bytes b)))
-         (let [sb (c* "make_string_with_size (integer_get (~{}))" bytes)]
-           (loop [ss (reverse rstrings)
-                  i 0]
-             (if ss
-               (let [[s b] (first ss)]
-                 (c* "memcpy (string_get_utf8 (~{}) + integer_get (~{}), string_get_utf8 (~{}), integer_get (~{}))" sb i s b)
-                 (recur (next ss) (+ i b)))
-               (do
-                 (assert (= i bytes))
-                 (c* "string_get_utf8 (~{}) [integer_get (~{})] = '\\0'" sb i)
-                 sb))))))))
+     (if-objc
+       (let [sb (§ (§ NSMutableString) :stringWithCapacity 64)]
+         (loop [xs (seq xs)]
+           (if xs
+             (do
+               (§ sb :appendString (str (first xs)))
+               (recur (next xs)))
+             (§ (§ NSString) :stringWithString sb))))
+       (loop [xs (seq xs)
+              rstrings ()
+              bytes 0]
+         (if xs
+           (let [s (str (first xs))
+                 b (c* "make_integer (strlen (string_get_utf8 (~{})))" s)]
+             (recur (next xs)
+                    (cons [s b] rstrings)
+                    (+ bytes b)))
+           (let [sb (c* "make_string_with_size (integer_get (~{}))" bytes)]
+             (loop [ss (reverse rstrings)
+                    i 0]
+               (if ss
+                 (let [[s b] (first ss)]
+                   (c* "memcpy ((void*)string_get_utf8 (~{}) + integer_get (~{}), string_get_utf8 (~{}), integer_get (~{}))" sb i s b)
+                   (recur (next ss) (+ i b)))
+                 (do
+                   (assert (= i bytes))
+                   (c* "((char*)string_get_utf8 (~{})) [integer_get (~{})] = '\\0'" sb i)
+                   sb)))))))))
 
 (defn- checked-substring [s start end]
   (let [len (count s)
 	end (min end len)
 	start (min start end)]
-    (c* "make_string_copy_free (g_utf8_substring (string_get_utf8 (~{}), integer_get (~{}), integer_get (~{})))" s start end)))
+    (if-objc
+      (c* "make_objc_object ([objc_object_get (~{}) substringWithRange: NSMakeRange (integer_get (~{}), integer_get (~{}))])" s start (- end start))
+      (c* "make_string_copy_free (g_utf8_substring (string_get_utf8 (~{}), integer_get (~{}), integer_get (~{})))" s start end))))
 
 (defn subs
   "Returns the substring of s beginning at start inclusive, and ending
   at end (defaults to length of string), exclusive."
-  ([s start] (subs s start (count s)))
-  ([s start end] (checked-substring s start end)))
+  ([s start]
+     (if-objc
+       (§ s :substringFromIndex start)
+       (subs s start (count s))))
+  ([s start end]
+     (checked-substring s start end)))
 
 (defn- equiv-sequential
   "Assumes x is sequential. Returns true if x equals y, otherwise
@@ -1525,56 +1556,106 @@ reduces them without incurring seq initialization"
 
 (declare string-quote)
 
-(extend-type String
-  IEquiv
-  (-equiv [s o]
-    (and (has-type? o String)
-         (c* "make_boolean (g_utf8_collate (string_get_utf8 (~{}), string_get_utf8 (~{})) == 0)" s o)))
+(if-objc
+  (extend-type (§ NSString)
+    IEquiv
+    (-equiv [s o]
+      (and (string? o)
+           (§ s :isEqualToString o)))
 
-  IComparable
-  (-compare [s o]
-    (c* "make_integer (g_utf8_collate (string_get_utf8 (~{}), string_get_utf8 (~{})))" s o))
+    IComparable
+    (-compare [s o]
+      (§ s :compare o))
 
-  IHash
-  (-hash [s]
-    (c* "make_integer (string_hash_code (string_get_utf8 (~{})))" s))
+    IHash
+    (-hash [s]
+      (§ s :hash))
 
-  ISeqable
-  (-seq [string] (prim-seq string 0))
+    ISeqable
+    (-seq [string] (prim-seq string 0))
 
-  ICounted
-  ;; FIXME: cache the count!
-  (-count [s] (c* "make_integer (g_utf8_strlen (string_get_utf8 (~{}), -1))" s))
+    ICounted
+    (-count [s]
+      (§ s :length))
 
-  IIndexed
-  (-nth
-    ([coll n]
-       (c* "make_character (g_utf8_get_char (g_utf8_offset_to_pointer (string_get_utf8 (~{}), integer_get (~{}))))"
-           coll n))
-    ([coll n not-found]
-       (if (and (<= 0 n) (< n (count coll)))
-         (-nth coll n)
-         not-found)))
+    IIndexed
+    (-nth
+      ([s n]
+         (c* "make_character ([objc_object_get (~{}) characterAtIndex: integer_get (~{})])" s n))
+      ([coll n not-found]
+         (if (and (<= 0 n) (< n (count coll)))
+           (-nth coll n)
+           not-found)))
 
-  ILookup
-  (-lookup
-    ([string k]
-       (-nth string k))
-    ([string k not_found]
-       (-nth string k not_found)))
+    ILookup
+    (-lookup
+      ([string k]
+         (-nth string k))
+      ([string k not_found]
+         (-nth string k not_found)))
 
-  IReduce
-  (-reduce
-    ([string f]
-       (ci-reduce string f))
-    ([string f start]
-       (ci-reduce string f start)))
+    IReduce
+    (-reduce
+      ([string f]
+         (ci-reduce string f))
+      ([string f start]
+         (ci-reduce string f start)))
 
-  IPrintable
-  (-pr-seq [s opts]
-    (if (:readably opts)
-      (list "\"" (string-quote s) "\"")
-      (list s))))
+    IPrintable
+    (-pr-seq [s opts]
+      (if (:readably opts)
+        (list "\"" (string-quote s) "\"")
+        (list s))))
+  (extend-type String
+    IEquiv
+    (-equiv [s o]
+      (and (has-type? o String)
+           (c* "make_boolean (g_utf8_collate (string_get_utf8 (~{}), string_get_utf8 (~{})) == 0)" s o)))
+
+    IComparable
+    (-compare [s o]
+      (c* "make_integer (g_utf8_collate (string_get_utf8 (~{}), string_get_utf8 (~{})))" s o))
+
+    IHash
+    (-hash [s]
+      (c* "make_integer (string_hash_code (string_get_utf8 (~{})))" s))
+
+    ISeqable
+    (-seq [string] (prim-seq string 0))
+
+    ICounted
+    ;; FIXME: cache the count!
+    (-count [s] (c* "make_integer (g_utf8_strlen (string_get_utf8 (~{}), -1))" s))
+
+    IIndexed
+    (-nth
+      ([coll n]
+         (c* "make_character (g_utf8_get_char (g_utf8_offset_to_pointer (string_get_utf8 (~{}), integer_get (~{}))))"
+             coll n))
+      ([coll n not-found]
+         (if (and (<= 0 n) (< n (count coll)))
+           (-nth coll n)
+           not-found)))
+
+    ILookup
+    (-lookup
+      ([string k]
+         (-nth string k))
+      ([string k not_found]
+         (-nth string k not_found)))
+
+    IReduce
+    (-reduce
+      ([string f]
+         (ci-reduce string f))
+      ([string f start]
+         (ci-reduce string f start)))
+
+    IPrintable
+    (-pr-seq [s opts]
+      (if (:readably opts)
+        (list "\"" (string-quote s) "\"")
+        (list s)))))
 
 (declare str)
 
@@ -2299,32 +2380,44 @@ reduces them without incurring seq initialization"
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; String builders ;;;;;;;;;;;;;;;;
 
-(deftype StringBuilder [string size used]
-  IStringBuilder
-  (-append! [sb appendee]
-    (let [len (c* "make_integer (strlen (string_get_utf8 (~{})))" appendee)
-          new-used (+ used len)
-          new-sb (if (<= new-used size)
-                   (StringBuilder. string size new-used)
-                   (let [new-size (loop [size (if (< size 16)
-                                                32
-                                                (* size 2))]
-                                    (if (<= new-used size)
-                                      size
-                                      (recur (* size 2))))
-                         new-string (c* "make_string_with_size (integer_get (~{}))" new-size)]
-                     (c* "memcpy (string_get_utf8 (~{}), string_get_utf8 (~{}), integer_get (~{}))"
-                         new-string string used)
-                     (StringBuilder. new-string new-size new-used)))]
-      (c* "memcpy (string_get_utf8 (~{}) + integer_get (~{}), string_get_utf8 (~{}), integer_get (~{}))"
-          (.-string new-sb) used appendee len)
-      new-sb))
-  (-to-string [sb]
-    string))
+(if-objc
+  (do
+    (deftype StringBuilder [string]
+      IStringBuilder
+      (-append! [sb appendee]
+        (§ string :appendString appendee))
+      (-to-string [sb]
+        (§ (§ NSString) :stringWithString string)))
 
-(defn- sb-make [string]
-  (let [len (c* "make_integer (strlen (string_get_utf8 (~{})))" string)]
-    (StringBuilder. string len len)))
+    (defn- sb-make [string]
+      (StringBuilder. (§ (§ NSMutableString) :stringWithString string))))
+  (do
+    (deftype StringBuilder [string size used]
+      IStringBuilder
+      (-append! [sb appendee]
+        (let [len (c* "make_integer (strlen (string_get_utf8 (~{})))" appendee)
+              new-used (+ used len)
+              new-sb (if (<= new-used size)
+                       (StringBuilder. string size new-used)
+                       (let [new-size (loop [size (if (< size 16)
+                                                    32
+                                                    (* size 2))]
+                                        (if (<= new-used size)
+                                          size
+                                          (recur (* size 2))))
+                             new-string (c* "make_string_with_size (integer_get (~{}))" new-size)]
+                         (c* "memcpy ((void*)string_get_utf8 (~{}), string_get_utf8 (~{}), integer_get (~{}))"
+                             new-string string used)
+                         (StringBuilder. new-string new-size new-used)))]
+          (c* "memcpy ((void*)string_get_utf8 (~{}) + integer_get (~{}), string_get_utf8 (~{}), integer_get (~{}))"
+              (.-string new-sb) used appendee len)
+          new-sb))
+      (-to-string [sb]
+        string))
+
+    (defn- sb-make [string]
+      (let [len (c* "make_integer (strlen (string_get_utf8 (~{})))" string)]
+        (StringBuilder. string len len)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Strings ;;;;;;;;;;;;;;;;
 
@@ -3246,7 +3339,7 @@ reduces them without incurring seq initialization"
        editable)))
 
 (defn ^boolean key-test [key other]
-  (if ^boolean (has-type? key String)
+  (if ^boolean (string? key)
       ;; Note the below test is an optimisation used in java and JS
       ;; impls relying on all strings being interned constats, and thus
       ;; there is only one string created with the same char sequence
@@ -5779,57 +5872,65 @@ reduces them without incurring seq initialization"
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Strings ;;;;;;;;;;;;;;;;
 
-(declare split-string-seq-next-fn vector pr-str)
+(if-objc
+  nil
+  (do
+    (declare split-string-seq-next-fn)
 
-(deftype SplitStringSeq [string len char first offset]
-  ASeq
-  ISeq
-  (-first [coll] first)
-  (-rest [coll]
-    (or (split-string-seq-next-fn string len char offset) ()))
+    (deftype SplitStringSeq [string len char first offset]
+      ASeq
+      ISeq
+      (-first [coll] first)
+      (-rest [coll]
+        (or (split-string-seq-next-fn string len char offset) ()))
 
-  INext
-  (-next [coll]
-    (split-string-seq-next-fn string len char offset))
+      INext
+      (-next [coll]
+        (split-string-seq-next-fn string len char offset))
 
-  ISequential
-  IEquiv
-  (-equiv [coll other] (equiv-sequential coll other))
+      ISequential
+      IEquiv
+      (-equiv [coll other] (equiv-sequential coll other))
 
-  ISeqable
-  (-seq [coll] coll)
+      ISeqable
+      (-seq [coll] coll)
 
-  ICollection
-  (-conj [coll o] (List. nil o coll (inc (count coll)) nil))
+      ICollection
+      (-conj [coll o] (List. nil o coll (inc (count coll)) nil))
 
-  IPrintable
-  (-pr-seq [coll opts]
-    (pr-sequential pr-seq "(" " " ")" opts coll)))
+      IPrintable
+      (-pr-seq [coll opts]
+        (pr-sequential pr-seq "(" " " ")" opts coll)))
 
-(defn- split-string-seq-next-fn [string len char offset]
-  (when-not (== offset len)
-    (let [next-offset (c* "make_integer (strchr_offset (string_get_utf8 (~{}) + integer_get (~{}), character_get (~{})))"
-			  string offset char)]
-      (if (>= next-offset 0)
-	(SplitStringSeq. string len char
-                         (c* "make_string_copy_free (g_strndup (string_get_utf8 (~{}) + integer_get (~{}), integer_get (~{})))"
-                             string offset next-offset)
-                         (c* "make_integer (g_utf8_next_char (string_get_utf8 (~{}) + integer_get (~{})) - string_get_utf8 (~{}))"
-                             string (+ offset next-offset) string))
-	(SplitStringSeq. string len char
-                         (c* "make_string_copy_free (g_strdup (string_get_utf8 (~{}) + integer_get (~{})))" string offset)
-                         len)))))
+    (defn- split-string-seq-next-fn [string len char offset]
+      (when-not (== offset len)
+        (let [next-offset (c* "make_integer (strchr_offset (string_get_utf8 (~{}) + integer_get (~{}), character_get (~{})))"
+                              string offset char)]
+          (if (>= next-offset 0)
+            (SplitStringSeq. string len char
+                             (c* "make_string_copy_free (g_strndup (string_get_utf8 (~{}) + integer_get (~{}), integer_get (~{})))"
+                                 string offset next-offset)
+                             (c* "make_integer (g_utf8_next_char (string_get_utf8 (~{}) + integer_get (~{})) - string_get_utf8 (~{}))"
+                                 string (+ offset next-offset) string))
+            (SplitStringSeq. string len char
+                             (c* "make_string_copy_free (g_strdup (string_get_utf8 (~{}) + integer_get (~{})))" string offset)
+                             len)))))))
 
+;; FIXME: implement seq for NSArray
 (defn split-string-seq [string char]
-  (split-string-seq-next-fn string
-			    (c* "make_integer (strlen (string_get_utf8 (~{})))" string)
-			    char
-			    0))
+  (if-objc
+    (§ string :componentsSeparatedByString (str char))
+    (split-string-seq-next-fn string
+                              (c* "make_integer (strlen (string_get_utf8 (~{})))" string)
+                              char
+                              0)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; I/O ;;;;;;;;;;;;;;;;
 
 (defn slurp [filename]
-  (c* "make_string_copy_free (slurp_file (string_get_utf8 (~{})))" filename))
+  (if-objc
+    (§ (§ NSString) :stringWithContentsOfFile filename :encoding (c* "make_integer (NSUTF8StringEncoding)") :error nil)
+    (c* "make_string_copy_free (slurp_file (string_get_utf8 (~{})))" filename)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; main function support ;;;;;;;;;;;;;;;;
 

@@ -22,6 +22,7 @@
 (declare confirm-bindings)
 (declare munge)
 (declare ^:dynamic *cljs-file*)
+(declare compiling-for-objc)
 (require 'cljc.core)
 
 (def cljs-reserved-file-names #{"deps.cljs"})
@@ -59,6 +60,10 @@
 
 (def ^:dynamic *read-exports-fn* (fn [namespace]
                                    (throw (Error. (str "Don't know how to read exports file for namespace " namespace)))))
+
+(def ^:dynamic *objc* false)
+(defn compiling-for-objc []
+  *objc*)
 
 (defmacro ^:private debug-prn
   [& args]
@@ -293,7 +298,10 @@
 (defmethod emit-constant Double [x] (emit-value-wrap :double-const nil (emits "make_float (" x ")")))
 (defmethod emit-constant String [x]
   (emit-value-wrap :string-const nil
-                   (emits "make_string (" (wrap-in-double-quotes (escape-string x)) ")")))
+                   (let [quoted (wrap-in-double-quotes (escape-string x))]
+                     (if (compiling-for-objc)
+                       (emits "make_objc_object (@" quoted ")")
+                       (emits "make_string (" quoted ")")))))
 (defmethod emit-constant Boolean [x] (if x "value_true" "value_false"))
 
 (defmethod emit-constant java.util.regex.Pattern [x]

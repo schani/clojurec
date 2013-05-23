@@ -306,7 +306,9 @@ ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Float) = NULL;
 ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Boolean) = NULL;
 ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Array) = NULL;
 ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Character) = NULL;
+#ifndef HAVE_OBJC
 ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_String) = NULL;
+#endif
 ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Symbol) = NULL;
 ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Keyword) = NULL;
 ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_RawPointer) = NULL;
@@ -414,14 +416,14 @@ array_copy (value_t *src, long src_pos, value_t *dst, long dst_pos, long len)
 }
 
 value_t*
-make_character (gunichar c)
+make_character (cljc_unichar_t c)
 {
 	character_t *ch = (character_t*) alloc_value (PTABLE_NAME (cljc_DOT_core_SLASH_Character), sizeof (character_t));
 	ch->c = c;
 	return &ch->val;
 }
 
-gunichar
+cljc_unichar_t
 character_get (value_t *v)
 {
 	character_t *c = (character_t*)v;
@@ -429,6 +431,7 @@ character_get (value_t *v)
 	return c->c;
 }
 
+#ifndef HAVE_OBJC
 value_t*
 make_string (char *utf8)
 {
@@ -438,7 +441,7 @@ make_string (char *utf8)
 }
 
 value_t*
-make_string_from_unichar (gunichar c)
+make_string_from_unichar (cljc_unichar_t c)
 {
 	char *buf = GC_malloc (7);
 	string_t *s = (string_t*) alloc_value (PTABLE_NAME (cljc_DOT_core_SLASH_String), sizeof (string_t));
@@ -485,13 +488,14 @@ make_string_copy_free (char *utf8)
 	return s;
 }
 
-char*
+const char*
 string_get_utf8 (value_t *v)
 {
 	string_t *s = (string_t*)v;
 	assert (v->ptable->type == TYPE_String);
 	return s->utf8;
 }
+#endif
 
 /**
  *  MurmurHash3 was created by Austin Appleby  in 2008. The cannonical
@@ -714,9 +718,11 @@ cljc_core_print (int nargs, closure_t *closure, value_t *arg1, value_t *arg2, va
 			printf ("]");
 			break;
 		}
+#ifndef HAVE_OBJC
 		case TYPE_String:
 			printf ("%s", string_get_utf8 (arg1));
 			break;
+#endif
 		default:
 			assert_not_reached ();
 	}
@@ -822,6 +828,7 @@ assert_not_recur (value_t *val)
 	return val;
 }
 
+#ifndef HAVE_OBJC
 char*
 slurp_file (const char *filename)
 {
@@ -832,13 +839,14 @@ slurp_file (const char *filename)
 }
 
 long
-strchr_offset (const char *str, gunichar c)
+strchr_offset (const char *str, cljc_unichar_t c)
 {
 	char *p = g_utf8_strchr (str, -1, c);
 	if (p == NULL)
 		return -1;
 	return p - str;
 }
+#endif
 
 value_t* VAR_NAME (cljc_DOT_core_SLASH_Nil) = VALUE_NONE;
 value_t* VAR_NAME (cljc_DOT_core_SLASH_Closure) = VALUE_NONE;
@@ -847,7 +855,9 @@ value_t* VAR_NAME (cljc_DOT_core_SLASH_Float) = VALUE_NONE;
 value_t* VAR_NAME (cljc_DOT_core_SLASH_Boolean) = VALUE_NONE;
 value_t* VAR_NAME (cljc_DOT_core_SLASH_Array) = VALUE_NONE;
 value_t* VAR_NAME (cljc_DOT_core_SLASH_Character) = VALUE_NONE;
+#ifndef HAVE_OBJC
 value_t* VAR_NAME (cljc_DOT_core_SLASH_String) = VALUE_NONE;
+#endif
 value_t* VAR_NAME (cljc_DOT_core_SLASH_Symbol) = VALUE_NONE;
 value_t* VAR_NAME (cljc_DOT_core_SLASH_Keyword) = VALUE_NONE;
 value_t* VAR_NAME (cljc_DOT_core_SLASH_RawPointer) = VALUE_NONE;
@@ -879,8 +889,10 @@ cljc_init (void)
 	VAR_NAME (cljc_DOT_core_SLASH_Character) = make_closure (NULL, NULL);
 	PTABLE_NAME (cljc_DOT_core_SLASH_Character) = alloc_ptable (TYPE_Character, VAR_NAME (cljc_DOT_core_SLASH_Character), NULL);
 
+#ifndef HAVE_OBJC
 	VAR_NAME (cljc_DOT_core_SLASH_String) = make_closure (NULL, NULL);
 	PTABLE_NAME (cljc_DOT_core_SLASH_String) = alloc_ptable (TYPE_String, VAR_NAME (cljc_DOT_core_SLASH_String), NULL);
+#endif
 
 	VAR_NAME (cljc_DOT_core_SLASH_Symbol) = make_closure (NULL, NULL);
 	PTABLE_NAME (cljc_DOT_core_SLASH_Symbol) = alloc_ptable (TYPE_Symbol, VAR_NAME (cljc_DOT_core_SLASH_Symbol), NULL);

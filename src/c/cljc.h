@@ -1,6 +1,14 @@
 #ifndef __CLJC_CLJC_H__
 #define __CLJC_CLJC_H__
 
+#ifdef HAVE_OBJC
+typedef unsigned short cljc_unichar_t;
+#else
+#include <glib.h>
+
+typedef gunichar cljc_unichar_t;
+#endif
+
 #define assert_not_reached()	(assert (0))
 
 #ifndef MAIN_FUNCTION_NAME
@@ -58,13 +66,15 @@ typedef struct {
 
 typedef struct {
 	value_t val;
-	gunichar c;
+	cljc_unichar_t c;
 } character_t;
 
+#ifndef HAVE_OBJC
 typedef struct {
 	value_t val;
 	char *utf8;
 } string_t;
+#endif
 
 typedef struct {
 	value_t val;
@@ -122,7 +132,9 @@ struct ptable {
 #define TYPE_Boolean	5
 #define TYPE_Array	6
 #define TYPE_Character	7
+#ifndef HAVE_OBJC
 #define TYPE_String	8
+#endif
 #define TYPE_Symbol	9
 #define TYPE_Keyword	10
 #define TYPE_RawPointer	11
@@ -178,7 +190,9 @@ extern value_t* VAR_NAME (cljc_DOT_core_SLASH_Float);
 extern value_t* VAR_NAME (cljc_DOT_core_SLASH_Boolean);
 extern value_t* VAR_NAME (cljc_DOT_core_SLASH_Array);
 extern value_t* VAR_NAME (cljc_DOT_core_SLASH_Character);
+#ifndef HAVE_OBJC
 extern value_t* VAR_NAME (cljc_DOT_core_SLASH_String);
+#endif
 extern value_t* VAR_NAME (cljc_DOT_core_SLASH_Symbol);
 extern value_t* VAR_NAME (cljc_DOT_core_SLASH_Keyword);
 extern value_t* VAR_NAME (cljc_DOT_core_SLASH_RawPointer);
@@ -190,7 +204,9 @@ extern ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Float);
 extern ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Boolean);
 extern ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Array);
 extern ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Character);
+#ifndef HAVE_OBJC
 extern ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_String);
+#endif
 extern ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Symbol);
 extern ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Keyword);
 extern ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_RawPointer);
@@ -235,15 +251,17 @@ extern long array_length (value_t *v);
 extern value_t* array_get (value_t *v, long index);
 extern void array_set (value_t *v, long index, value_t *x);
 extern value_t* array_copy (value_t *src, long src_pos, value_t *dst, long dst_pos, long len);
-extern value_t* make_character (gunichar c);
-extern gunichar character_get (value_t *v);
-extern value_t* make_string_from_unichar (gunichar c);
-extern value_t* make_string (char *utf8);
+extern value_t* make_character (cljc_unichar_t c);
+extern cljc_unichar_t character_get (value_t *v);
+#ifndef HAVE_OBJC
 extern value_t* make_string_with_size (long bytes);
 extern value_t* make_string_copy (const char *utf8);
 extern value_t* make_string_copy_free (char *utf8);
+#endif
+extern value_t* make_string (char *utf8);
+extern value_t* make_string_from_unichar (cljc_unichar_t c);
 extern value_t* make_string_from_buf (const char *start, const char *end);
-extern char* string_get_utf8 (value_t *v);
+extern const char* string_get_utf8 (value_t *v);
 extern uint32_t string_hash_code (const char *utf8);
 extern value_t* intern_symbol (const char *utf8, bool copy);
 extern const char* symbol_get_utf8 (value_t *v);
@@ -261,8 +279,10 @@ extern value_t* throw_exception (value_t *exception);
 extern value_t* get_exception (void);
 extern void rethrow_exception (void);
 extern value_t* assert_not_recur (value_t *val);
+#ifndef HAVE_OBJC
 extern char* slurp_file (const char *filename);
 extern long strchr_offset (const char *str, cljc_unichar_t c);
+#endif
 extern void cljc_init (void);
 
 /* These will be generated when compiling cljc.core and needed in the driver: */
@@ -270,7 +290,7 @@ extern value_t* VAR_NAME (cljc_DOT_core_SLASH_main_exit_value);
 extern value_t* VAR_NAME (cljc_DOT_core_SLASH_vector_from_c_string_array);
 extern void init_cljc_DOT_core (void);
 
-#ifdef HAVE_OBJC
+#if __OBJC__
 typedef struct {
 	value_t val;
 	id obj;
@@ -286,9 +306,13 @@ extern void objc_class_extend_ptable (Class class, int protocol_num, closure_t *
 extern value_t* make_objc_object (id obj);
 extern value_t* make_objc_selector (SEL sel);
 
-extern value_t* objc_object_send_message (int nargs, closure_t *closure, value_t *obj, value_t *sel, value_t *arg1, value_t **argrest);
+extern id objc_object_get (value_t *obj);
+extern SEL objc_selector_get (value_t *sel);
 #endif
 
+#ifdef HAVE_OBJC
+extern value_t* objc_object_send_message (int nargs, closure_t *closure, value_t *obj, value_t *sel, value_t *arg1, value_t **argrest);
 extern void cljc_objc_init (void);
+#endif
 
 #endif

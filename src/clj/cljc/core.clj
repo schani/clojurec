@@ -815,3 +815,12 @@
               args (take-nth 2 (rest ys))
               selector (apply core/str (map #(core/str (name %) ":") selector-kws))]
           (apply list 'cljc.objc/objc-msg-send x (list 'c* (core/str "make_objc_selector (@selector (" selector "))")) args))))
+
+;; FIXME: Clojure 1.6 will hopefully have reader conditions, so this
+;; won't be necessary anymore.  If not, figure out a better name.
+(defmacro if-objc [consequent & alternative-opt]
+  (if (cljc.compiler/compiling-for-objc)
+    consequent
+    (if (empty? alternative-opt)
+      nil
+      (first alternative-opt))))

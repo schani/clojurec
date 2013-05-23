@@ -120,7 +120,37 @@ objc_selector_get (value_t *sel)
 	return s->sel;
 }
 
-id
+value_t*
+make_string (char *utf8)
+{
+	return make_objc_object ([NSString stringWithUTF8String: utf8]);
+}
+
+value_t*
+make_string_from_unichar (cljc_unichar_t c)
+{
+	return make_objc_object ([NSString stringWithCharacters: &c length: 1]);
+}
+
+value_t*
+make_string_from_buf (const char *start, const char *end)
+{
+	NSString *s = [[NSString alloc] initWithBytes: start
+					       length: end - start
+					     encoding: NSUTF8StringEncoding];
+	value_t *v = make_objc_object (s);
+	[s release];
+	return v;
+}
+
+const char*
+string_get_utf8 (value_t *v)
+{
+	NSString *s = objc_object_get (v);
+	return [s UTF8String];
+}
+
+static id
 convert_to_objc_object (value_t *val)
 {
 	switch (val->ptable->type) {
@@ -140,8 +170,6 @@ convert_to_objc_object (value_t *val)
 		case TYPE_Character:
 			assert_not_reached ();
 			return nil;
-		case TYPE_String:
-			return [NSString stringWithUTF8String: string_get_utf8 (val)];
 		case TYPE_ObjCObject:
 			return objc_object_get (val);
 		default:
@@ -150,7 +178,7 @@ convert_to_objc_object (value_t *val)
 	}
 }
 
-value_t*
+static value_t*
 convert_from_objc_object (id obj)
 {
 	Class class = [obj class];
@@ -163,9 +191,6 @@ convert_from_objc_object (id obj)
 			return make_boolean ([obj boolValue]);
 		return make_integer ([obj longValue]);
 	}
-
-	if ([class isSubclassOfClass: [NSString class]])
-		return make_string_copy ([obj UTF8String]);
 
 	return make_objc_object (obj);
 }
@@ -268,7 +293,7 @@ objc_object_send_message (int nargs, closure_t *closure, value_t *obj, value_t *
 				break;
 			}
 			case '*': {
-				char *data = string_get_utf8 (arg);
+				const char *data = string_get_utf8 (arg);
 				[invocation setArgument: &data atIndex: i];
 				break;
 			}

@@ -33,8 +33,6 @@
 (defn init-function-name [namespace]
   (str (cljc/munge (symbol (str "init-" namespace)))))
 
-(def ^:dynamic *generate-objc* false)
-
 (defn init-or-main-function [init-name main-name main-code used-namespaces]
   (apply str [(apply str (map (fn [ns]
                                 (str "extern void " (init-function-name ns) " (void);\n"))
@@ -50,7 +48,7 @@
               "environment_t *env = NULL;\n"
               (if main-name
                 (str "cljc_init ();\n"
-                     (if *generate-objc*
+                     (if (cljc/compiling-for-objc)
                        "cljc_objc_init ();\n"
                        "")
                      "BEGIN_MAIN_CODE;\n")
@@ -119,7 +117,7 @@
         {:compile-error "Makefile ERROR"}))))
 
 (defn c-file-extension []
-  (if *generate-objc* ".m" ".c"))
+  (if (cljc/compiling-for-objc) ".m" ".c"))
 
 (defn c-file-name [namespace]
   (str (cljc/munge namespace) (c-file-extension)))
@@ -242,7 +240,7 @@
      (if (= (count remaining) 4)
        (let [[source namespace out-dir exports-dir] remaining
              namespace (symbol namespace)]
-         (binding [*generate-objc* (:objc options)]
+         (binding [cljc/*objc* (:objc options)]
            (compile-file-to-dirs source namespace out-dir exports-dir)))
        (do
          (print-usage)
@@ -252,7 +250,7 @@
      (if (= (count remaining) 2)
        (let [[main-name out-dir] remaining
              main-name (symbol main-name)]
-         (binding [*generate-objc* (:objc options)]
+         (binding [cljc/*objc* (:objc options)]
            (spit-driver nil main-name true out-dir)))
        (do
          (print-usage)
