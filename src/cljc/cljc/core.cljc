@@ -1186,12 +1186,12 @@ reduces them without incurring seq initialization"
 
 (defn rand
   "Returns a random floating point number between 0 (inclusive) and n (default 1) (exclusive)."
-  ([]  (c* "make_float (g_random_double_range (0.0, 1.0))"))
-  ([n] (c* "make_float (g_random_double_range (0.0, float_get (~{})))" (number-as-float n))))
+  ([]  (c* "make_float (drand48 ())"))
+  ([n] (* (rand) n)))
 
 (defn rand-int
   "Returns a random integer between 0 (inclusive) and n (exclusive)."
-  [n] (c* "make_integer (g_random_int_range (0, integer_get (~{})))" (fix n)))
+  [n] (c* "make_integer (random () % integer_get (~{}))" (fix n)))
 
 (defn bit-xor
   "Bitwise exclusive or"
