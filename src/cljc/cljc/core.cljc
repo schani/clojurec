@@ -1275,11 +1275,53 @@ reduces them without incurring seq initialization"
       (recur (dec n) (next xs))
       xs)))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;; basics ;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; String builders ;;;;;;;;;;;;;;;;
 
 (defprotocol IStringBuilder
   (-append! [sb appendee])
   (-to-string [sb]))
+
+(if-objc
+  (do
+    (deftype StringBuilder [string]
+      IStringBuilder
+      (-append! [sb appendee]
+        (§ string :appendString appendee)
+        sb)
+      (-to-string [sb]
+        (§ (§ NSString) :stringWithString string)))
+
+    (defn- sb-make [string]
+      (StringBuilder. (§ (§ NSMutableString) :stringWithString string))))
+  (do
+    (deftype StringBuilder [string size used]
+      IStringBuilder
+      (-append! [sb appendee]
+        (let [len (c* "make_integer (strlen (string_get_utf8 (~{})))" appendee)
+              new-used (+ used len)
+              new-sb (if (<= new-used size)
+                       (StringBuilder. string size new-used)
+                       (let [new-size (loop [size (if (< size 16)
+                                                    32
+                                                    (* size 2))]
+                                        (if (<= new-used size)
+                                          size
+                                          (recur (* size 2))))
+                             new-string (c* "make_string_with_size (integer_get (~{}))" new-size)]
+                         (c* "memcpy ((void*)string_get_utf8 (~{}), string_get_utf8 (~{}), integer_get (~{}))"
+                             new-string string used)
+                         (StringBuilder. new-string new-size new-used)))]
+          (c* "memcpy ((void*)string_get_utf8 (~{}) + integer_get (~{}), string_get_utf8 (~{}), integer_get (~{}))"
+              (.-string new-sb) used appendee len)
+          new-sb))
+      (-to-string [sb]
+        string))
+
+    (defn- sb-make [string]
+      (let [len (c* "make_integer (strlen (string_get_utf8 (~{})))" string)]
+        (StringBuilder. string len len)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;; basics ;;;;;;;;;;;;;;;;;;
 
 (declare reverse)
 
@@ -1298,34 +1340,12 @@ reduces them without incurring seq initialization"
         (satisfies? IStringBuilder x) (-to-string x)
         :else (pr-str x)))
   ([& xs]
-     (if-objc
-       (let [sb (§ (§ NSMutableString) :stringWithCapacity 64)]
-         (loop [xs (seq xs)]
-           (if xs
-             (do
-               (§ sb :appendString (str (first xs)))
-               (recur (next xs)))
-             (§ (§ NSString) :stringWithString sb))))
-       (loop [xs (seq xs)
-              rstrings ()
-              bytes 0]
-         (if xs
-           (let [s (str (first xs))
-                 b (c* "make_integer (strlen (string_get_utf8 (~{})))" s)]
-             (recur (next xs)
-                    (cons [s b] rstrings)
-                    (+ bytes b)))
-           (let [sb (c* "make_string_with_size (integer_get (~{}))" bytes)]
-             (loop [ss (reverse rstrings)
-                    i 0]
-               (if ss
-                 (let [[s b] (first ss)]
-                   (c* "memcpy ((void*)string_get_utf8 (~{}) + integer_get (~{}), string_get_utf8 (~{}), integer_get (~{}))" sb i s b)
-                   (recur (next ss) (+ i b)))
-                 (do
-                   (assert (= i bytes))
-                   (c* "((char*)string_get_utf8 (~{})) [integer_get (~{})] = '\\0'" sb i)
-                   sb)))))))))
+     (loop [sb (sb-make "")
+            xs (seq xs)]
+       (if xs
+         (recur (-append! sb (str (first xs)))
+                (next xs))
+         (-to-string sb)))))
 
 (defn- checked-substring [s start end]
   (let [len (count s)
@@ -2383,47 +2403,6 @@ reduces them without incurring seq initialization"
   (if-let [n (next coll)]
     (cons (first coll) (flatten-tail n))
     (first coll)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; String builders ;;;;;;;;;;;;;;;;
-
-(if-objc
-  (do
-    (deftype StringBuilder [string]
-      IStringBuilder
-      (-append! [sb appendee]
-        (§ string :appendString appendee))
-      (-to-string [sb]
-        (§ (§ NSString) :stringWithString string)))
-
-    (defn- sb-make [string]
-      (StringBuilder. (§ (§ NSMutableString) :stringWithString string))))
-  (do
-    (deftype StringBuilder [string size used]
-      IStringBuilder
-      (-append! [sb appendee]
-        (let [len (c* "make_integer (strlen (string_get_utf8 (~{})))" appendee)
-              new-used (+ used len)
-              new-sb (if (<= new-used size)
-                       (StringBuilder. string size new-used)
-                       (let [new-size (loop [size (if (< size 16)
-                                                    32
-                                                    (* size 2))]
-                                        (if (<= new-used size)
-                                          size
-                                          (recur (* size 2))))
-                             new-string (c* "make_string_with_size (integer_get (~{}))" new-size)]
-                         (c* "memcpy ((void*)string_get_utf8 (~{}), string_get_utf8 (~{}), integer_get (~{}))"
-                             new-string string used)
-                         (StringBuilder. new-string new-size new-used)))]
-          (c* "memcpy ((void*)string_get_utf8 (~{}) + integer_get (~{}), string_get_utf8 (~{}), integer_get (~{}))"
-              (.-string new-sb) used appendee len)
-          new-sb))
-      (-to-string [sb]
-        string))
-
-    (defn- sb-make [string]
-      (let [len (c* "make_integer (strlen (string_get_utf8 (~{})))" string)]
-        (StringBuilder. string len len)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Strings ;;;;;;;;;;;;;;;;
 
