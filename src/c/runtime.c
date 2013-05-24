@@ -4,11 +4,13 @@
 #include <stdbool.h>
 #include <string.h>
 #include <gc.h>
-#include <glib.h>
 #include <stdlib.h>
 #include <setjmp.h>
 #include <math.h>
 #include <pthread.h>
+#ifndef HAVE_OBJC
+#include <glib.h>
+#endif
 
 #include "khash.h"
 
@@ -639,6 +641,50 @@ keyword_get_utf8 (value_t *v)
 	assert (v->ptable->type == TYPE_Keyword);
 	return k->utf8;
 }
+
+#ifndef HAVE_OBJC
+static value_t*
+extract_name (const char *utf8)
+{
+	const char *ptr = g_utf8_strrchr (utf8, -1, '/');
+	if (ptr != NULL)
+		return make_string (g_utf8_next_char (ptr));
+	return make_string (utf8);
+}
+
+static value_t*
+extract_namespace (const char *utf8)
+{
+	const char *ptr = g_utf8_strrchr (utf8, -1, '/');
+	if (ptr != NULL)
+		return make_string_from_buf (utf8, ptr);
+	return value_nil;
+}
+
+value_t*
+keyword_get_name (value_t *v)
+{
+	return extract_name (keyword_get_utf8 (v));
+}
+
+value_t*
+keyword_get_namespace (value_t *v)
+{
+	return extract_namespace (keyword_get_utf8 (v));
+}
+
+value_t*
+symbol_get_name (value_t *v)
+{
+	return extract_name (symbol_get_utf8 (v));
+}
+
+value_t*
+symbol_get_namespace (value_t *v)
+{
+	return extract_namespace (symbol_get_utf8 (v));
+}
+#endif
 
 value_t*
 make_raw_pointer (void *ptr)

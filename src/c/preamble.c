@@ -4,7 +4,6 @@
 #include <stdbool.h>
 #include <string.h>
 #include <gc.h>
-#include <glib.h>
 #include <stdlib.h>
 #include <setjmp.h>
 #include <math.h>
@@ -12,6 +11,8 @@
 
 #ifdef HAVE_OBJC
 #import <AppKit/AppKit.h>
+#else
+#include <glib.h>
 #endif
 
 #include "khash.h"

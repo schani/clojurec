@@ -1,7 +1,6 @@
 #include <assert.h>
 #include <inttypes.h>
 #include <stdbool.h>
-#include <glib.h>
 #include <setjmp.h>
 
 #import <Foundation/Foundation.h>
@@ -148,6 +147,53 @@ string_get_utf8 (value_t *v)
 {
 	NSString *s = objc_object_get (v);
 	return [s UTF8String];
+}
+
+/*
+ * FIXME: This doesn't handle unicode.  We'll probably have to
+ * implement keyword and symbol interning using NSString's in NSSet's,
+ * then use NSString's methods for the extraction.
+ */
+static value_t*
+extract_name (const char *utf8)
+{
+	const char *ptr = strrchr (utf8, '/');
+	if (ptr != NULL)
+		return make_string ((char*)ptr + 1);
+	return make_string ((char*)utf8);
+}
+
+static value_t*
+extract_namespace (const char *utf8)
+{
+	const char *ptr = strrchr (utf8, '/');
+	if (ptr != NULL)
+		return make_string_from_buf (utf8, ptr);
+	return value_nil;
+}
+
+value_t*
+keyword_get_name (value_t *v)
+{
+	return extract_name (keyword_get_utf8 (v));
+}
+
+value_t*
+keyword_get_namespace (value_t *v)
+{
+	return extract_namespace (keyword_get_utf8 (v));
+}
+
+value_t*
+symbol_get_name (value_t *v)
+{
+	return extract_name (symbol_get_utf8 (v));
+}
+
+value_t*
+symbol_get_namespace (value_t *v)
+{
+	return extract_namespace (symbol_get_utf8 (v));
 }
 
 static id

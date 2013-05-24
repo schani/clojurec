@@ -3,6 +3,7 @@
 all : cljc
 
 DEFS := -DHAVE_OBJC=1
+PACKAGES := bdw-gc
 
 include Makefile.common
 
@@ -12,10 +13,10 @@ sources := $(c_sources) $(objc_sources)
 objs := runtime.o runtime-objc.o $(objc_sources:.m=.o)
 
 cljc : $(objs)
-	$(CC) -o $@ $(objs) `pkg-config --libs bdw-gc glib-2.0` -lm -framework AppKit
+	$(CC) -o $@ $(objs) `pkg-config --libs $(PACKAGES)` -lm -framework AppKit
 
 runtime-objc.o : ../src/c/runtime-objc.m
-	$(CC) $(DEFS) -Wall -Wno-unused-variable -Wno-unused-value -Wno-unused-function -I../src/c -I../run/thirdparty/klib -g -O0 `pkg-config --cflags bdw-gc glib-2.0` -c $<
+	$(CC) $(DEFS) -Wall -Wno-unused-variable -Wno-unused-value -Wno-unused-function -I../src/c -I../run/thirdparty/klib -g -O0 `pkg-config --cflags $(PACKAGES)` -c $<
 
 %.o : %.m
-	$(CC) $(DEFS) -Wall -Wno-unused-variable -Wno-unused-value -Wno-unused-function -I../src/c -I../run/thirdparty/klib -g -O0 `pkg-config --cflags bdw-gc glib-2.0` -framework AppKit -c $<
+	$(CC) $(DEFS) -Wall -Wno-unused-variable -Wno-unused-value -Wno-unused-function -I../src/c -I../run/thirdparty/klib -g -O0 `pkg-config --cflags $(PACKAGES)` -framework AppKit -c $<

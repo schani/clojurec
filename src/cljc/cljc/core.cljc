@@ -1291,8 +1291,8 @@ reduces them without incurring seq initialization"
   ([] "")
   ([x] (cond
         (string? x) x
-        (symbol? x) (c* "make_string ((gchar*)symbol_get_utf8 (~{}))" x)
-        (keyword? x) (str ":" (c* "make_string ((gchar*)keyword_get_utf8 (~{}))" x))
+        (symbol? x) (c* "make_string ((char*)symbol_get_utf8 (~{}))" x)
+        (keyword? x) (str ":" (c* "make_string ((char*)keyword_get_utf8 (~{}))" x))
         (char? x) (c* "make_string_from_unichar (character_get (~{}))" x)
         (nil? x) ""
         (satisfies? IStringBuilder x) (-to-string x)
@@ -1666,7 +1666,10 @@ reduces them without incurring seq initialization"
 
   IComparable
   (-compare [s o]
-    (c* "make_integer (g_utf8_collate (keyword_get_utf8 (~{}), keyword_get_utf8 (~{})))" s o))
+    (if-objc
+     ;;FIXME: this needs to process unicode
+     (c* "make_integer (strcmp (keyword_get_utf8 (~{}), keyword_get_utf8 (~{})))" s o)
+     (c* "make_integer (g_utf8_collate (keyword_get_utf8 (~{}), keyword_get_utf8 (~{})))" s o)))
 
   IFn
   (-invoke [k coll]
@@ -1697,7 +1700,10 @@ reduces them without incurring seq initialization"
 
   IComparable
   (-compare [s o]
-    (c* "make_integer (g_utf8_collate (symbol_get_utf8 (~{}), symbol_get_utf8 (~{})))" s o))
+    (if-objc
+     ;;FIXME: this needs to process unicode
+     (c* "make_integer (strcmp (symbol_get_utf8 (~{}), symbol_get_utf8 (~{})))" s o)
+     (c* "make_integer (g_utf8_collate (symbol_get_utf8 (~{}), symbol_get_utf8 (~{})))" s o)))
 
   IPrintable
   (-pr-seq [s opts]
@@ -5035,26 +5041,16 @@ reduces them without incurring seq initialization"
   [x]
   (cond
    (string? x) x
-   (keyword? x) (let [ptr (c* "make_raw_pointer (g_utf8_strrchr (keyword_get_utf8 (~{}), -1, '/'))" x)]
-		  (if (c* "make_boolean (raw_pointer_get (~{}) == NULL)" ptr)
-		    (c* "make_string ((gchar*)keyword_get_utf8 (~{}))" x)
-		    (c* "make_string (g_utf8_next_char (raw_pointer_get (~{})))" ptr)))
-   (symbol? x) (let [ptr (c* "make_raw_pointer (g_utf8_strrchr (symbol_get_utf8 (~{}), -1, '/'))" x)]
-		 (if (c* "make_boolean (raw_pointer_get (~{}) == NULL)" ptr)
-		   (c* "make_string ((gchar*)symbol_get_utf8 (~{}))" x)
-		   (c* "make_string (g_utf8_next_char (raw_pointer_get (~{})))" ptr)))
+   (keyword? x) (c* "keyword_get_name (~{})" x)
+   (symbol? x) (c* "symbol_get_name (~{})" x)
    :else (error (str "Doesn't support name: " x))))
 
 (defn namespace
   "Returns the namespace String of a symbol or keyword, or nil if not present."
   [x]
   (cond
-   (keyword? x) (let [ptr (c* "make_raw_pointer (g_utf8_strrchr (keyword_get_utf8 (~{}), -1, '/'))" x)]
-		  (when (c* "make_boolean (raw_pointer_get (~{}) != NULL)" ptr)
-		    (c* "make_string_from_buf (keyword_get_utf8 (~{}), raw_pointer_get (~{}))" x ptr)))
-   (symbol? x) (let [ptr (c* "make_raw_pointer (g_utf8_strrchr (symbol_get_utf8 (~{}), -1, '/'))" x)]
-		 (when (c* "make_boolean (raw_pointer_get (~{}) != NULL)" ptr)
-		   (c* "make_string_from_buf (symbol_get_utf8 (~{}), raw_pointer_get (~{}))" x ptr)))
+   (keyword? x) (c* "keyword_get_namespace (~{})" x)
+   (symbol? x) (c* "symbol_get_namespace (~{})" x)
    :else (error (str "Doesn't support namespace: " x))))
 
 (defn zipmap
