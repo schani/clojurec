@@ -502,7 +502,11 @@
                           (println x))))
            [1 2 3]))
     (is (= (core-run '(print (-count (make-array 3))))
-           [3]))))
+           [3]))
+    (is (= (core-run '(let [a (into-array [1 2 3])]
+                        (println (instance? cljc.core/Array a))
+                        (println (seq a))))
+           '[true (1 2 3)]))))
 
 (deftest strings
   (testing "strings and chars"
