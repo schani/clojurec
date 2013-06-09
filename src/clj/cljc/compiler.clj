@@ -436,10 +436,11 @@
 		*env-stack*))
 
 (defmethod emit :var
-  [{:keys [info env] :as arg}]
+  [{:keys [info]}]
   (let [name (:name info)
 	field (:field info)
-	local (:local info)]
+	local (:local info)
+        objc-field (:objc-field info)]
     (cond
      local (let [[num-ups index] (env-stack-lookup name)]
 	     (assert (and num-ups index))
@@ -447,6 +448,9 @@
      field (do
 	     (assert *gthis-ups*)
 	     (str "DEFTYPE_GET_FIELD (env_fetch (env, " *gthis-ups* ", 0), " (:index info) ")"))
+     objc-field (let [class (:objc-class info)]
+                  (assert *gthis-ups*)
+                  (str "(((" class "*)objc_object_get (env_fetch (env, " *gthis-ups* ", 1)))->" name ")"))
      :else (str "VAR_NAME (" name ")"))))
 
 (defmethod emit :meta
@@ -834,8 +838,17 @@
         val-name (emit val)]
     (cond
      (:field info)
-     (emit-value-wrap :set! env
-                      (emits "DEFTYPE_SET_FIELD (env_fetch (env, " *gthis-ups* ", 0), " (:index info) ", " val-name ")"))
+     (do
+       (assert *gthis-ups*)
+       (emit-value-wrap :set! env
+                        (emits "DEFTYPE_SET_FIELD (env_fetch (env, " *gthis-ups* ", 0), " (:index info) ", " val-name ")")))
+
+     (:objc-field info)
+     (do
+       (assert *gthis-ups*)
+       (emit-value-wrap :set! env
+                        (emits "((" (:objc-class info) "*)objc_object_get (env_fetch (env, " *gthis-ups* ", 1)))->" (:name info)
+                               " = " val-name)))
 
      (= (:op target) :dot)
      (let [target-name (emit (:target target))]
@@ -1123,6 +1136,8 @@
                     (uniqify r))))]
    (let [params (first meth)
          fields (-> params meta ::fields)
+         objc-fields (-> params meta ::objc-fields)
+         objc-class (-> params meta ::objc-class)
          variadic (boolean (some '#{&} params))
          params (uniqify (remove '#{&} params))
          fixed-arity (count (if variadic (butlast params) params))
@@ -1134,12 +1149,18 @@
                                   :field true
                                   :mutable (-> fld meta :mutable)}))
                         locals (map-indexed vector fields))
+         locals (reduce (fn [m fld]
+                          (assoc m fld
+                                 {:name fld
+                                  :objc-field true
+                                  :objc-class objc-class}))
+                        locals objc-fields)
          locals (reduce (fn [m name] (assoc m name {:name (munge name) :local true})) locals params)
          recur-frame {:names (vec (map munge params)) :flag (atom nil)}
          block (binding [*recur-frames* (cons recur-frame *recur-frames*)]
                  (analyze-block (assoc env :context :return :locals locals) body))]
      (merge {:env env :variadic variadic :params (map munge params) :max-fixed-arity fixed-arity
-             :has-gthis (boolean fields) :recurs @(:flag recur-frame)}
+             :has-gthis (boolean (or fields objc-fields)) :recurs @(:flag recur-frame)}
             block))))
 
 (defmethod parse 'fn*
@@ -1314,6 +1335,7 @@
                        (do
                          (let [local (-> env :locals target)]
                            (assert (or (nil? local)
+                                       (:objc-field local)
                                        (and (:field local)
                                             (:mutable local)))
                                    "Can't set! local var or non-mutable field"))

@@ -816,6 +816,139 @@
               selector (apply core/str (map #(core/str (name %) ":") selector-kws))]
           (apply list 'cljc.objc/objc-msg-send x (list 'c* (core/str "make_objc_selector (@selector (" selector "))")) args))))
 
+(defn- objc-type [type]
+  (cond
+   (core/nil? type) "id"
+   (= type 'Boolean) "BOOL"
+   (and (list? type) (= (first type) '§)) (core/str (second type) "*")
+   :else (throw (Error. (core/str "Unknown type " type)))))
+
+(defn- method-prototype [signature]
+  (let [type (:type (meta signature))
+        signature (drop 2 signature)
+        signature-str (if (= (count signature) 1)
+                        (name (first signature))
+                        (let [arg-pairs (partition 2 signature)]
+                          (apply core/str (map (fn [[sel-part arg]]
+                                                 (core/str " " (name sel-part) ":(" (objc-type (:type (meta arg))) ")" arg))
+                                          arg-pairs))))]
+    (core/str "-(" (objc-type type) ")" signature-str)))
+
+(defn- class-interface [class-name superclass interfaces fields methods]
+  (let [interfaces-str (if (empty? interfaces)
+                         ""
+                         (core/str "<" (apply core/str (interpose "," interfaces)) ">"))
+        fields-str (if (empty? fields)
+                     ""
+                     (core/str "{\n@public\n" (apply core/str (map #(core/str "value_t *" % ";\n") fields)) "}\n"))
+        method-strs (->> methods
+                         (map first)
+                         (map method-prototype))]
+    (core/str "@interface " class-name ":" superclass interfaces-str
+              fields-str
+              (apply core/str (map #(core/str % ";\n") method-strs))
+              "@end\n")))
+
+(defn- convert-from-objc [type expr]
+  (cond (symbol? type)
+        (core/case type
+          Boolean
+          (core/str "make_boolean (" expr ")")
+
+          (throw (Error. (core/str "Unknown type " type))))
+
+        (or (core/nil? type)
+            (and (seq? type) (= (first type) '§)))
+        (core/str "make_objc_object (" expr ")")
+
+        :else
+        (throw (Error. (core/str "Unknown type " type)))))
+
+(defn- convert-to-objc [type expr]
+  (cond (symbol? type)
+        (core/case type
+          Boolean
+          (core/str "truth (" expr ")")
+
+          (throw (Error. (core/str "Unknown type " type))))
+
+        (core/nil? type)
+        (core/str "objc_object_get (" expr ")")
+
+        (and (seq? type) (= (first type) '§))
+        (core/str "(" (second type) "*)objc_object_get (" expr ")")
+
+        :else
+        (throw (Error. (core/str "Unknown type " type)))))
+
+(defn- method-funcall [signature]
+  (let [signature (drop 2 signature)
+        args (map second (partition 2 signature))
+        arity (count args)]
+    (core/str "FUNCALL" (if (core/< arity 3)
+                          (core/inc arity)
+                          "n")
+              " ((closure_t*)~{}, "
+              (convert-from-objc nil "self")
+              (apply core/str (map (fn [arg]
+                                     (core/str ", " (convert-from-objc (:type (meta arg)) arg)))
+                                   (take 2 args)))
+              (if (core/>= arity 3)
+                (core/str "(value_t*[]) {"
+                          (apply core/str (map (fn [arg]
+                                                 (core/str (convert-from-objc (:type (meta arg)) arg) ", "))
+                                               (drop 2 args)))
+                          "}")
+                "")
+              ")")))
+
+(defn- class-implementation [class-name fields methods]
+  (let [method-strs (map (fn [[signature body]]
+                           (let [type (:type (meta signature))]
+                             (core/str (method-prototype signature) " {\n"
+                                       "value_t *result = " (method-funcall signature) ";\n"
+                                       "return " (convert-to-objc type "result") ";\n"
+                                       "}\n")))
+                         methods)]
+    (core/str "@implementation " class-name "\n"
+              (apply core/str method-strs)
+              "@end\n")))
+
+(defmacro §subclass [class-name & args]
+  (let [attributes (->> args
+                        (filter #(keyword? (first %)))
+                        (apply concat)
+                        (apply hash-map))
+        fields (:fields attributes)
+        methods (loop [args args
+                       methods []]
+                  (let [args (drop-while #(not (= (first %) '§)) args)]
+                    (if (empty? args)
+                      methods
+                      (recur (drop 2 args)
+                             (conj methods (concat (take 2 args) [(gensym class-name)]))))))
+        method-defs (map (fn [[signature body name]]
+                           (let [name (with-meta name {:private true})
+                                 args (map second (partition 2 (drop 2 signature)))
+                                 args (cons (second signature) args)
+                                 args (with-meta (vec args) {:cljc.compiler/objc-class class-name
+                                                             :cljc.compiler/objc-fields fields})]
+                             (list 'def name (list 'fn args body))))
+                         methods)
+        method-def-names (map #(nth % 2) methods)
+        interface (class-interface class-name
+                                   (:subclasses attributes)
+                                   (:implements attributes)
+                                   fields
+                                   methods)
+        implementation (class-implementation class-name
+                                             fields
+                                             methods)]
+    (concat ['do
+             (list 'c-decl* interface)]
+            method-defs
+            [(apply list 'c-decl* implementation method-def-names)])))
+
 ;; FIXME: Clojure 1.6 will hopefully have reader conditions, so this
 ;; won't be necessary anymore.  If not, figure out a better name.
 (defmacro if-objc [consequent & alternative-opt]
