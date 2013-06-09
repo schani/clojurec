@@ -273,6 +273,8 @@ objc_object_send_message (int nargs, closure_t *closure, value_t *obj, value_t *
 					data = character_get (arg);
 				else if (arg->ptable->type == TYPE_Integer)
 					data = integer_get (arg);
+				else if (arg->ptable->type == TYPE_Boolean)
+					data = truth (arg) ? 1 : 0;
 				else
 					assert_not_reached ();
 				[invocation setArgument: &data atIndex: i];
