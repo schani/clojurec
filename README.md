@@ -83,6 +83,17 @@ If you have that code in `/tmp/nsdate.cljc`, then this will build and run it:
 	cd run
 	make
 
+For a more involved example, see `samples/ios.cljc`.
+
+### iOS sample app
+
+To build the iOS sample app, do
+
+    cd samples
+	./build-ios.sh
+
+The last step will open an XCode project that will build and run the iOS app that `build-ios.sh` compiled from `samples/ios.cljc`.
+
 ### From the REPL
 
 The easiest way to play around with ClojureC interactively is in the namespace `clojurec.core-test`.  For example:
@@ -94,6 +105,3 @@ The easiest way to play around with ClojureC interactively is in the namespace `
 
 ### Android
   See the README.md file in "clojurec/run/android".
-
-### iOS
-  See the README.md file in "clojurec/run/ios".

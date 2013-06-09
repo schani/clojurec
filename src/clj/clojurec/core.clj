@@ -33,45 +33,64 @@
 (defn init-function-name [namespace]
   (str (cljc/munge (symbol (str "init-" namespace)))))
 
-(defn init-or-main-function [init-name main-name main-code used-namespaces]
+(defn init-or-main-function [init-name make-main main-code return-code used-namespaces]
   (apply str [(apply str (map (fn [ns]
                                 (str "extern void " (init-function-name ns) " (void);\n"))
                               used-namespaces))
-              (if main-name
+              (if make-main
                 "int MAIN_FUNCTION_NAME"
                 (str "void " init-name))
               "("
-              (if main-name
+              (if make-main
                 "int argc, char *argv[]"
                 "void")
               ") {\n"
               "environment_t *env = NULL;\n"
-              (if main-name
+              (if make-main
                 (str "cljc_init ();\n"
                      (if (cljc/compiling-for-objc)
                        "cljc_objc_init ();\n"
                        "")
                      "BEGIN_MAIN_CODE;\n")
-                (apply str
-                       (map (fn [ns]
-                              (str (init-function-name ns) " ();\n"))
-                            used-namespaces)))
+                "")
+              (apply str
+                     (map (fn [ns]
+                            (str (init-function-name ns) " ();\n"))
+                          used-namespaces))
               (if main-code
                 main-code
                 "")
-              (if (and main-name (not= main-name :none))
-                (str "return integer_get (FUNCALL1 ((closure_t*)VAR_NAME ("
-                     (cljc/munge 'cljc.core/main-exit-value)
-                     "), cljc_core_apply (2, (closure_t*)VALUE_NONE, VAR_NAME ("
-                     (cljc/munge main-name)
-                     "), FUNCALL2 ((closure_t*)VAR_NAME ("
-                     (cljc/munge 'cljc.core/vector-from-c-string-array)
-                     "), make_integer (argc), make_raw_pointer (argv)), VALUE_NONE, NULL)));")
-                "return;\n")
-              (if main-name
+              (if return-code
+                return-code
+                "")
+              (if make-main
                 "END_MAIN_CODE;\n"
                 "")
               "}\n"]))
+
+(defn standard-init-or-main-function [init-name main-name main-code used-namespaces]
+  (init-or-main-function init-name
+                         (boolean main-name)
+                         main-code
+                         (if (and main-name (not= main-name :none))
+                           (str "return integer_get (FUNCALL1 ((closure_t*)VAR_NAME ("
+                                (cljc/munge 'cljc.core/main-exit-value)
+                                "), cljc_core_apply (2, (closure_t*)VALUE_NONE, VAR_NAME ("
+                                (cljc/munge main-name)
+                                "), FUNCALL2 ((closure_t*)VAR_NAME ("
+                                (cljc/munge 'cljc.core/vector-from-c-string-array)
+                                "), make_integer (argc), make_raw_pointer (argv)), VALUE_NONE, NULL)));")
+                           "return;\n")
+                         used-namespaces))
+
+(defn ios-main-function [app-delegate-class used-namespaces]
+  (init-or-main-function nil
+                         true
+                         (str "NSAutoreleasePool * pool = [[NSAutoreleasePool alloc] init];\n"
+                              "int retVal = UIApplicationMain(argc, argv, nil, @\"" app-delegate-class "\");\n"
+                              "[pool release];\n")
+                         (str "return retVal;\n")
+                         used-namespaces))
 
 (defn compile-asts [asts]
   (let [main-code (with-out-str
@@ -81,7 +100,7 @@
         main-name (:main-function-name *build-options*)]
     (apply str
 	   (concat @cljc/declarations
-                   [(init-or-main-function init-name main-name main-code @cljc/used-namespaces)]))))
+                   [(standard-init-or-main-function init-name main-name main-code @cljc/used-namespaces)]))))
 
 (def default-run-dir (io/file (java.lang.System/getProperty "user.dir") "run"))
 
@@ -126,19 +145,29 @@
   (str (cljc/munge namespace) "-exports.clj"))
 
 (defn spit-driver [init-name main-name with-core out-dir]
-  (let [init-name (or init-name (init-function-name (namespace main-name)))
-        main-string (init-or-main-function nil main-name
-                                           (str (if with-core
-                                                  (str (init-function-name 'cljc.core) " ();\n")
-                                                  "")
-                                                init-name " ();\n")
-                                           nil)]
+  (let [used-namespaces (concat (if init-name
+                                  []
+                                  [(namespace main-name)])
+                                (if with-core
+                                  ['cljc.core]
+                                  []))
+        main-string (standard-init-or-main-function nil main-name
+                                                    (if init-name
+                                                      (str init-name " ();\n")
+                                                      "")
+                                                    used-namespaces)]
     (spit-code (io/file out-dir (str "driver" (c-file-extension)))
                (str "extern void " init-name " (void);\n"
                     (if (not= main-name :none)
                       (str "extern value_t *VAR_NAME (" (str (cljc/munge main-name)) ");\n")
                       "")
                     main-string)
+               nil)))
+
+(defn spit-objc-driver [main-namespace app-delegate-class out-dir]
+  (let [init-name (init-function-name main-namespace)]
+    (spit-code (io/file out-dir (str "driver" (c-file-extension)))
+               (ios-main-function app-delegate-class ['cljc.core main-namespace])
                nil)))
 
 (defn clean-default-run-dir [including-core]
@@ -233,7 +262,8 @@
   (let [[options remaining usage]
         (cli args
              ["-c" "--compile" "Compile a ClojureC file." :flag true]
-             ["-d" "--driver" "Generate the driver C file." :flag true]
+             ["-d" "--driver" "Generate a driver C file." :flag true]
+             ["-D" "--ios-driver" "Generate an iOS driver M file." :flag true]
              ["-m" "--objc" "Generate Objective-C code." :flag true])]
     (cond
      (:compile options)
@@ -255,6 +285,12 @@
        (do
          (print-usage)
          (System/exit 1)))
+
+     (:ios-driver options)
+     (if (= (count remaining) 3)
+       (let [[main-namespace app-delegate-class out-dir] remaining]
+         (binding [cljc/*objc* true]
+           (spit-objc-driver main-namespace app-delegate-class out-dir))))
 
      :else
      (do

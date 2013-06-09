@@ -9,6 +9,13 @@ typedef unsigned short cljc_unichar_t;
 typedef gunichar cljc_unichar_t;
 #endif
 
+#ifdef HAVE_IOS
+#define GC_malloc malloc
+#define GC_INIT()
+#else
+#include <gc.h>
+#endif
+
 #define assert_not_reached()	(assert (0))
 
 #ifndef MAIN_FUNCTION_NAME

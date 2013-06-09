@@ -3,7 +3,6 @@
 #include <inttypes.h>
 #include <stdbool.h>
 #include <string.h>
-#include <gc.h>
 #include <stdlib.h>
 #include <setjmp.h>
 #include <math.h>
