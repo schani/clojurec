@@ -820,6 +820,7 @@
   (cond
    (core/nil? type) "id"
    (= type 'Boolean) "BOOL"
+   (= type 'void) "void"
    (and (list? type) (= (first type) '§)) (core/str (second type) "*")
    :else (throw (Error. (core/str "Unknown type " type)))))
 
@@ -869,6 +870,9 @@
         (core/case type
           Boolean
           (core/str "truth (" expr ")")
+
+          void
+          (core/str "")
 
           (throw (Error. (core/str "Unknown type " type))))
 
