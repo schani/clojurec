@@ -1,6 +1,25 @@
 (ns cljc.user
   (:require [cljc.objc :as objc]))
 
+(§subclass ActionHandler
+           (:subclasses NSObject)
+           (:fields [handler])
+
+           ^{:type void} (§ self :setHandler h)
+           (set! handler h)
+
+           ^{:type void} (§ self :handleAction)
+           (do
+             (handler)
+             self))
+
+(defn add-action [control events handler]
+  (let [action-handler (§ (§ (§ ActionHandler) alloc) init)]
+    (§ action-handler :setHandler handler)
+    (c* "[objc_object_get (~{}) addTarget: objc_object_get (~{}) action: @selector (handleAction) forControlEvents: integer_get (~{})]"
+        control action-handler events)
+    nil))
+
 (§subclass MyAppDelegate
            (:subclasses NSObject)
            (:implements [UIApplicationDelegate])
@@ -24,8 +43,11 @@
 
              (c* "[objc_object_get (~{}) setFrame: CGRectMake (10, 320, 300, 100)]" button)
              (c* "[objc_object_get (~{}) setTitle: objc_object_get (~{}) forState: UIControlStateNormal]" button "Count!")
-             (c* "[objc_object_get (~{}) addTarget: objc_object_get (~{}) action: @selector (buttonTapped) forControlEvents: UIControlEventTouchUpInside]"
-                 button self)
+             (add-action button (c* "make_integer (UIControlEventTouchUpInside)")
+                         (fn []
+                           (let [text (str nextCount)]
+                             (set! nextCount (inc nextCount))
+                             (§ label :setText text))))
 
              (§ view :addSubview label)
              (§ view :addSubview button)
@@ -33,10 +55,4 @@
              (§ window :addSubview view)
              (§ window :makeKeyAndVisible)
 
-             true)
-
-           ^{:type void} (§ self :buttonTapped)
-           (let [text (str nextCount)]
-             (set! nextCount (inc nextCount))
-             (§ label :setText text)
-             self))
+             true))
