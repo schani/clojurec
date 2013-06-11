@@ -24,7 +24,7 @@ typedef gunichar cljc_unichar_t;
 
 typedef struct ptable ptable_t;
 
-typedef struct {
+typedef struct value {
 	ptable_t *ptable;
 } value_t;
 

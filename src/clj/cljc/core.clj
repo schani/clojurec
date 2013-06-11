@@ -818,7 +818,7 @@
 
 (defn- objc-type [type]
   (cond
-   (core/nil? type) "id"
+   (core/nil? type) "value_t*"
    (= type 'Boolean) "BOOL"
    (= type 'void) "void"
    (and (list? type) (= (first type) '§)) (core/str (second type) "*")
@@ -856,10 +856,15 @@
           Boolean
           (core/str "make_boolean (" expr ")")
 
+          id
+          (core/str "make_objc_object (" expr ")")
+
           (throw (Error. (core/str "Unknown type " type))))
 
-        (or (core/nil? type)
-            (and (seq? type) (= (first type) '§)))
+        (core/nil? type)
+        expr
+
+        (and (seq? type) (= (first type) '§))
         (core/str "make_objc_object (" expr ")")
 
         :else
@@ -868,16 +873,19 @@
 (defn- convert-to-objc [type expr]
   (cond (symbol? type)
         (core/case type
-          Boolean
-          (core/str "truth (" expr ")")
-
           void
           (core/str "")
+
+          id
+          (core/str "objc_object_get (" expr ")")
+
+          Boolean
+          (core/str "truth (" expr ")")
 
           (throw (Error. (core/str "Unknown type " type))))
 
         (core/nil? type)
-        (core/str "objc_object_get (" expr ")")
+        expr
 
         (and (seq? type) (= (first type) '§))
         (core/str "(" (second type) "*)objc_object_get (" expr ")")
@@ -893,7 +901,7 @@
                           (core/inc arity)
                           "n")
               " ((closure_t*)~{}, "
-              (convert-from-objc nil "self")
+              (convert-from-objc 'id "self")
               (apply core/str (map (fn [arg]
                                      (core/str ", " (convert-from-objc (:type (meta arg)) arg)))
                                    (take 2 args)))

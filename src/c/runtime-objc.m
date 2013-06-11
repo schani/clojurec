@@ -372,6 +372,12 @@ objc_object_send_message (int nargs, closure_t *closure, value_t *obj, value_t *
 				[invocation setArgument: &data atIndex: i];
 				break;
 			}
+                        case '^':
+                                if (strncmp(type, "^{value=", 8) == 0)
+                                        [invocation setArgument: &arg atIndex: i];
+                                else
+                                        assert (0);
+                                break;
 			default:
 				assert_not_reached ();
 		}
