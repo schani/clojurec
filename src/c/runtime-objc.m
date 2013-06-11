@@ -54,8 +54,20 @@ objc_class_ptable (Class class)
 	assert (class_hash != NULL);
 
 	iter = kh_put (CLASSES, class_hash, class, &ret);
-	if (ret != 0)
-		kh_value (class_hash, iter) = objc_class_alloc_ptable (class);
+        if (ret != 0) {
+                ptable_t *ptable = objc_class_alloc_ptable (class);
+		/*
+		 * We need to lookup again because
+		 * objc_class_alloc_ptable() might insert, too,
+		 * changing the location of class in the hash.
+		 */
+		iter = kh_put (CLASSES, class_hash, class, &ret);
+		kh_value (class_hash, iter) = ptable;
+        } else {
+                assert (kh_exist (class_hash, iter));
+                assert (kh_key (class_hash, iter) == class);
+                assert (kh_value (class_hash, iter)->type == TYPE_ObjCObject);
+        }
 	return kh_value (class_hash, iter);
 }
 
