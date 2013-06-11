@@ -100,7 +100,12 @@ objc_class_extend_ptable (Class class, int protocol_num, closure_t **vtable)
 value_t*
 make_objc_object (id obj)
 {
-	objc_object_t *o = (objc_object_t*) alloc_value (objc_class_ptable ([obj class]), sizeof (objc_object_t));
+	objc_object_t *o;
+
+	if (obj == nil)
+		return value_nil;
+
+	o = (objc_object_t*) alloc_value (objc_class_ptable ([obj class]), sizeof (objc_object_t));
 	/* FIXME: release in finalizer! */
 	o->obj = [obj retain];
 	return &o->val;
