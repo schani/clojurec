@@ -132,8 +132,8 @@
           (let [{:keys [exit out]} (shell/sh "./cljc" :dir run-dir)]
             (if (= exit 0)
               (read-string (str \[ out \]))
-              :run-error)))
-        {:compile-error "Makefile ERROR"}))))
+              {:run-error exit :output out})))
+        {:compile-error exit :output out :error err}))))
 
 (defn c-file-extension []
   (if (cljc/compiling-for-objc) ".m" ".c"))

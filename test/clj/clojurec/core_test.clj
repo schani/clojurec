@@ -475,7 +475,7 @@
     (is (= (core-run '(assert true))
            []))
     (is (= (core-run '(assert false))
-           :run-error))))
+           {:run-error 1 :output ""}))))
 
 (deftest arrays
   (testing "arrays"
