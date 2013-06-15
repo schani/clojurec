@@ -10,4 +10,4 @@ sources := $(c_sources)
 objs := runtime.o $(c_sources:.c=.o)
 
 cljc : $(objs)
-	$(CC) -o $@ $(objs) `pkg-config --libs $(PACKAGES)` -lm
+	$(CC) -o $@ $(objs) `pkg-config --libs $(PACKAGES)` -lm -lpthread
