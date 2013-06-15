@@ -80,7 +80,7 @@
                                 "), FUNCALL2 ((closure_t*)VAR_NAME ("
                                 (cljc/munge 'cljc.core/vector-from-c-string-array)
                                 "), make_integer (argc), make_raw_pointer (argv)), VALUE_NONE, NULL)));")
-                           "return;\n")
+                           "return 0;\n")
                          used-namespaces))
 
 (defn ios-main-function [app-delegate-class used-namespaces]
