@@ -157,7 +157,9 @@
                                                       "")
                                                     used-namespaces)]
     (spit-code (io/file out-dir (str "driver" (c-file-extension)))
-               (str "extern void " init-name " (void);\n"
+               (str (if init-name
+                      (str "extern void " init-name " (void);\n")
+                      "")
                     (if (not= main-name :none)
                       (str "extern value_t *VAR_NAME (" (str (cljc/munge main-name)) ");\n")
                       "")
