@@ -38,22 +38,21 @@ Note that ClojureC is still in its experimental phase, so please don't expect a 
 
 ### From the command line
 
-ClojureC provides a very simple command line compiler interface.  Let's say you have the following in the file `/tmp/echo.cljc`:
+ClojureC provides a very simple command line compiler interface.  Let's say we want to compile `samples/echo.cljc`:
 
     (ns cljc.user)
     (defn -main [& args]
-      (doseq [arg args]
-        (pr arg "\n")))
+      (apply println args))
 
-Then if you do the following in the `clojurec` directory
+If you do the following in the `clojurec` directory
 
     lein run -c src/cljc/cljc/core.cljc cljc.core run run
-    lein run -c /tmp/echo.cljc cljc.user run run
+    lein run -c samples/echo.cljc cljc.user run run
 	lein run -d cljc.user/-main run
     cd run
     make
 
-you should have a `cljc` executable in the `run` directory that acts a little like `echo`.
+you should have a `cljc` executable in the `run` directory that acts mostly like `echo`.
 
 ### Objective-C bridge
 
