@@ -383,6 +383,12 @@
   (-hash [o]
     (c* "make_integer ((long)~{})" o)))
 
+(extend-type RawPointer
+  IPrintable
+  (-pr-seq [ptr opts]
+    (list
+     (c* "make_string_copy_free (g_strdup_printf (\"#<RawPointer %p>\", raw_pointer_get (~{})))" ptr))))
+
 (defn inc
   "Returns a number one greater than num."
   [x] (cljc.core/+ x 1))
