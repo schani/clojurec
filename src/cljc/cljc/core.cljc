@@ -2432,6 +2432,76 @@ reduces them without incurring seq initialization"
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Strings ;;;;;;;;;;;;;;;;
 
+(ns cljc.string)
+
+;; Could also be used to implement string-quote.
+(defn escape
+  "Return a new string, using cmap to escape each character ch
+   from s as follows:
+
+   If (cmap ch) is nil, append ch to the new string.
+   If (cmap ch) is non-nil, append (str (cmap ch)) instead."
+  [s cmap]
+  (loop [sb (sb-make "")
+         cs (seq s)]
+    (if cs
+      (let [c (first cs)
+            replacement (or (cmap c) c)]
+        (recur (-append! sb (str replacement))
+               (next cs)))
+      (str sb))))
+
+(defn reverse
+  "Returns s with its characters reversed."
+  [s]
+  (apply str (cljc.core/reverse s)))
+
+;; Q: These string adjustment functions currently use the Glib
+;; functions -- should we be using something more like ICU/Java's idea
+;; of whitespace/capitalization/etc.?
+(defn lower-case [s]
+  "Converts string to all lower-case."
+  (c* "make_string (g_utf8_strdown (string_get_utf8 (~{}) , -1))" s))
+
+(defn upper-case [s]
+  "Converts string to all upper-case."
+  (c* "make_string (g_utf8_strup (string_get_utf8 (~{}) , -1))" s))
+
+(defn capitalize [s]
+  "Converts first character of the string to upper-case, all other
+   characters to lower-case."
+  (if-let [x (first s)]
+    (str (upper-case (str x)) (lower-case (apply str (rest s))))
+    ""))
+
+(defn- blank-char? [c]
+  "True if c is whitespace."
+  (c* "make_boolean (g_unichar_isspace (character_get (~{})))" c))
+
+(defn blank? [s]
+  "True if s is nil, empty, or contains only whitespace."
+  (every? blank-char? s))
+
+(defn triml [s]
+  "Removes whitespace from the left side of string."
+  (apply str (drop-while blank-char? s)))
+
+;; FIXME: These three aren't efficient.
+(defn trimr [s]
+  "Removes whitespace from the right side of string."
+  (reverse (triml (reverse s))))
+
+(defn trim [s]
+  "Removes whitespace from both ends of string."
+  (triml (trimr s)))
+
+(defn trim-newline [s]
+  "Removes all trailing newline \n or return \r characters from
+   string.  Similar to Perl's chomp."
+  (apply str (reverse (drop-while #{\return \newline} (reverse s)))))
+
+(ns cljc.core)
+
 ;; FIXME: horribly inefficient as well as incomplete
 (defn string-quote [s]
   (loop [sb (sb-make "")
