@@ -46,7 +46,13 @@
 (declare print)
 (declare apply)
 
-(deftype Exception [info])
+(defprotocol IThrowable
+  (-get-message [this]))
+
+(deftype Exception [info]
+  IThrowable
+  (-get-message [this]
+    info))
 
 (defn- error [cause]
   (throw (Exception. cause)))
