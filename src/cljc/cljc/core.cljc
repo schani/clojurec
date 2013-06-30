@@ -5997,6 +5997,77 @@ reduces them without incurring seq initialization"
                               char
                               0)))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Regular Expressions ;;;;;;;;;;;;;;;;
+
+(defprotocol IPattern
+  (-pattern [this])
+  (-re [this]))
+
+(deftype Pattern [pattern re]
+  IPrintable
+  (-pr-seq [p opts]
+    (list "(re-pattern \"" (string-quote pattern) "\")"))
+  IPattern
+  (-pattern [this]
+    pattern)
+  (-re [this]
+    re))
+
+(defn re-pattern [s]
+  "Returns a pattern for use by re-seq, etc. (Currently accepts PCRE syntax.)"
+  (if (instance? Pattern s)
+    s
+    (let [result (c* "re_pattern (~{})" s)]
+      (when (has-type? result Array)
+        (let [[msg offset] result]
+          (throw (Exception. (str "Cannot compile pattern " (pr-str s)
+                                  " (" msg "; index " offset ")")))))
+      (Pattern. s result))))
+
+(defn- pcre-match-offsets [re s]
+  (let [offsets (c* "re_match_offsets (~{}, ~{})" (-re re) s)]
+    (when offsets
+      (if (integer? offsets)
+        (throw (Exception. (str "PCRE search error " offsets " for pattern "
+                                (pr-str s) " against " (pr-str s)))))
+      offsets)))
+
+(defn- pcre-offsets->matches
+  "Returns \"whole-match\" if there were no captures, otherwise
+   [\"whole-match\" \"capture-1\" \"capture-2\" ...]."
+  [s offsets]
+  (if (= 2 (count offsets))
+    (apply subs s (take 2 offsets))
+    (map #(apply subs s %)
+         (partition-all 2 offsets))))
+
+(defn re-seq
+  "Returns a lazy sequence of successive matches of regex re in string s.
+   Each match will be \"whole-match\" if re has no captures, otherwise
+   [\"whole-match\" \"capture-1\" \"capture-2\" ...]."
+  [re s]
+  (when-let [offsets (pcre-match-offsets re s)]
+    (lazy-seq
+     (cons (pcre-offsets->matches s offsets)
+           (re-seq re (subs s (max 1 (nth offsets 1))))))))
+
+(defn re-find
+  "Returns the first match for regex re in string s or nil.  The
+   match, if any, will be \"whole-match\" if re has no captures,
+   otherwise [\"whole-match\" \"capture-1\" \"capture-2\" ...]."
+  [re s]
+  (first (re-seq re s)))
+
+(defn re-matches
+  "Returns the match for regex re in string s, if and only if re
+   matches s completely.  The match, if any, will be \"whole-match\"
+   if re has no captures, otherwise [\"whole-match\" \"capture-1\"
+   \"capture-2\" ...]."
+  [re s]
+  (let [offsets (pcre-match-offsets re s)]
+     (when (and offsets (= (count s) (- (nth offsets 1) (nth offsets 0))))
+       (pcre-offsets->matches s offsets))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; I/O ;;;;;;;;;;;;;;;;
 
 (defn slurp [filename]
