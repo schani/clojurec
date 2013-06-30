@@ -2440,6 +2440,7 @@ reduces them without incurring seq initialization"
       (let [c (first cs)]
         (recur (-append! sb
                          (cond
+                          (= c \\) "\\\\"
                           (= c \") "\\\""
                           (= c \newline) "\\n"
                           (= c \tab) "\\t"
