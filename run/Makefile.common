@@ -12,4 +12,4 @@ clean :
 	rm -f *.o $(filter-out driver.c,$(sources)) *-exports.clj cljc
 
 clean-non-core :
-	rm -f $(filter-out cljc_DOT_core.o runtime.o,$(objs)) $(filter-out cljc_DOT_core.c driver.c,$(sources)) cljc
+	rm -f $(filter-out cljc_DOT_core.o runtime.o,$(objs)) $(filter-out cljc_DOT_core.c cljc_DOT_core.m cljc_DOT_objc.m,$(sources)) cljc

@@ -2,7 +2,8 @@
   (:require [clojure.inspector :as inspector]
             [clojure.java.io :as io]
 	    [clojure.java.shell :as shell]
-            [cljc.compiler :as cljc])
+            [cljc.compiler :as cljc]
+            [clojure.string :as string])
   (:use [clojure.tools.cli :only [cli]]))
 
 (def default-build-options
@@ -72,15 +73,21 @@
   (init-or-main-function init-name
                          (boolean main-name)
                          main-code
-                         (if (and main-name (not= main-name :none))
-                           (str "return integer_get (FUNCALL1 ((closure_t*)VAR_NAME ("
-                                (cljc/munge 'cljc.core/main-exit-value)
-                                "), cljc_core_apply (2, (closure_t*)VALUE_NONE, VAR_NAME ("
-                                (cljc/munge main-name)
-                                "), FUNCALL2 ((closure_t*)VAR_NAME ("
-                                (cljc/munge 'cljc.core/vector-from-c-string-array)
-                                "), make_integer (argc), make_raw_pointer (argv)), VALUE_NONE, NULL)));")
-                           "return 0;\n")
+                         (cond
+                          (and main-name (not= main-name :none))
+                          (str "return integer_get (FUNCALL1 ((closure_t*)VAR_NAME ("
+                               (cljc/munge 'cljc.core/main-exit-value)
+                               "), cljc_core_apply (2, (closure_t*)VALUE_NONE, VAR_NAME ("
+                               (cljc/munge main-name)
+                               "), FUNCALL2 ((closure_t*)VAR_NAME ("
+                               (cljc/munge 'cljc.core/vector-from-c-string-array)
+                               "), make_integer (argc), make_raw_pointer (argv)), VALUE_NONE, NULL)));")
+
+                          main-name
+                          "return 0;\n"
+
+                          :else
+                          "return;\n")
                          used-namespaces))
 
 (defn ios-main-function [app-delegate-class used-namespaces]
@@ -126,7 +133,9 @@
 
 (defn make-and-run [run-dir]
   (when (:with-makefile *build-options*)
-    (let [{:keys [exit out err]} (shell/sh "make" :dir run-dir)]
+    (let [{:keys [exit out err]} (if (:objc *build-options*)
+                                   (shell/sh "make" "-f" "Makefile.objc" :dir run-dir)
+                                   (shell/sh "make" :dir run-dir))]
       (if (= exit 0)
         (do
           (let [{:keys [exit out]} (shell/sh "./cljc" :dir run-dir)]
@@ -150,6 +159,9 @@
                                   [(namespace main-name)])
                                 (if with-core
                                   ['cljc.core]
+                                  [])
+                                (if (and with-core (:objc *build-options*))
+                                  ['cljc.objc]
                                   []))
         main-string (standard-init-or-main-function nil main-name
                                                     (if init-name
@@ -173,8 +185,9 @@
                nil)))
 
 (defn clean-default-run-dir [including-core]
-  (shell/sh "make" (if including-core "clean" "clean-non-core")
-            :dir default-run-dir))
+  (let [target (if including-core "clean" "clean-non-core")]
+    (shell/sh "make" target :dir default-run-dir)
+    (shell/sh "make" "-f" "Makefile.objc" target :dir default-run-dir)))
 
 (defn run-code [ns-name code with-core]
   (clean-default-run-dir false)
@@ -212,17 +225,23 @@
                     (io/file exports-dir (exports-file-name namespace))
                     (not= namespace 'cljc.core)))))
 
+(defn- compile-system-namespace-if-needed [namespace]
+  (let [c-file (io/file default-run-dir (c-file-name namespace))
+        src-name (str (last (string/split (name namespace) #"\.")) ".cljc")
+        src-file (io/file (java.lang.System/getProperty "user.dir") "src" "cljc" "cljc" src-name)]
+    (when-not (.exists c-file)
+      (println "Compiling" namespace)
+      (compile-file-to-dirs src-file namespace default-run-dir default-run-dir))))
+
 (defn compile-cljc-core-if-needed []
-  (let [cljc-core-c-file (io/file default-run-dir (c-file-name 'cljc.core))]
-    (when-not (.exists cljc-core-c-file)
-      (compile-file-to-dirs (io/file (java.lang.System/getProperty "user.dir") "src" "cljc" "cljc" "core.cljc")
-                            'cljc.core
-                            default-run-dir
-                            default-run-dir))))
+  (compile-system-namespace-if-needed 'cljc.core))
 
 (defn run-expr [ns-name with-core expr]
-  (compile-cljc-core-if-needed)
-  (run-code ns-name (compile-expr ns-name with-core expr) with-core))
+  (binding [cljc/*objc* (:objc *build-options*)]
+    (compile-cljc-core-if-needed)
+    (when (:objc *build-options*)
+      (compile-system-namespace-if-needed 'cljc.objc))
+    (run-code ns-name (compile-expr ns-name with-core expr) with-core)))
 
 (comment
   ;; default build options
