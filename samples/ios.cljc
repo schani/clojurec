@@ -14,7 +14,7 @@
              self))
 
 (defn add-action [control events handler]
-  (let [action-handler (§ (§ (§ ActionHandler) alloc) init)]
+  (let [action-handler (§ (§ (§ ActionHandler) :alloc) :init)]
     (§ action-handler :setHandler handler)
     (c* "[objc_object_get (~{}) addTarget: objc_object_get (~{}) action: @selector (handleAction) forControlEvents: integer_get (~{})]"
         control action-handler events)
@@ -28,7 +28,7 @@
 
            ^{:type Boolean} (§ self :application ^{:type (§ UIApplication)} app
                                     :didFinishLaunchingWithOptions ^{:type (§ NSDictionary)} opts)
-           (let [window (§ (§ UIWindow) alloc)
+           (let [window (§ (§ UIWindow) :alloc)
                  window (c* "make_objc_object ([objc_object_get (~{}) initWithFrame: [[UIScreen mainScreen] bounds]])" window)
                  view-controller (§ (§ (§ UIViewController) :alloc) :init)
                  view (§ view-controller :view)
