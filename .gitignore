@@ -9,7 +9,12 @@ pom.xml
 .lein-failures
 .lein-plugins
 run/cljc
-run/driver.c
 run/gc-7.2
 run/libgc
 run/cljc.dSYM
+run/*.c
+run/*.m
+run/*.o
+run/ClojureCApp/ClojureCApp.xcodeproj/project.xcworkspace/xcuserdata
+run/ClojureCApp/ClojureCApp.xcodeproj/xcuserdata/schani.xcuserdatad
+run/*-exports.clj
