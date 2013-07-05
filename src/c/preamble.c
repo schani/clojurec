@@ -16,6 +16,7 @@
 #endif
 #else
 #include <glib.h>
+#include <pcre.h>
 #endif
 
 #include "khash.h"

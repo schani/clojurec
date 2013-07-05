@@ -46,7 +46,13 @@
 (declare print)
 (declare apply)
 
-(deftype Exception [info])
+(defprotocol IThrowable
+  (-get-message [this]))
+
+(deftype Exception [info]
+  IThrowable
+  (-get-message [this]
+    info))
 
 (defn- error [cause]
   (throw (Exception. cause)))
@@ -382,6 +388,12 @@
   IHash
   (-hash [o]
     (c* "make_integer ((long)~{})" o)))
+
+(extend-type RawPointer
+  IPrintable
+  (-pr-seq [ptr opts]
+    (list
+     (c* "make_string_copy_free (g_strdup_printf (\"#<RawPointer %p>\", raw_pointer_get (~{})))" ptr))))
 
 (defn inc
   "Returns a number one greater than num."
@@ -2420,6 +2432,76 @@ reduces them without incurring seq initialization"
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Strings ;;;;;;;;;;;;;;;;
 
+(ns cljc.string)
+
+;; Could also be used to implement string-quote.
+(defn escape
+  "Return a new string, using cmap to escape each character ch
+   from s as follows:
+
+   If (cmap ch) is nil, append ch to the new string.
+   If (cmap ch) is non-nil, append (str (cmap ch)) instead."
+  [s cmap]
+  (loop [sb (sb-make "")
+         cs (seq s)]
+    (if cs
+      (let [c (first cs)
+            replacement (or (cmap c) c)]
+        (recur (-append! sb (str replacement))
+               (next cs)))
+      (str sb))))
+
+(defn reverse
+  "Returns s with its characters reversed."
+  [s]
+  (apply str (cljc.core/reverse s)))
+
+;; Q: These string adjustment functions currently use the Glib
+;; functions -- should we be using something more like ICU/Java's idea
+;; of whitespace/capitalization/etc.?
+(defn lower-case [s]
+  "Converts string to all lower-case."
+  (c* "make_string (g_utf8_strdown (string_get_utf8 (~{}) , -1))" s))
+
+(defn upper-case [s]
+  "Converts string to all upper-case."
+  (c* "make_string (g_utf8_strup (string_get_utf8 (~{}) , -1))" s))
+
+(defn capitalize [s]
+  "Converts first character of the string to upper-case, all other
+   characters to lower-case."
+  (if-let [x (first s)]
+    (str (upper-case (str x)) (lower-case (apply str (rest s))))
+    ""))
+
+(defn- blank-char? [c]
+  "True if c is whitespace."
+  (c* "make_boolean (g_unichar_isspace (character_get (~{})))" c))
+
+(defn blank? [s]
+  "True if s is nil, empty, or contains only whitespace."
+  (every? blank-char? s))
+
+(defn triml [s]
+  "Removes whitespace from the left side of string."
+  (apply str (drop-while blank-char? s)))
+
+;; FIXME: These three aren't efficient.
+(defn trimr [s]
+  "Removes whitespace from the right side of string."
+  (reverse (triml (reverse s))))
+
+(defn trim [s]
+  "Removes whitespace from both ends of string."
+  (triml (trimr s)))
+
+(defn trim-newline [s]
+  "Removes all trailing newline \n or return \r characters from
+   string.  Similar to Perl's chomp."
+  (apply str (reverse (drop-while #{\return \newline} (reverse s)))))
+
+(ns cljc.core)
+
 ;; FIXME: horribly inefficient as well as incomplete
 (defn string-quote [s]
   (loop [sb (sb-make "")
@@ -2428,6 +2510,7 @@ reduces them without incurring seq initialization"
       (let [c (first cs)]
         (recur (-append! sb
                          (cond
+                          (= c \\) "\\\\"
                           (= c \") "\\\""
                           (= c \newline) "\\n"
                           (= c \tab) "\\t"
@@ -5913,6 +5996,77 @@ reduces them without incurring seq initialization"
                               (c* "make_integer (strlen (string_get_utf8 (~{})))" string)
                               char
                               0)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Regular Expressions ;;;;;;;;;;;;;;;;
+
+(defprotocol IPattern
+  (-pattern [this])
+  (-re [this]))
+
+(deftype Pattern [pattern re]
+  IPrintable
+  (-pr-seq [p opts]
+    (list "(re-pattern \"" (string-quote pattern) "\")"))
+  IPattern
+  (-pattern [this]
+    pattern)
+  (-re [this]
+    re))
+
+(defn re-pattern [s]
+  "Returns a pattern for use by re-seq, etc. (Currently accepts PCRE syntax.)"
+  (if (instance? Pattern s)
+    s
+    (let [result (c* "re_pattern (~{})" s)]
+      (when (has-type? result Array)
+        (let [[msg offset] result]
+          (throw (Exception. (str "Cannot compile pattern " (pr-str s)
+                                  " (" msg "; index " offset ")")))))
+      (Pattern. s result))))
+
+(defn- pcre-match-offsets [re s]
+  (let [offsets (c* "re_match_offsets (~{}, ~{})" (-re re) s)]
+    (when offsets
+      (if (integer? offsets)
+        (throw (Exception. (str "PCRE search error " offsets " for pattern "
+                                (pr-str s) " against " (pr-str s)))))
+      offsets)))
+
+(defn- pcre-offsets->matches
+  "Returns \"whole-match\" if there were no captures, otherwise
+   [\"whole-match\" \"capture-1\" \"capture-2\" ...]."
+  [s offsets]
+  (if (= 2 (count offsets))
+    (apply subs s (take 2 offsets))
+    (map #(apply subs s %)
+         (partition-all 2 offsets))))
+
+(defn re-seq
+  "Returns a lazy sequence of successive matches of regex re in string s.
+   Each match will be \"whole-match\" if re has no captures, otherwise
+   [\"whole-match\" \"capture-1\" \"capture-2\" ...]."
+  [re s]
+  (when-let [offsets (pcre-match-offsets re s)]
+    (lazy-seq
+     (cons (pcre-offsets->matches s offsets)
+           (re-seq re (subs s (max 1 (nth offsets 1))))))))
+
+(defn re-find
+  "Returns the first match for regex re in string s or nil.  The
+   match, if any, will be \"whole-match\" if re has no captures,
+   otherwise [\"whole-match\" \"capture-1\" \"capture-2\" ...]."
+  [re s]
+  (first (re-seq re s)))
+
+(defn re-matches
+  "Returns the match for regex re in string s, if and only if re
+   matches s completely.  The match, if any, will be \"whole-match\"
+   if re has no captures, otherwise [\"whole-match\" \"capture-1\"
+   \"capture-2\" ...]."
+  [re s]
+  (let [offsets (pcre-match-offsets re s)]
+     (when (and offsets (= (count s) (- (nth offsets 1) (nth offsets 0))))
+       (pcre-offsets->matches s offsets))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; I/O ;;;;;;;;;;;;;;;;
 

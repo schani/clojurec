@@ -9,6 +9,7 @@
 #include <pthread.h>
 #ifndef HAVE_OBJC
 #include <glib.h>
+#include <pcre.h>
 #endif
 
 #include "khash.h"
@@ -888,6 +889,60 @@ strchr_offset (const char *str, cljc_unichar_t c)
 		return -1;
 	return p - str;
 }
+
+////////////////////////////////////////////////////////////
+/// Regular expressions
+///
+/// Q: (When) should we use pcre_study()?
+///
+/// Q: Is PCRE_INFO_CAPTURECOUNT expensive?  If so, capture it at
+/// pcre_compile() time?
+
+value_t*
+re_pattern (value_t* pattern_str)
+{
+	int offset;
+	const char *errmsg;
+	char *c_str = string_get_utf8 (pattern_str);
+	pcre *re = pcre_compile (c_str, PCRE_UTF8, &errmsg, &offset, NULL);
+	if (re != NULL)
+		return make_raw_pointer (re);
+	value_t* result = make_array (2);
+	array_set (result, 0, make_string_copy (errmsg));
+	array_set (result, 1, make_integer (offset));
+	return result;
+}
+
+value_t*
+re_match_offsets (value_t* re, value_t* s)
+{
+	pcre *c_re = raw_pointer_get (re);
+	char *c_str = string_get_utf8 (s);
+	const size_t c_strlen = strlen (c_str);
+	if (!c_strlen)
+		return value_nil;
+	int rc, capture_count;
+	rc = pcre_fullinfo (c_re, NULL, PCRE_INFO_CAPTURECOUNT, &capture_count);
+	size_t match_offsets_n = (capture_count + 1) * 3; // FIXME: overflow.
+	int *match_offsets = GC_malloc (match_offsets_n * sizeof (int));
+	rc = pcre_exec (raw_pointer_get (re),
+			NULL, // extra
+			c_str,
+			c_strlen,
+			0, // startoffset
+			0, // options
+			match_offsets,
+			match_offsets_n);
+	if (rc == PCRE_ERROR_NOMATCH)
+		return value_nil;
+	if (rc < 0)
+		return make_integer (rc);
+	value_t *result = make_array (rc * 2);
+	for(int i = 0; i < rc * 2; i++) // FIXME: overflow.
+		array_set (result, i, make_integer (match_offsets[i]));
+	return result;
+}
+
 #endif
 
 value_t* VAR_NAME (cljc_DOT_core_SLASH_Nil) = VALUE_NONE;
@@ -908,6 +963,9 @@ void
 cljc_init (void)
 {
 	GC_INIT ();
+
+        pcre_malloc = GC_malloc;
+        pcre_free = GC_free;
 
 	VAR_NAME (cljc_DOT_core_SLASH_Nil) = make_closure (NULL, NULL);
 	PTABLE_NAME (cljc_DOT_core_SLASH_Nil) = alloc_ptable (TYPE_Nil, VAR_NAME (cljc_DOT_core_SLASH_Nil), NULL);
