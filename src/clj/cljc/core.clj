@@ -801,20 +801,89 @@
   `(inc ~x))
 
 ;;; Objective-C
+(def ^:private to-objc-converters
+  {:id "objc_convert_to_objc_object (~{})"
+   :selector "objc_selector_get (~{})"
+   :float "((float) number_get (~{}))"
+   :double "number_get (~{})"
+   ;; FIXME: potential data loss - char is not a wide character
+   :char "(char) character_get (~{})"
+   ;; FIXME: more potential data loss when casting down to smaller integers
+   :signed-char "((signed char) number_get_as_integer (~{}))"
+   :unsigned-char "((unsigned char) number_get_as_integer (~{}))"
+   :short "((short) number_get_as_integer (~{}))"
+   :unsigned-short "((unsigned short) number_get_as_integer (~{}))"
+   :int "((int) number_get_as_integer (~{}))"
+   :unsigned-int "((unsigned int) number_get_as_integer (~{}))"
+   :long "((long) number_get_as_integer (~{}))"
+   :unsigned-long "((unsigned long) number_get_as_integer (~{}))"
+   :long-long "number_get_as_integer (~{})"
+   :unsigned-long-long "((unsigned long long) number_get_as_integer (~{}))"
+   'Boolean "truth (~{})"})
+(defn- to-objc-converter [type]
+  (let [converter (to-objc-converters type)]
+    (when-not converter
+      (throw (Error. (core/str "Unknown C type " type))))
+    converter))
+
+(def ^:private from-objc-converters
+  {:void "%s"
+   :id "make_objc_object (%s)"
+   :selector "make_objc_selector (%s)"
+   :float "make_float (%s)"
+   :double "make_float (%s)"
+   :char "make_character ((cljc_unichar_t) %s)"
+   :signed-char "make_integer ((long long) %s)"
+   :unsigned-char "make_integer ((long long) %s)"
+   :short "make_integer ((long long) %s)"
+   :unsigned-short "make_integer ((long long) %s)"
+   ; FIXME: We're potentially losing data in some of these unsigned conversions.
+   :int "make_integer ((long long) %s)"
+   :unsigned-int "make_integer ((long long) %s)"
+   :long "make_integer ((long long) %s)"
+   :unsigned-long "make_integer ((long long) %s)"
+   :long-long "make_integer ((long long) %s)"
+   :unsigned-long-long "make_integer ((long long) %s)"
+   'Boolean "make_boolean (%s)"})
+(defn- from-objc-converter [type]
+  (let [converter (from-objc-converters type)]
+    (when-not converter
+      (throw (Error. (core/str "Unknown C type " type))))
+    converter))
+
+(defn- make-msg-send [selector target args]
+  (let [typess (@cljc.compiler/objc-selectors selector)
+        types (and (= (count typess) 1) (first typess))
+        selector-kws (drop 1 selector)
+        num-args (first selector)]
+    (if types
+      (let [result-type (first types)
+            arg-types (rest types)]
+        (assert (= num-args (count arg-types) (count args)))
+        (if (core/zero? num-args)
+          (list 'c* (core/format (from-objc-converter result-type)
+                                 (core/str "[objc_object_get (~{}) "
+                                           (name (first selector-kws))
+                                           "]"))
+                target)
+          (apply list 'c* (core/format (from-objc-converter result-type)
+                                       (core/str "[objc_object_get (~{}) "
+                                                 (apply core/str (map (fn [sel-kw type]
+                                                                        (core/str (name sel-kw) ": " (to-objc-converter type)))
+                                                                      selector-kws arg-types))
+                                                 "]"))
+                 target args)))
+      (if (core/zero? num-args)
+        (list 'cljc.objc/objc-msg-send target (list 'c* (core/str "make_objc_selector (@selector (" (name (first selector-kws)) "))")))
+        (let [selector-str (apply core/str (map #(core/str (name %) ":") selector-kws))]
+          (apply list 'cljc.objc/objc-msg-send target (list 'c* (core/str "make_objc_selector (@selector (" selector-str "))")) args))))))
+
 (defmacro § [x & ys]
-  (cond (empty? ys)
-        (if (symbol? x)
-          (list 'c* (core/str "make_objc_object ([" (core/str x) " class])"))
-          (throw (clojure.core/IllegalArgumentException. "Sole argument to § must be a symbol denoting an Objective-C class.")))
-
-        (= (count ys) 1)
-        (list 'cljc.objc/objc-msg-send x (list 'c* (core/str "make_objc_selector (@selector (" (name (first ys)) "))")))
-
-        :else
-        (let [selector-kws (take-nth 2 ys)
-              args (take-nth 2 (rest ys))
-              selector (apply core/str (map #(core/str (name %) ":") selector-kws))]
-          (apply list 'cljc.objc/objc-msg-send x (list 'c* (core/str "make_objc_selector (@selector (" selector "))")) args))))
+  (if (empty? ys)
+    (if (symbol? x)
+      (list 'c* (core/str "make_objc_object ([" (core/str x) " class])"))
+      (throw (clojure.core/IllegalArgumentException. "Sole argument to § must be a symbol denoting an Objective-C class.")))
+    (make-msg-send (cons (quot (count ys) 2) (take-nth 2 ys)) x (take-nth 2 (rest ys)))))
 
 (defn- objc-type [type]
   (cond

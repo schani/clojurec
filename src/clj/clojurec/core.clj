@@ -110,6 +110,7 @@
                    [(standard-init-or-main-function init-name main-name main-code @cljc/used-namespaces)]))))
 
 (def default-run-dir (io/file (java.lang.System/getProperty "user.dir") "run"))
+(def default-frameworks-dir (io/file (java.lang.System/getProperty "user.dir") "frameworks"))
 
 (defn read-exports-fn-for-dir [dir]
   (fn [ns]
@@ -133,9 +134,11 @@
 
 (defn make-and-run [run-dir]
   (when (:with-makefile *build-options*)
-    (let [{:keys [exit out err]} (if (:objc *build-options*)
-                                   (shell/sh "make" "-f" "Makefile.objc" :dir run-dir)
-                                   (shell/sh "make" :dir run-dir))]
+    (let [make-args (concat (:make-args *build-options*)
+                            (if (:objc *build-options*)
+                              ["-f" "Makefile.objc"]
+                              []))
+          {:keys [exit out err]} (apply shell/sh "make" (concat make-args [:dir run-dir]))]
       (if (= exit 0)
         (do
           (let [{:keys [exit out]} (shell/sh "./cljc" :dir run-dir)]
@@ -243,6 +246,12 @@
       (compile-system-namespace-if-needed 'cljc.objc))
     (run-code ns-name (compile-expr ns-name with-core expr) with-core)))
 
+(defn load-framework [framework frameworks-dir]
+  (let [framework-file (io/file frameworks-dir (str framework "-framework.clj"))
+        kvps (read-string (slurp framework-file))]
+    (doseq [[selector types] kvps]
+      (cljc/objc-register-selector! selector types))))
+
 (comment
   ;; default build options
   (run-expr 'my-test true '(do (cljc.core/print (+ 2 4))))
@@ -285,12 +294,15 @@
              ["-c" "--compile" "Compile a ClojureC file." :flag true]
              ["-d" "--driver" "Generate a driver C file." :flag true]
              ["-D" "--ios-driver" "Generate an iOS driver M file." :flag true]
-             ["-m" "--objc" "Generate Objective-C code." :flag true])]
+             ["-m" "--objc" "Generate Objective-C code." :flag true]
+             ["-F" "--framework" "Include a framework."])]
     (cond
      (:compile options)
      (if (= (count remaining) 4)
        (let [[source namespace out-dir exports-dir] remaining
              namespace (symbol namespace)]
+         (when-let [framework (:framework options)]
+           (load-framework framework default-frameworks-dir))
          (binding [cljc/*objc* (:objc options)]
            (compile-file-to-dirs source namespace out-dir exports-dir)))
        (do

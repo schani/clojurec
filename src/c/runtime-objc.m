@@ -213,8 +213,8 @@ symbol_get_namespace (value_t *v)
 	return extract_namespace (symbol_get_utf8 (v));
 }
 
-static id
-convert_to_objc_object (value_t *val)
+id
+objc_convert_to_objc_object (value_t *val)
 {
 	switch (val->ptable->type) {
 		case TYPE_Nil:
@@ -363,7 +363,7 @@ objc_object_send_message (int nargs, closure_t *closure, value_t *obj, value_t *
 				break;
 			}
 			case '@': {
-				id data = convert_to_objc_object (arg);
+				id data = objc_convert_to_objc_object (arg);
 				[invocation setArgument: &data atIndex: i];
 				break;
 			}

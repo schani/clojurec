@@ -23,6 +23,7 @@
 (declare munge)
 (declare ^:dynamic *cljs-file*)
 (declare compiling-for-objc)
+(declare objc-selectors)
 (require 'cljc.core)
 
 (def cljs-reserved-file-names #{"deps.cljs"})
@@ -64,6 +65,12 @@
 (def ^:dynamic *objc* false)
 (defn compiling-for-objc []
   *objc*)
+
+(defonce objc-selectors (atom {}))
+(defn objc-register-selector! [selector types]
+  (swap! objc-selectors update-in [selector] (fnil conj #{}) types))
+(defn objc-reset-selectors! []
+  (swap! objc-selectors (constantly {})))
 
 (defmacro ^:private debug-prn
   [& args]

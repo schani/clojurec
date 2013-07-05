@@ -252,6 +252,7 @@ extern long long integer_get (value_t *v);
 extern value_t* make_float (double x);
 extern double float_get (value_t *v);
 extern double number_get (value_t *v);
+extern long long number_get_as_integer (value_t *v);
 extern value_t* make_array_from (long len, value_t **src);
 extern value_t* make_array (long len);
 extern long array_length (value_t *v);
@@ -323,6 +324,8 @@ extern value_t* make_objc_selector (SEL sel);
 
 extern id objc_object_get (value_t *obj);
 extern SEL objc_selector_get (value_t *sel);
+
+extern id objc_convert_to_objc_object (value_t *val);
 #endif
 
 #ifdef HAVE_OBJC
