@@ -534,15 +534,15 @@
 (defmacro bit-clear [x n]
   ;; FIXME: If the value of n is negative or is greater than or equal to
   ;;        sizeof(long)*8, left shift behavior is undefined. ()
-  (list 'c* "make_integer ((integer_get (~{})) & ~(1ul << integer_get (~{})))" x n))
+  (list 'c* "make_integer ((integer_get (~{})) & ~(1ull << integer_get (~{})))" x n))
 
 (defmacro bit-flip [x n]
   ;; FIXME: see bit-clear
-  (list 'c* "make_integer ((integer_get (~{})) ^ (1ul << integer_get (~{})))" x n))
+  (list 'c* "make_integer ((integer_get (~{})) ^ (1ull << integer_get (~{})))" x n))
 
 (defmacro bit-test [x n]
   ;; FIXME: see bit-clear
-  (list 'c* "make_boolean (((integer_get (~{})) & (1ul << integer_get (~{}))) != 0)" x n))
+  (list 'c* "make_boolean (((integer_get (~{})) & (1ull << integer_get (~{}))) != 0)" x n))
 
 (defmacro bit-shift-left [x n]
   ;; FIXME: If the value of n is negative or is greater than or equal to
@@ -565,7 +565,7 @@
 
 (defmacro bit-set [x n]
   ;; FIXME: see bit-clear
-  (list 'c* "make_integer (integer_get (~{}) | (1ul << integer_get (~{})))" x n))
+  (list 'c* "make_integer (integer_get (~{}) | (1ull << integer_get (~{})))" x n))
 
 ;; internal
 (defmacro mask [hash shift]
@@ -573,7 +573,7 @@
 
 ;; internal
 (defmacro bitpos [hash shift]
-  (list 'c* "make_integer ((1ul << integer_get (~{})))" `(mask ~hash ~shift)))
+  (list 'c* "make_integer ((1ull << integer_get (~{})))" `(mask ~hash ~shift)))
 
 ;;internal
 (defmacro bit-count [num]

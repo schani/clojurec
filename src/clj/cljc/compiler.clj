@@ -291,8 +291,8 @@
 (defmulti emit-constant class)
 (defmethod emit-constant nil [x] "value_nil")
 ;; FIXME: allocate these only once, not every time!
-(defmethod emit-constant Long [x] (emit-value-wrap :long-const nil (emits "make_integer (" x "L)")))
-(defmethod emit-constant Integer [x] (emit-value-wrap :int-const nil (emits "make_integer (" x "L)"))) ; reader puts Integers in metadata
+(defmethod emit-constant Long [x] (emit-value-wrap :long-const nil (emits "make_integer (" x "LL)")))
+(defmethod emit-constant Integer [x] (emit-value-wrap :int-const nil (emits "make_integer (" x "LL)"))) ; reader puts Integers in metadata
 (defmethod emit-constant Character [x] (emit-value-wrap :char-const nil (emits "make_character ((cljc_unichar_t)'" (escape-char x) "')")))
 (defmethod emit-constant Float [x] (emit-value-wrap :float-const nil (emits "make_float (" x ")")))
 (defmethod emit-constant Double [x] (emit-value-wrap :double-const nil (emits "make_float (" x ")")))

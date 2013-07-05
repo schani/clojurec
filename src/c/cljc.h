@@ -57,7 +57,7 @@ struct closure {
 
 typedef struct {
 	value_t val;
-	long x;
+	long long x;
 } cljc_integer_t;
 
 typedef struct {
@@ -247,8 +247,8 @@ extern value_t* env_fetch (environment_t *env, int num_ups, int index);
 extern value_t* Closure_IFn_invoke (int nargs, closure_t *closure, value_t *arg1, value_t *arg2, value_t *arg3, value_t **argrest);
 extern value_t* alloc_value (ptable_t *ptable, size_t size);
 extern value_t* make_closure (function_t fn, environment_t *env);
-extern value_t* make_integer (long x);
-extern long integer_get (value_t *v);
+extern value_t* make_integer (long long x);
+extern long long integer_get (value_t *v);
 extern value_t* make_float (double x);
 extern double float_get (value_t *v);
 extern double number_get (value_t *v);

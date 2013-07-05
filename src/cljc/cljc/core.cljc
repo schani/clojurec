@@ -348,8 +348,8 @@
   (-pr-seq [i opts]
     (list
      (if-objc
-       (c* "make_objc_object ([NSString stringWithFormat: @\"%ld\", integer_get (~{})])" i)
-       (c* "make_string_copy_free (g_strdup_printf (\"%ld\", integer_get (~{})))" i)))))
+       (c* "make_objc_object ([NSString stringWithFormat: @\"%lld\", integer_get (~{})])" i)
+       (c* "make_string_copy_free (g_strdup_printf (\"%lld\", integer_get (~{})))" i)))))
 
 (extend-type Float
   IEquiv
