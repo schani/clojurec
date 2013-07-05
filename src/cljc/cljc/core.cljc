@@ -393,7 +393,9 @@
   IPrintable
   (-pr-seq [ptr opts]
     (list
-     (c* "make_string_copy_free (g_strdup_printf (\"#<RawPointer %p>\", raw_pointer_get (~{})))" ptr))))
+     (if-objc
+      (c* "make_objc_object ([NSString stringWithFormat: @\"#<RawPointer %p>\", raw_pointer_get (~{})])" ptr)
+      (c* "make_string_copy_free (g_strdup_printf (\"#<RawPointer %p>\", raw_pointer_get (~{})))" ptr)))))
 
 (defn inc
   "Returns a number one greater than num."
@@ -2461,22 +2463,30 @@ reduces them without incurring seq initialization"
 ;; of whitespace/capitalization/etc.?
 (defn lower-case [s]
   "Converts string to all lower-case."
-  (c* "make_string (g_utf8_strdown (string_get_utf8 (~{}) , -1))" s))
+  (if-objc
+   (§ s :lowercaseString)
+   (c* "make_string (g_utf8_strdown (string_get_utf8 (~{}) , -1))" s)))
 
 (defn upper-case [s]
   "Converts string to all upper-case."
-  (c* "make_string (g_utf8_strup (string_get_utf8 (~{}) , -1))" s))
+  (if-objc
+   (§ s :uppercaseString)
+   (c* "make_string (g_utf8_strup (string_get_utf8 (~{}) , -1))" s)))
 
 (defn capitalize [s]
   "Converts first character of the string to upper-case, all other
    characters to lower-case."
-  (if-let [x (first s)]
-    (str (upper-case (str x)) (lower-case (apply str (rest s))))
-    ""))
+  (if-objc
+   (§ s :capitalizedString)
+   (if-let [x (first s)]
+     (str (upper-case (str x)) (lower-case (apply str (rest s))))
+     "")))
 
 (defn- blank-char? [c]
   "True if c is whitespace."
-  (c* "make_boolean (g_unichar_isspace (character_get (~{})))" c))
+  (if-objc
+   (§ (§ (§ NSCharacterSet) :whitespaceAndNewlineCharacterSet) :characterIsMember c)
+   (c* "make_boolean (g_unichar_isspace (character_get (~{})))" c)))
 
 (defn blank? [s]
   "True if s is nil, empty, or contains only whitespace."
@@ -5999,57 +6009,79 @@ reduces them without incurring seq initialization"
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Regular Expressions ;;;;;;;;;;;;;;;;
 
-(defprotocol IPattern
-  (-pattern [this])
-  (-re [this]))
+(defprotocol IPattern)
 
-(deftype Pattern [pattern re]
-  IPrintable
-  (-pr-seq [p opts]
-    (list "(re-pattern \"" (string-quote pattern) "\")"))
-  IPattern
-  (-pattern [this]
-    pattern)
-  (-re [this]
-    re))
+(if-objc
+ (extend-type (§ NSRegularExpression)
+   IPattern
+   IPrintable
+   (-pr-seq [p opts]
+     (list "(re-pattern \"" (§ p :pattern) "\")")))
+ (deftype Pattern [pattern re]
+   IPattern
+   IPrintable
+   (-pr-seq [p opts]
+     (list "(re-pattern \"" (string-quote pattern) "\")"))))
 
 (defn re-pattern [s]
   "Returns a pattern for use by re-seq, etc. (Currently accepts PCRE syntax.)"
-  (if (instance? Pattern s)
+  (if (satisfies? IPattern s)
     s
-    (let [result (c* "re_pattern (~{})" s)]
-      (when (has-type? result Array)
-        (let [[msg offset] result]
-          (throw (Exception. (str "Cannot compile pattern " (pr-str s)
-                                  " (" msg "; index " offset ")")))))
-      (Pattern. s result))))
+    (if-objc
+     (§ (§ NSRegularExpression)
+        :regularExpressionWithPattern s
+        :options (c* "make_integer (NSRegularExpressionCaseInsensitive)")
+        :error nil)
+     (let [result (c* "re_pattern (~{})" s)]
+       (when (has-type? result Array)
+         (let [[msg offset] result]
+           (throw (Exception. (str "Cannot compile pattern " (pr-str s)
+                                   " (" msg "; index " offset ")")))))
+       (Pattern. s result)))))
 
-(defn- pcre-match-offsets [re s]
-  (let [offsets (c* "re_match_offsets (~{}, ~{})" (-re re) s)]
-    (when offsets
-      (if (integer? offsets)
-        (throw (Exception. (str "PCRE search error " offsets " for pattern "
-                                (pr-str s) " against " (pr-str s)))))
-      offsets)))
+(if-objc
+ (defn- text-checking-result->matches [s num-groups tcr]
+   (let [whole-match (c* "make_objc_object ([objc_object_get (~{}) substringWithRange: [objc_object_get (~{}) range]])" s tcr)]
+     (if (zero? num-groups)
+       whole-match
+       (cons whole-match
+             (map (fn [i]
+                    ;; FIXME: handle NSNotFound
+                    (c* "make_objc_object ([objc_object_get (~{}) substringWithRange: [objc_object_get (~{}) rangeAtIndex: integer_get (~{})]])" s tcr i))
+                  (range num-groups))))))
+ (do
+   (defn- pcre-match-offsets [re s]
+     (let [offsets (c* "re_match_offsets (~{}, ~{})" (.-re re) s)]
+       (when offsets
+         (if (integer? offsets)
+           (throw (Exception. (str "PCRE search error " offsets " for pattern "
+                                   (pr-str s) " against " (pr-str s)))))
+         offsets)))
 
-(defn- pcre-offsets->matches
-  "Returns \"whole-match\" if there were no captures, otherwise
+   (defn- pcre-offsets->matches
+     "Returns \"whole-match\" if there were no captures, otherwise
    [\"whole-match\" \"capture-1\" \"capture-2\" ...]."
-  [s offsets]
-  (if (= 2 (count offsets))
-    (apply subs s (take 2 offsets))
-    (map #(apply subs s %)
-         (partition-all 2 offsets))))
+     [s offsets]
+     (if (= 2 (count offsets))
+       (apply subs s (take 2 offsets))
+       (map #(apply subs s %)
+            (partition-all 2 offsets))))))
 
 (defn re-seq
   "Returns a lazy sequence of successive matches of regex re in string s.
    Each match will be \"whole-match\" if re has no captures, otherwise
    [\"whole-match\" \"capture-1\" \"capture-2\" ...]."
   [re s]
-  (when-let [offsets (pcre-match-offsets re s)]
-    (lazy-seq
-     (cons (pcre-offsets->matches s offsets)
-           (re-seq re (subs s (max 1 (nth offsets 1))))))))
+  (if-objc
+   (let [num-groups (§ re :numberOfCaptureGroups)
+         string-length (§ s :length)
+         matches (c* "make_objc_object ([objc_object_get (~{}) matchesInString: objc_object_get (~{}) options: 0 range: NSMakeRange (0, integer_get (~{}))])"
+                     re s string-length)]
+     (map #(text-checking-result->matches s num-groups %) matches))
+   (when-let [offsets (pcre-match-offsets re s)]
+     (lazy-seq
+      (cons (pcre-offsets->matches s offsets)
+            (re-seq re (subs s (max 1 (nth offsets 1)))))))))
 
 (defn re-find
   "Returns the first match for regex re in string s or nil.  The
@@ -6064,9 +6096,17 @@ reduces them without incurring seq initialization"
    if re has no captures, otherwise [\"whole-match\" \"capture-1\"
    \"capture-2\" ...]."
   [re s]
-  (let [offsets (pcre-match-offsets re s)]
+  (if-objc
+   (let [num-groups (§ re :numberOfCaptureGroups)
+         string-length (§ s :length)
+         tcr (c* "make_objc_object ([objc_object_get (~{}) firstMatchInString: objc_object_get (~{}) options: 0 range: NSMakeRange (0, integer_get (~{}))])"
+                 re s string-length)
+         matched (c* "make_boolean ([objc_object_get (~{}) range].location != NSNotFound)" tcr)]
+     (when matched
+       (text-checking-result->matches s num-groups tcr)))
+   (let [offsets (pcre-match-offsets re s)]
      (when (and offsets (= (count s) (- (nth offsets 1) (nth offsets 0))))
-       (pcre-offsets->matches s offsets))))
+       (pcre-offsets->matches s offsets)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; I/O ;;;;;;;;;;;;;;;;
 

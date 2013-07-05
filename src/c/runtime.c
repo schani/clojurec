@@ -964,8 +964,10 @@ cljc_init (void)
 {
 	GC_INIT ();
 
+#ifndef HAVE_OBJC
         pcre_malloc = GC_malloc;
         pcre_free = GC_free;
+#endif
 
 	VAR_NAME (cljc_DOT_core_SLASH_Nil) = make_closure (NULL, NULL);
 	PTABLE_NAME (cljc_DOT_core_SLASH_Nil) = alloc_ptable (TYPE_Nil, VAR_NAME (cljc_DOT_core_SLASH_Nil), NULL);

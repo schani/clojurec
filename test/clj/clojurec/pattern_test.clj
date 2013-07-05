@@ -14,10 +14,6 @@
 (defmacro core-run-and-print [& exprs]
   `(core-run '(do ~@(map #(list 'println %) exprs))))
 
-(deftest re-pattern
-  (testing "re-pattern"
-    (is (= (core-run '(pr (-pattern (re-pattern "foo")))) ["foo"]))))
-
 (deftest re-seq
   (testing "re-seq"
     (is (= (core-run '(pr (re-seq (re-pattern "") "foo"))) [["" "" ""]]))
