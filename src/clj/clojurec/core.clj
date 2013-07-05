@@ -217,7 +217,7 @@
 
 (defn compile-file-to-dirs [source namespace out-dir exports-dir]
   (let [namespace-munged (str (cljc/munge namespace))]
-    (binding [*build-options* (assoc default-build-options
+    (binding [*build-options* (assoc *build-options*
                                 :init-function-name (init-function-name namespace))
               cljc/*read-exports-fn* (read-exports-fn-for-dir exports-dir)]
       (compile-file source
