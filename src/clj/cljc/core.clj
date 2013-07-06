@@ -900,6 +900,24 @@
     (let [[selector args] (deconstruct-msg-form ys)]
       (make-msg-send selector x args))))
 
+(def ^:private objc-self-name-var '_cljc-objc-self_)
+(def ^:private objc-class-name-var '_cljc-objc-self-class_)
+
+(defmacro §super [& ys]
+  (let [[selector args] (deconstruct-msg-form ys)
+        types (types-for-selector selector)]
+    (when-not types
+      (throw (clojure.core/IllegalArgumentException. "super call must have type information.")))
+    (let [result-type (first types)
+          arg-types (rest types)]
+      (apply list 'c* (core/format (from-objc-converter result-type)
+                                   (core/str "objc_msgSendSuper (&(struct objc_super) { objc_object_get (~{}), objc_object_get (~{}) }, "
+                                             "@selector (" (selector-string selector) ")"
+                                             (apply core/str (map #(core/str ", " (to-objc-converter %)) arg-types))
+                                             ")"))
+             objc-self-name-var objc-class-name-var
+             args))))
+
 (defn- objc-type [type]
   (cond
    (core/nil? type) "value_t*"
@@ -1026,10 +1044,16 @@
                              (conj methods (concat (take 2 args) [(gensym class-name)]))))))
         method-defs (map (fn [[signature body name]]
                            (let [name (with-meta name {:private true})
+                                 self-arg (second signature)
                                  args (map second (partition 2 (drop 2 signature)))
-                                 args (cons (second signature) args)
+                                 args (cons self-arg args)
                                  args (with-meta (vec args) {:cljc.compiler/objc-class class-name
-                                                             :cljc.compiler/objc-fields fields})]
+                                                             :cljc.compiler/objc-fields fields})
+                                 body (list 'let [objc-class-name-var
+                                                  (list 'c* (core/str "make_objc_object ([" class-name " class])"))
+                                                  objc-self-name-var
+                                                  self-arg]
+                                            body)]
                              (list 'def name (list 'fn args body))))
                          methods)
         method-def-names (map #(nth % 2) methods)

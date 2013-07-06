@@ -9,6 +9,7 @@
 #include <pthread.h>
 
 #ifdef HAVE_OBJC
+#import <objc/objc-runtime.h>
 #ifdef HAVE_IOS
 #import <UIKit/UIKit.h>
 #else

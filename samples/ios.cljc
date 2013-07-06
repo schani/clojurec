@@ -5,17 +5,19 @@
            (:subclasses NSObject)
            (:fields [handler])
 
-           ^{:type void} (§ self :setHandler h)
-           (set! handler h)
+           ^{:type :id} (§ self :initWithHandler h)
+           (do
+             (§super :init)
+             (set! handler h)
+             self)
 
-           ^{:type void} (§ self :handleAction)
+           ^{:type :void} (§ self :handleAction)
            (do
              (handler)
              self))
 
 (defn add-action [control events handler]
-  (let [action-handler (§ (§ (§ ActionHandler) :alloc) :init)]
-    (§ action-handler :setHandler handler)
+  (let [action-handler (§ (§ (§ ActionHandler) :alloc) :initWithHandler handler)]
     (c* "[objc_object_get (~{}) addTarget: objc_object_get (~{}) action: @selector (handleAction) forControlEvents: integer_get (~{})]"
         control action-handler events)
     nil))
