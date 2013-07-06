@@ -851,10 +851,20 @@
       (throw (Error. (core/str "Unknown C type " type))))
     converter))
 
+(defn- types-for-selector [selector]
+  (let [typess (@cljc.compiler/objc-selectors selector)]
+    (and (= (count typess) 1) (first typess))))
+
+(defn- selector-string [selector]
+  (let [num-args (first selector)
+        selector-kws (rest selector)]
+    (if (core/zero? num-args)
+      (name (first selector-kws))
+      (apply core/str (map #(core/str (name %) ":") selector-kws)))))
+
 (defn- make-msg-send [selector target args]
-  (let [typess (@cljc.compiler/objc-selectors selector)
-        types (and (= (count typess) 1) (first typess))
-        selector-kws (drop 1 selector)
+  (let [types (types-for-selector selector)
+        selector-kws (rest selector)
         num-args (first selector)]
     (if types
       (let [result-type (first types)
@@ -873,17 +883,22 @@
                                                                       selector-kws arg-types))
                                                  "]"))
                  target args)))
-      (if (core/zero? num-args)
-        (list 'cljc.objc/objc-msg-send target (list 'c* (core/str "make_objc_selector (@selector (" (name (first selector-kws)) "))")))
-        (let [selector-str (apply core/str (map #(core/str (name %) ":") selector-kws))]
+      (let [selector-str (selector-string selector)]
+        (if (core/zero? num-args)
+          (list 'cljc.objc/objc-msg-send target (list 'c* (core/str "make_objc_selector (@selector (" selector-str "))")))
           (apply list 'cljc.objc/objc-msg-send target (list 'c* (core/str "make_objc_selector (@selector (" selector-str "))")) args))))))
+
+(defn- deconstruct-msg-form [ys]
+  [(cons (quot (count ys) 2) (take-nth 2 ys))
+   (take-nth 2 (rest ys))])
 
 (defmacro § [x & ys]
   (if (empty? ys)
     (if (symbol? x)
       (list 'c* (core/str "make_objc_object ([" (core/str x) " class])"))
       (throw (clojure.core/IllegalArgumentException. "Sole argument to § must be a symbol denoting an Objective-C class.")))
-    (make-msg-send (cons (quot (count ys) 2) (take-nth 2 ys)) x (take-nth 2 (rest ys)))))
+    (let [[selector args] (deconstruct-msg-form ys)]
+      (make-msg-send selector x args))))
 
 (defn- objc-type [type]
   (cond
