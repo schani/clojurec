@@ -297,7 +297,7 @@ extern void* compound_get_data_ptr (value_t *v);
 extern value_t* make_boolean (bool x);
 #ifndef HAVE_OBJC
 extern value_t* re_pattern (value_t *pattern_str);
-extern value_t* re_match_offsets (value_t* re, value_t* s);
+extern value_t* re_match_offsets (value_t* re, value_t* s, value_t *offset);
 #endif
 extern long identity_hash_code (value_t *v);
 extern value_t* cljc_core_print (int nargs, closure_t *closure, value_t *arg1, value_t *arg2, value_t *arg3, value_t **argrest);

@@ -941,7 +941,7 @@ re_pattern (value_t* pattern_str)
 {
 	int offset;
 	const char *errmsg;
-	char *c_str = string_get_utf8 (pattern_str);
+	const char *c_str = string_get_utf8 (pattern_str);
 	pcre *re = pcre_compile (c_str, PCRE_UTF8, &errmsg, &offset, NULL);
 	if (re != NULL)
 		return make_raw_pointer (re);
@@ -952,13 +952,16 @@ re_pattern (value_t* pattern_str)
 }
 
 value_t*
-re_match_offsets (value_t* re, value_t* s)
+re_match_offsets (value_t* re, value_t* s, value_t *offset)
 {
 	pcre *c_re = raw_pointer_get (re);
-	char *c_str = string_get_utf8 (s);
+	const char *c_str = string_get_utf8 (s);
 	const size_t c_strlen = strlen (c_str);
 	if (!c_strlen)
 		return value_nil;
+	const long long c_offset = integer_get (offset);
+	if (c_offset > INT_MAX)
+		return make_integer (PCRE_ERROR_BADOFFSET);
 	int rc, capture_count;
 	rc = pcre_fullinfo (c_re, NULL, PCRE_INFO_CAPTURECOUNT, &capture_count);
 	size_t match_offsets_n = (capture_count + 1) * 3; // FIXME: overflow.
@@ -967,7 +970,7 @@ re_match_offsets (value_t* re, value_t* s)
 			NULL, // extra
 			c_str,
 			c_strlen,
-			0, // startoffset
+			c_offset,
 			0, // options
 			match_offsets,
 			match_offsets_n);
