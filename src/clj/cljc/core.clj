@@ -892,6 +892,11 @@
   [(cons (quot (count ys) 2) (take-nth 2 ys))
    (take-nth 2 (rest ys))])
 
+(defmacro §selector [& ys]
+  (let [[selector _] (deconstruct-msg-form ys)
+        selector-str (selector-string selector)]
+    (list 'c* (core/str "make_objc_selector (@selector (" selector-str "))"))))
+
 (defmacro § [x & ys]
   (if (empty? ys)
     (if (symbol? x)

@@ -18,8 +18,9 @@
 
 (defn add-action [control events handler]
   (let [action-handler (§ (§ (§ ActionHandler) :alloc) :initWithHandler handler)]
-    (c* "[objc_object_get (~{}) addTarget: objc_object_get (~{}) action: @selector (handleAction) forControlEvents: integer_get (~{})]"
-        control action-handler events)
+    (§ control :addTarget action-handler
+               :action (§selector :handleAction)
+               :forControlEvents events)
     nil))
 
 (§subclass MyAppDelegate
