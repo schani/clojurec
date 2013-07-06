@@ -99,6 +99,13 @@ typedef struct {
 } raw_pointer_t;
 
 typedef struct {
+	value_t val;
+	const char *name;
+	size_t size;
+	unsigned char data [0];
+} compound_t;
+
+typedef struct {
 	int num;		/* the protocol number, or -1 for termination */
 	closure_t **vtable;
 } ptable_entry_t;
@@ -145,11 +152,12 @@ struct ptable {
 #define TYPE_Symbol	9
 #define TYPE_Keyword	10
 #define TYPE_RawPointer	11
+#define TYPE_Compound	12
 #ifdef HAVE_OBJC
-#define TYPE_ObjCObject	12
-#define TYPE_ObjCSelector	13
+#define TYPE_ObjCObject	13
+#define TYPE_ObjCSelector	14
 #endif
-#define FIRST_TYPE	14
+#define FIRST_TYPE	15
 
 #define FIRST_FIELD	1
 
@@ -203,6 +211,7 @@ extern value_t* VAR_NAME (cljc_DOT_core_SLASH_String);
 extern value_t* VAR_NAME (cljc_DOT_core_SLASH_Symbol);
 extern value_t* VAR_NAME (cljc_DOT_core_SLASH_Keyword);
 extern value_t* VAR_NAME (cljc_DOT_core_SLASH_RawPointer);
+extern value_t* VAR_NAME (cljc_DOT_core_SLASH_Compound);
 
 extern ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Nil);
 extern ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Closure);
@@ -217,6 +226,7 @@ extern ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_String);
 extern ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Symbol);
 extern ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Keyword);
 extern ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_RawPointer);
+extern ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Compound);
 
 extern int register_protocol (void);
 extern int register_type (void);
@@ -281,6 +291,9 @@ extern value_t* keyword_get_name (value_t *v);
 extern value_t* keyword_get_namespace (value_t *v);
 extern value_t* make_raw_pointer (void *ptr);
 extern void* raw_pointer_get (value_t *v);
+extern value_t* make_compound (const char *name, size_t size, void *data_ptr);
+extern const char* compound_get_name (value_t *v);
+extern void* compound_get_data_ptr (value_t *v);
 extern value_t* make_boolean (bool x);
 #ifndef HAVE_OBJC
 extern value_t* re_pattern (value_t *pattern_str);

@@ -31,8 +31,8 @@
 
            ^{:type Boolean} (§ self :application ^{:type (§ UIApplication)} app
                                     :didFinishLaunchingWithOptions ^{:type (§ NSDictionary)} opts)
-           (let [window (§ (§ UIWindow) :alloc)
-                 window (c* "make_objc_object ([objc_object_get (~{}) initWithFrame: [[UIScreen mainScreen] bounds]])" window)
+           (let [frame (§ (§ (§ UIScreen) :mainScreen) :bounds)
+                 window (§ (§ (§ UIWindow) :alloc) :initWithFrame frame)
                  view-controller (§ (§ (§ UIViewController) :alloc) :init)
                  view (§ view-controller :view)
                  button (§ (§ UIButton) :buttonWithType (c-int UIButtonTypeRoundedRect))]

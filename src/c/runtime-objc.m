@@ -378,6 +378,15 @@ objc_object_send_message (int nargs, closure_t *closure, value_t *obj, value_t *
                                 else
                                         assert (0);
                                 break;
+			case '{': {
+				const char *compound_name = compound_get_name (arg);
+				size_t compound_name_len = strlen (compound_name);
+				const char *end = strchr (type + 1, '=');
+				assert (end == type + 1 + compound_name_len);
+				assert (strncmp (compound_name, type + 1, compound_name_len) == 0);
+				[invocation setArgument: compound_get_data_ptr (arg) atIndex: i];
+				break;
+			}
 			default:
 				assert_not_reached ();
 		}
@@ -466,6 +475,15 @@ objc_object_send_message (int nargs, closure_t *closure, value_t *obj, value_t *
 			SEL data;
 			[invocation getReturnValue: &data];
 			return make_objc_selector (data);
+		}
+		case '{': {
+			const char *end = strchr (return_type + 1, '=');
+			value_t *v;
+			assert (end && end > return_type + 1);
+			/* FIXME: we're leaking memory here with strdup! */
+			v = make_compound (strndup (return_type + 1, end - return_type - 1), [signature methodReturnLength], NULL);
+			[invocation getReturnValue: compound_get_data_ptr (v)];
+			return v;
 		}
 		case 'v':
 			return value_nil;

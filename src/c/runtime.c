@@ -311,6 +311,7 @@ ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_String) = NULL;
 ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Symbol) = NULL;
 ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Keyword) = NULL;
 ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_RawPointer) = NULL;
+ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Compound) = NULL;
 
 value_t*
 make_integer (long long x)
@@ -711,6 +712,35 @@ raw_pointer_get (value_t *v)
 }
 
 value_t*
+make_compound (const char *name, size_t size, void *data_ptr)
+{
+	compound_t *c = (compound_t*) alloc_value (PTABLE_NAME (cljc_DOT_core_SLASH_Compound), sizeof (compound_t) + size);
+	c->name = name;
+	c->size = size;
+	if (data_ptr)
+		memcpy (c->data, data_ptr, size);
+	else
+		memset (c->data, 0, size);
+	return &c->val;
+}
+
+const char*
+compound_get_name (value_t *v)
+{
+	compound_t *c = (compound_t*)v;
+	assert (v->ptable->type == TYPE_Compound);
+	return c->name;
+}
+
+void*
+compound_get_data_ptr (value_t *v)
+{
+	compound_t *c = (compound_t*)v;
+	assert (v->ptable->type == TYPE_Compound);
+	return c->data;
+}
+
+value_t*
 make_boolean (bool x)
 {
 	if (x)
@@ -966,6 +996,7 @@ value_t* VAR_NAME (cljc_DOT_core_SLASH_String) = VALUE_NONE;
 value_t* VAR_NAME (cljc_DOT_core_SLASH_Symbol) = VALUE_NONE;
 value_t* VAR_NAME (cljc_DOT_core_SLASH_Keyword) = VALUE_NONE;
 value_t* VAR_NAME (cljc_DOT_core_SLASH_RawPointer) = VALUE_NONE;
+value_t* VAR_NAME (cljc_DOT_core_SLASH_Compound) = VALUE_NONE;
 
 void
 cljc_init (void)
@@ -1012,6 +1043,9 @@ cljc_init (void)
 
 	VAR_NAME (cljc_DOT_core_SLASH_RawPointer) = make_closure (NULL, NULL);
 	PTABLE_NAME (cljc_DOT_core_SLASH_RawPointer) = alloc_ptable (TYPE_RawPointer, VAR_NAME (cljc_DOT_core_SLASH_RawPointer), NULL);
+
+	VAR_NAME (cljc_DOT_core_SLASH_Compound) = make_closure (NULL, NULL);
+	PTABLE_NAME (cljc_DOT_core_SLASH_Compound) = alloc_ptable (TYPE_Compound, VAR_NAME (cljc_DOT_core_SLASH_Compound), NULL);
 
 	value_nil = alloc_value (PTABLE_NAME (cljc_DOT_core_SLASH_Nil), sizeof (value_t));
 
