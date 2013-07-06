@@ -35,7 +35,7 @@
                  window (c* "make_objc_object ([objc_object_get (~{}) initWithFrame: [[UIScreen mainScreen] bounds]])" window)
                  view-controller (§ (§ (§ UIViewController) :alloc) :init)
                  view (§ view-controller :view)
-                 button (c* "make_objc_object ([UIButton buttonWithType: UIButtonTypeRoundedRect])")]
+                 button (§ (§ UIButton) :buttonWithType (c-int UIButtonTypeRoundedRect))]
 
              (set! nextCount 1)
 
@@ -43,10 +43,11 @@
 
              (§ label :setClipsToBounds true)
              (§ label :setText "Hello, ClojureC!")
+             (§ label :setTextAlignment (c-int NSTextAlignmentCenter))
 
              (c* "[objc_object_get (~{}) setFrame: CGRectMake (10, 320, 300, 100)]" button)
-             (c* "[objc_object_get (~{}) setTitle: objc_object_get (~{}) forState: UIControlStateNormal]" button "Count!")
-             (add-action button (c* "make_integer (UIControlEventTouchUpInside)")
+             (§ button :setTitle "Count!" :forState (c-int UIControlStateNormal))
+             (add-action button (c-int UIControlEventTouchUpInside)
                          (fn []
                            (let [text (str nextCount)]
                              (set! nextCount (inc nextCount))

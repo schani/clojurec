@@ -800,6 +800,9 @@
 (defmacro unchecked-inc [x]
   `(inc ~x))
 
+(defmacro c-int [x]
+  (list 'c* (core/str "make_integer (" x ")")))
+
 ;;; Objective-C
 (def ^:private to-objc-converters
   {:id "objc_convert_to_objc_object (~{})"
