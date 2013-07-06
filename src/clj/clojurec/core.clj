@@ -248,9 +248,14 @@
 
 (defn load-framework [framework frameworks-dir]
   (let [framework-file (io/file frameworks-dir (str framework "-framework.clj"))
-        kvps (read-string (slurp framework-file))]
-    (doseq [[selector types] kvps]
-      (cljc/objc-register-selector! selector types))))
+        entries (read-string (slurp framework-file))]
+    (doseq [[kind & data] entries]
+      (case kind
+        :selector
+        (let [[selector types] data]
+          (cljc/objc-register-selector! selector types))
+
+        (throw (Error. (str "Invalid framework entry " kind)))))))
 
 (comment
   ;; default build options
