@@ -889,7 +889,8 @@
   (cond
    (core/nil? type) "value_t*"
    (= type 'Boolean) "BOOL"
-   (= type 'void) "void"
+   (= type :void) "void"
+   (= type :id) "id"
    (and (list? type) (= (first type) '§)) (core/str (second type) "*")
    :else (throw (Error. (core/str "Unknown type " type)))))
 
@@ -920,12 +921,12 @@
               "@end\n")))
 
 (defn- convert-from-objc [type expr]
-  (cond (symbol? type)
+  (cond (or (symbol? type) (keyword? type))
         (core/case type
           Boolean
           (core/str "make_boolean (" expr ")")
 
-          id
+          :id
           (core/str "make_objc_object (" expr ")")
 
           (throw (Error. (core/str "Unknown type " type))))
@@ -940,12 +941,12 @@
         (throw (Error. (core/str "Unknown type " type)))))
 
 (defn- convert-to-objc [type expr]
-  (cond (symbol? type)
+  (cond (or (symbol? type) (keyword? type))
         (core/case type
-          void
+          :void
           (core/str "")
 
-          id
+          :id
           (core/str "objc_object_get (" expr ")")
 
           Boolean
@@ -970,7 +971,7 @@
                           (core/inc arity)
                           "n")
               " ((closure_t*)~{}, "
-              (convert-from-objc 'id "self")
+              (convert-from-objc :id "self")
               (apply core/str (map (fn [arg]
                                      (core/str ", " (convert-from-objc (:type (meta arg)) arg)))
                                    (take 2 args)))
