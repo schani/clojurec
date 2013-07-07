@@ -1,8 +1,8 @@
-(ns clojurec.inherited-test
+(ns cljc.inherited-test
   (:require [clojure.java.io :as io]
             [cljc.compiler :as cljc])
   (:use clojure.test
-        clojurec.core))
+        cljc.driver))
 
 (deftest inherited-test
   (testing "Inherited test suite from ClojureScript"

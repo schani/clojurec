@@ -5,4 +5,4 @@
                  [org.clojure/tools.cli "0.2.2"]]
   :source-paths ["src/clj" "src/cljc"]
   :test-paths ["test/clj"]
-  :main ^:skip-aot clojurec.core)
+  :main ^:skip-aot cljc.driver)

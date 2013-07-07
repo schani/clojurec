@@ -1,15 +1,15 @@
-(ns clojurec.persistent-hash-map-test
+(ns cljc.persistent-hash-map-test
   (:use clojure.test
-        clojurec.core))
+        cljc.driver))
 
 (defn- core-run [x]
-  (run-expr 'clojurec.core-test true x))
+  (run-expr 'cljc.persistent-hash-map-test true x))
 
 (deftest bitmap-indexed-node-test
   (testing "BitmapIndexedNode"
     (is (= [1] (core-run '(pr (.-bitmap (BitmapIndexedNode. nil 1 (make-array 1)))))))
-    (is (= [true] (clojurec.core/run-expr
-                    'clojurec.core-test true
+    (is (= [true] (cljc.driver/run-expr
+                    'cljc.driver-test true
                     '(pr (let [a (make-array 2)
                                bm (BitmapIndexedNode. nil 2r1000 a)]
                            (aset a 0 33)
@@ -19,8 +19,8 @@
 (deftest persistent-hashmap-test
   (testing "PersistentHashMap"
     (is (= [true true true]
-           (clojurec.core/run-expr
-            'clojurec.core-test true
+           (cljc.driver/run-expr
+            'cljc.driver-test true
             '(let [f1 "Foo"
                    f2 "Foo"
                    m cljc.core.PersistentHashMap/EMPTY
@@ -32,8 +32,8 @@
                    (= (get m3 2 "NOT FOUND") "V2"))))))
 
     (is (= [100 100 true true true false nil 3 false 99 true]
-           (clojurec.core/run-expr
-            'clojurec.core-test true
+           (cljc.driver/run-expr
+            'cljc.driver-test true
             '(loop [m1 cljc.core.PersistentHashMap/EMPTY
                     m2 (transient cljc.core.PersistentHashMap/EMPTY)
                     i 0]

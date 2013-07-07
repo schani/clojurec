@@ -1,12 +1,12 @@
-(ns clojurec.objc-test
+(ns cljc.objc-test
   (:require [clojure.java.io :as io]
             [cljc.compiler :as compiler])
   (:use clojure.test
-        clojurec.core))
+        cljc.driver))
 
 (defn- core-run [x]
   (binding [*build-options* (assoc *build-options* :objc true)]
-    (run-expr 'clojurec.objc-test true x)))
+    (run-expr 'cljc.objc-test true x)))
 
 (deftest foundation
   (testing "Foundation"

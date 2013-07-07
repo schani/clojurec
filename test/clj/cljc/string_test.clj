@@ -1,12 +1,12 @@
-(ns clojurec.string-test
+(ns cljc.string-test
   (:use clojure.test
-        clojurec.core))
+        cljc.driver))
 
 (defn- run [x]
-  (run-expr 'clojurec.core-test false x))
+  (run-expr 'cljc.string-test false x))
 
 (defn- core-run [x]
-  (run-expr 'clojurec.core-test true x))
+  (run-expr 'cljc.string-test true x))
 
 (defmacro run-and-print [& exprs]
   `(run '(do ~@(map #(list 'cljc.core/print %) exprs))))

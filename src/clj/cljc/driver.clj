@@ -1,4 +1,4 @@
-(ns clojurec.core
+(ns cljc.driver
   (:require [clojure.inspector :as inspector]
             [clojure.java.io :as io]
 	    [clojure.java.shell :as shell]

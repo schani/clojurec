@@ -1,12 +1,12 @@
-(ns clojurec.vector-test
+(ns cljc.vector-test
   (:use clojure.test
-        clojurec.core))
+        cljc.driver))
 
 ;; TODO: refactor tests when (range n) will be implemented: replace loops with
 ;;       (vec (range N))
 
 (defn- core-run [x]
-  (run-expr 'clojurec.core-test true x))
+  (run-expr 'cljc.vector-test true x))
 
 (deftest persistent-vector-test
   (testing "PersistentVector predicates"
