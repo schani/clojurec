@@ -2,11 +2,11 @@
 
 c_sources := $(shell echo *.c)
 
-runtime.o : ../src/c/runtime.c
-	$(CC) $(DEFS) -Wno-unused-variable -Wno-unused-value -Wno-unused-function -I../src/c -I../run/thirdparty/klib -g -O0 `pkg-config --cflags $(PACKAGES)` -c $<
+runtime.o : ../../src/c/runtime.c
+	$(CC) $(DEFS) -Wno-unused-variable -Wno-unused-value -Wno-unused-function -I../../src/c -I../thirdparty/klib -g -O0 `pkg-config --cflags $(PACKAGES)` -c $<
 
 %.o : %.c
-	$(CC) $(DEFS) -Wno-unused-variable -Wno-unused-value -Wno-unused-function -I../src/c -I../run/thirdparty/klib -g -O0 `pkg-config --cflags $(PACKAGES)` -c $<
+	$(CC) $(DEFS) -Wno-unused-variable -Wno-unused-value -Wno-unused-function -I../../src/c -I../thirdparty/klib -g -O0 `pkg-config --cflags $(PACKAGES)` -c $<
 
 clean :
 	rm -f *.o $(filter-out driver.c,$(sources)) *-exports.clj cljc

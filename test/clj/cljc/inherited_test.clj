@@ -6,7 +6,7 @@
 
 (deftest inherited-test
   (testing "Inherited test suite from ClojureScript"
-    (let [run-dir (.getAbsolutePath (io/file (java.lang.System/getProperty "user.dir") "run"))
+    (let [run-dir (default-run-dir)
           init-name (init-function-name 'cljc.core-test)]
       (compile-cljc-core-if-needed)
       (binding [*build-options* (assoc default-build-options

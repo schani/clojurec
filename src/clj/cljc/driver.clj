@@ -109,7 +109,8 @@
 	   (concat @cljc/declarations
                    [(standard-init-or-main-function init-name main-name main-code @cljc/used-namespaces)]))))
 
-(def default-run-dir (io/file (java.lang.System/getProperty "user.dir") "run"))
+(defn default-run-dir []
+  (io/file (java.lang.System/getProperty "user.dir") "run" (if (:objc *build-options*) "objc" "c")))
 (def default-frameworks-dir (io/file (java.lang.System/getProperty "user.dir") "frameworks"))
 
 (defn read-exports-fn-for-dir [dir]
@@ -120,7 +121,7 @@
 (defn compile-expr [ns-name with-core expr]
   (binding [*build-options* (assoc *build-options*
                               :init-function-name (init-function-name ns-name))
-            cljc/*read-exports-fn* (read-exports-fn-for-dir default-run-dir)]
+            cljc/*read-exports-fn* (read-exports-fn-for-dir (default-run-dir))]
     (compile-asts (analyze ns-name with-core expr))))
 
 (def src-c-dir (let [user-dir (java.lang.System/getProperty "user.dir")]
@@ -134,11 +135,7 @@
 
 (defn make-and-run [run-dir]
   (when (:with-makefile *build-options*)
-    (let [make-args (concat (:make-args *build-options*)
-                            (if (:objc *build-options*)
-                              ["-f" "Makefile.objc"]
-                              []))
-          {:keys [exit out err]} (apply shell/sh "make" (concat make-args [:dir run-dir]))]
+    (let [{:keys [exit out err]} (apply shell/sh "make" (concat (:make-args *build-options*) [:dir run-dir]))]
       (if (= exit 0)
         (do
           (let [{:keys [exit out]} (shell/sh "./cljc" :dir run-dir)]
@@ -189,22 +186,20 @@
 
 (defn clean-default-run-dir [including-core]
   (let [target (if including-core "clean" "clean-non-core")]
-    (if (:objc *build-options*)
-      (shell/sh "make" "-f" "Makefile.objc" target :dir default-run-dir)
-      (shell/sh "make" target :dir default-run-dir))))
+    (shell/sh "make" target :dir (default-run-dir))))
 
 (defn run-code [ns-name code with-core]
   (clean-default-run-dir false)
 
-  (spit-code (io/file default-run-dir (c-file-name ns-name)) code nil)
-  (spit-driver (init-function-name ns-name) :none with-core default-run-dir)
+  (spit-code (io/file (default-run-dir) (c-file-name ns-name)) code nil)
+  (spit-driver (init-function-name ns-name) :none with-core (default-run-dir))
 
   ;; iOS Specific
   (when (= :ios (:host *build-options*))
     (let [ios (slurp (io/file src-c-dir "support_ios.m"))]
-      (spit (io/file default-run-dir "cljc.m") (str ios))))
+      (spit (io/file (default-run-dir) "cljc.m") (str ios))))
 
-  (make-and-run default-run-dir))
+  (make-and-run (default-run-dir)))
 
 (defn inspect-and-run-expr [ns-name with-core expr]
   (let [asts (analyze ns-name with-core expr)]
@@ -230,12 +225,12 @@
                     (not= namespace 'cljc.core)))))
 
 (defn- compile-system-namespace-if-needed [namespace]
-  (let [c-file (io/file default-run-dir (c-file-name namespace))
+  (let [c-file (io/file (default-run-dir) (c-file-name namespace))
         src-name (str (last (string/split (name namespace) #"\.")) ".cljc")
         src-file (io/file (java.lang.System/getProperty "user.dir") "src" "cljc" "cljc" src-name)]
     (when-not (.exists c-file)
       (println "Compiling" namespace)
-      (compile-file-to-dirs src-file namespace default-run-dir default-run-dir))))
+      (compile-file-to-dirs src-file namespace (default-run-dir) (default-run-dir)))))
 
 (defn compile-cljc-core-if-needed []
   (compile-system-namespace-if-needed 'cljc.core))

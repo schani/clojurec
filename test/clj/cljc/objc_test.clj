@@ -30,7 +30,7 @@
               [[1 :testFloat] [:float :float]]
               [[1 :testDouble] [:double :double]]]]
       (compiler/objc-register-selector! selector types))
-    (binding [*build-options* (update-in *build-options* [:make-args] conj "EXTRA_OBJS=TestClass.o" "TEST_CFLAGS=-I../test/objc")]
+    (binding [*build-options* (update-in *build-options* [:make-args] conj "EXTRA_OBJS=TestClass.o" "TEST_CFLAGS=-I../../test/objc")]
       (is (= (core-run '(do (c-decl* "#import \"TestClass.h\"\n") (println (§ (§ TestClass) :testBool false)))) [true]))
       (is (= (core-run '(do (c-decl* "#import \"TestClass.h\"\n") (println (§ (§ TestClass) :testChar \A)))) [\B]))
       (is (= (core-run '(do (c-decl* "#import \"TestClass.h\"\n") (println (§ (§ TestClass) :testSignedChar -2)))) [-1]))

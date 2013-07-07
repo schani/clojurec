@@ -2,7 +2,7 @@ all : cljc
 
 PACKAGES := bdw-gc glib-2.0
 
-include Makefile.common
+include ../Makefile.common
 
 CC := gcc -std=gnu99 `pcre-config --cflags`
 c_sources := $(shell echo *.c)
