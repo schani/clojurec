@@ -3,6 +3,7 @@
             [clojure.java.io :as io]
 	    [clojure.java.shell :as shell]
             [cljc.compiler :as cljc]
+            [cljc.c-interface :as c]
             [clojure.string :as string])
   (:use [clojure.tools.cli :only [cli]]))
 
@@ -249,7 +250,7 @@
       (case kind
         :selector
         (let [[selector types] data]
-          (cljc/objc-register-selector! selector types))
+          (c/objc-register-selector! selector types))
 
         (throw (Error. (str "Invalid framework entry " kind)))))))
 

@@ -17,6 +17,7 @@
                             unchecked-inc]))
 
 (alias 'core 'clojure.core)
+(alias 'c 'cljc.c-interface)
 
 (defmacro import-macros [ns [& vars]]
   (core/let [ns (find-ns ns)
@@ -804,100 +805,9 @@
   (list 'c* (core/str "make_integer (" x ")")))
 
 ;;; Objective-C
-(def ^:private to-objc-converters
-  {:id "objc_convert_to_objc_object (~{})"
-   :selector "objc_selector_get (~{})"
-   :float "((float) number_get (~{}))"
-   :double "number_get (~{})"
-   ;; FIXME: potential data loss - char is not a wide character
-   :char "(char) character_get (~{})"
-   ;; FIXME: more potential data loss when casting down to smaller integers
-   :signed-char "((signed char) number_get_as_integer (~{}))"
-   :unsigned-char "((unsigned char) number_get_as_integer (~{}))"
-   :short "((short) number_get_as_integer (~{}))"
-   :unsigned-short "((unsigned short) number_get_as_integer (~{}))"
-   :int "((int) number_get_as_integer (~{}))"
-   :unsigned-int "((unsigned int) number_get_as_integer (~{}))"
-   :long "((long) number_get_as_integer (~{}))"
-   :unsigned-long "((unsigned long) number_get_as_integer (~{}))"
-   :long-long "number_get_as_integer (~{})"
-   :unsigned-long-long "((unsigned long long) number_get_as_integer (~{}))"
-   'Boolean "truth (~{})"})
-(defn- to-objc-converter [type]
-  (let [converter (to-objc-converters type)]
-    (when-not converter
-      (throw (Error. (core/str "Unknown C type " type))))
-    converter))
-
-(def ^:private from-objc-converters
-  {:void "%s"
-   :id "make_objc_object (%s)"
-   :selector "make_objc_selector (%s)"
-   :float "make_float (%s)"
-   :double "make_float (%s)"
-   :char "make_character ((cljc_unichar_t) %s)"
-   :signed-char "make_integer ((long long) %s)"
-   :unsigned-char "make_integer ((long long) %s)"
-   :short "make_integer ((long long) %s)"
-   :unsigned-short "make_integer ((long long) %s)"
-   ; FIXME: We're potentially losing data in some of these unsigned conversions.
-   :int "make_integer ((long long) %s)"
-   :unsigned-int "make_integer ((long long) %s)"
-   :long "make_integer ((long long) %s)"
-   :unsigned-long "make_integer ((long long) %s)"
-   :long-long "make_integer ((long long) %s)"
-   :unsigned-long-long "make_integer ((long long) %s)"
-   'Boolean "make_boolean (%s)"})
-(defn- from-objc-converter [type]
-  (let [converter (from-objc-converters type)]
-    (when-not converter
-      (throw (Error. (core/str "Unknown C type " type))))
-    converter))
-
-(defn- types-for-selector [selector]
-  (let [typess (@cljc.compiler/objc-selectors selector)]
-    (and (= (count typess) 1) (first typess))))
-
-(defn- selector-string [selector]
-  (let [num-args (first selector)
-        selector-kws (rest selector)]
-    (if (core/zero? num-args)
-      (name (first selector-kws))
-      (apply core/str (map #(core/str (name %) ":") selector-kws)))))
-
-(defn- make-msg-send [selector target args]
-  (let [types (types-for-selector selector)
-        selector-kws (rest selector)
-        num-args (first selector)]
-    (if types
-      (let [result-type (first types)
-            arg-types (rest types)]
-        (assert (= num-args (count arg-types) (count args)))
-        (if (core/zero? num-args)
-          (list 'c* (core/format (from-objc-converter result-type)
-                                 (core/str "[objc_object_get (~{}) "
-                                           (name (first selector-kws))
-                                           "]"))
-                target)
-          (apply list 'c* (core/format (from-objc-converter result-type)
-                                       (core/str "[objc_object_get (~{}) "
-                                                 (apply core/str (map (fn [sel-kw type]
-                                                                        (core/str (name sel-kw) ": " (to-objc-converter type)))
-                                                                      selector-kws arg-types))
-                                                 "]"))
-                 target args)))
-      (let [selector-str (selector-string selector)]
-        (if (core/zero? num-args)
-          (list 'cljc.objc/objc-msg-send target (list 'c* (core/str "make_objc_selector (@selector (" selector-str "))")))
-          (apply list 'cljc.objc/objc-msg-send target (list 'c* (core/str "make_objc_selector (@selector (" selector-str "))")) args))))))
-
-(defn- deconstruct-msg-form [ys]
-  [(cons (quot (count ys) 2) (take-nth 2 ys))
-   (take-nth 2 (rest ys))])
-
 (defmacro §selector [& ys]
-  (let [[selector _] (deconstruct-msg-form ys)
-        selector-str (selector-string selector)]
+  (let [[selector _] (c/deconstruct-msg-form ys)
+        selector-str (c/selector-string selector)]
     (list 'c* (core/str "make_objc_selector (@selector (" selector-str "))"))))
 
 (defmacro § [x & ys]
@@ -905,137 +815,26 @@
     (if (symbol? x)
       (list 'c* (core/str "make_objc_object ([" (core/str x) " class])"))
       (throw (clojure.core/IllegalArgumentException. "Sole argument to § must be a symbol denoting an Objective-C class.")))
-    (let [[selector args] (deconstruct-msg-form ys)]
-      (make-msg-send selector x args))))
+    (let [[selector args] (c/deconstruct-msg-form ys)]
+      (c/make-msg-send selector x args))))
 
 (def ^:private objc-self-name-var '_cljc-objc-self_)
 (def ^:private objc-class-name-var '_cljc-objc-self-class_)
 
 (defmacro §super [& ys]
-  (let [[selector args] (deconstruct-msg-form ys)
-        types (types-for-selector selector)]
+  (let [[selector args] (c/deconstruct-msg-form ys)
+        types (c/types-for-selector selector)]
     (when-not types
       (throw (clojure.core/IllegalArgumentException. "super call must have type information.")))
     (let [result-type (first types)
           arg-types (rest types)]
-      (apply list 'c* (core/format (from-objc-converter result-type)
+      (apply list 'c* (core/format (c/from-objc-converter result-type)
                                    (core/str "objc_msgSendSuper (&(struct objc_super) { objc_object_get (~{}), objc_object_get (~{}) }, "
-                                             "@selector (" (selector-string selector) ")"
-                                             (apply core/str (map #(core/str ", " (to-objc-converter %)) arg-types))
+                                             "@selector (" (c/selector-string selector) ")"
+                                             (apply core/str (map #(core/str ", " (c/to-objc-converter %)) arg-types))
                                              ")"))
              objc-self-name-var objc-class-name-var
              args))))
-
-(defn- objc-type [type]
-  (cond
-   (core/nil? type) "value_t*"
-   (= type 'Boolean) "BOOL"
-   (= type :void) "void"
-   (= type :id) "id"
-   (and (list? type) (= (first type) '§)) (core/str (second type) "*")
-   :else (throw (Error. (core/str "Unknown type " type)))))
-
-(defn- method-prototype [signature]
-  (let [type (:type (meta signature))
-        signature (drop 2 signature)
-        signature-str (if (= (count signature) 1)
-                        (name (first signature))
-                        (let [arg-pairs (partition 2 signature)]
-                          (apply core/str (map (fn [[sel-part arg]]
-                                                 (core/str " " (name sel-part) ":(" (objc-type (:type (meta arg))) ")" arg))
-                                          arg-pairs))))]
-    (core/str "-(" (objc-type type) ")" signature-str)))
-
-(defn- class-interface [class-name superclass interfaces fields methods]
-  (let [interfaces-str (if (empty? interfaces)
-                         ""
-                         (core/str "<" (apply core/str (interpose "," interfaces)) ">"))
-        fields-str (if (empty? fields)
-                     ""
-                     (core/str "{\n@public\n" (apply core/str (map #(core/str "value_t *" % ";\n") fields)) "}\n"))
-        method-strs (->> methods
-                         (map first)
-                         (map method-prototype))]
-    (core/str "@interface " class-name ":" superclass interfaces-str
-              fields-str
-              (apply core/str (map #(core/str % ";\n") method-strs))
-              "@end\n")))
-
-(defn- convert-from-objc [type expr]
-  (cond (or (symbol? type) (keyword? type))
-        (core/case type
-          Boolean
-          (core/str "make_boolean (" expr ")")
-
-          :id
-          (core/str "make_objc_object (" expr ")")
-
-          (throw (Error. (core/str "Unknown type " type))))
-
-        (core/nil? type)
-        expr
-
-        (and (seq? type) (= (first type) '§))
-        (core/str "make_objc_object (" expr ")")
-
-        :else
-        (throw (Error. (core/str "Unknown type " type)))))
-
-(defn- convert-to-objc [type expr]
-  (cond (or (symbol? type) (keyword? type))
-        (core/case type
-          :void
-          (core/str "")
-
-          :id
-          (core/str "objc_object_get (" expr ")")
-
-          Boolean
-          (core/str "truth (" expr ")")
-
-          (throw (Error. (core/str "Unknown type " type))))
-
-        (core/nil? type)
-        expr
-
-        (and (seq? type) (= (first type) '§))
-        (core/str "(" (second type) "*)objc_object_get (" expr ")")
-
-        :else
-        (throw (Error. (core/str "Unknown type " type)))))
-
-(defn- method-funcall [signature]
-  (let [signature (drop 2 signature)
-        args (map second (partition 2 signature))
-        arity (count args)]
-    (core/str "FUNCALL" (if (core/< arity 3)
-                          (core/inc arity)
-                          "n")
-              " ((closure_t*)~{}, "
-              (convert-from-objc :id "self")
-              (apply core/str (map (fn [arg]
-                                     (core/str ", " (convert-from-objc (:type (meta arg)) arg)))
-                                   (take 2 args)))
-              (if (core/>= arity 3)
-                (core/str "(value_t*[]) {"
-                          (apply core/str (map (fn [arg]
-                                                 (core/str (convert-from-objc (:type (meta arg)) arg) ", "))
-                                               (drop 2 args)))
-                          "}")
-                "")
-              ")")))
-
-(defn- class-implementation [class-name fields methods]
-  (let [method-strs (map (fn [[signature body]]
-                           (let [type (:type (meta signature))]
-                             (core/str (method-prototype signature) " {\n"
-                                       "value_t *result = " (method-funcall signature) ";\n"
-                                       "return " (convert-to-objc type "result") ";\n"
-                                       "}\n")))
-                         methods)]
-    (core/str "@implementation " class-name "\n"
-              (apply core/str method-strs)
-              "@end\n")))
 
 (defmacro §subclass [class-name & args]
   (let [attributes (->> args
@@ -1065,14 +864,14 @@
                              (list 'def name (list 'fn args body))))
                          methods)
         method-def-names (map #(nth % 2) methods)
-        interface (class-interface class-name
-                                   (:subclasses attributes)
-                                   (:implements attributes)
-                                   fields
-                                   methods)
-        implementation (class-implementation class-name
-                                             fields
-                                             methods)]
+        interface (c/class-interface class-name
+                                     (:subclasses attributes)
+                                     (:implements attributes)
+                                     fields
+                                     methods)
+        implementation (c/class-implementation class-name
+                                               fields
+                                               methods)]
     (concat ['do
              (list 'c-decl* interface)]
             method-defs

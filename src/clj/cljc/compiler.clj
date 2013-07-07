@@ -12,7 +12,8 @@
   (:refer-clojure :exclude [munge macroexpand-1])
   (:require [clojure.java.io :as io]
 	    [clojure.set :as set]
-            [clojure.string :as string])
+            [clojure.string :as string]
+            [cljc.c-interface :as c])
   (:import java.lang.StringBuilder))
 
 (declare resolve-var)
@@ -23,7 +24,6 @@
 (declare munge)
 (declare ^:dynamic *cljs-file*)
 (declare compiling-for-objc)
-(declare objc-selectors)
 (require 'cljc.core)
 
 (def cljs-reserved-file-names #{"deps.cljs"})
@@ -66,11 +66,6 @@
 (defn compiling-for-objc []
   *objc*)
 
-(defonce objc-selectors (atom {}))
-(defn objc-register-selector! [selector types]
-  (swap! objc-selectors update-in [selector] (fnil conj #{}) types))
-(defn objc-reset-selectors! []
-  (swap! objc-selectors (constantly {})))
 
 (defmacro ^:private debug-prn
   [& args]

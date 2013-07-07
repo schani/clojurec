@@ -1,6 +1,6 @@
 (ns cljc.objc-test
   (:require [clojure.java.io :as io]
-            [cljc.compiler :as compiler])
+            [cljc.c-interface :as c])
   (:use clojure.test
         cljc.driver))
 
@@ -29,7 +29,7 @@
               [[1 :testUnsignedLongLong] [:unsigned-long-long :unsigned-long-long]]
               [[1 :testFloat] [:float :float]]
               [[1 :testDouble] [:double :double]]]]
-      (compiler/objc-register-selector! selector types))
+      (c/objc-register-selector! selector types))
     (binding [*build-options* (update-in *build-options* [:make-args] conj "EXTRA_OBJS=TestClass.o" "TEST_CFLAGS=-I../../test/objc")]
       (is (= (core-run '(do (c-decl* "#import \"TestClass.h\"\n") (println (§ (§ TestClass) :testBool false)))) [true]))
       (is (= (core-run '(do (c-decl* "#import \"TestClass.h\"\n") (println (§ (§ TestClass) :testChar \A)))) [\B]))
@@ -51,4 +51,4 @@
                 (clean-default-run-dir true)
                 (load-framework "Foundation" default-frameworks-dir)
                 (f)
-                (compiler/objc-reset-selectors!)))
+                (c/objc-reset-selectors!)))
