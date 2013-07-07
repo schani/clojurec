@@ -189,8 +189,9 @@
 
 (defn clean-default-run-dir [including-core]
   (let [target (if including-core "clean" "clean-non-core")]
-    (shell/sh "make" target :dir default-run-dir)
-    (shell/sh "make" "-f" "Makefile.objc" target :dir default-run-dir)))
+    (if (:objc *build-options*)
+      (shell/sh "make" "-f" "Makefile.objc" target :dir default-run-dir)
+      (shell/sh "make" target :dir default-run-dir))))
 
 (defn run-code [ns-name code with-core]
   (clean-default-run-dir false)
