@@ -1,5 +1,6 @@
 (ns cljc.c-interface
-  (:require [clojure.java.io :as io]))
+  (:require [clojure.java.io :as io]
+            [clojure.string :as string]))
 
 (defonce objc-selectors (atom {}))
 (defn objc-register-selector! [selector types]
@@ -7,7 +8,20 @@
 (defn objc-reset-selectors! []
   (swap! objc-selectors (constantly {})))
 
-(def ^:private to-objc-converters
+(defn resolve-c-type [type symbol-lookup]
+  (cond (or (keyword? type) (#{'Boolean} type))
+        type
+
+        (and (seq? type) (= (first type) '§))
+        type
+
+        (symbol? type)
+        (symbol-lookup type)
+
+        :else
+        (throw (Error. (str "Unknown type " type)))))
+
+(def ^:private to-c-converters
   {:id "objc_convert_to_objc_object (~{})"
    :selector "objc_selector_get (~{})"
    :float "((float) number_get (~{}))"
@@ -26,13 +40,13 @@
    :long-long "number_get_as_integer (~{})"
    :unsigned-long-long "((unsigned long long) number_get_as_integer (~{}))"
    'Boolean "truth (~{})"})
-(defn to-objc-converter [type]
-  (let [converter (to-objc-converters type)]
+(defn to-c-converter [type]
+  (let [converter (to-c-converters type)]
     (when-not converter
       (throw (Error. (str "Unknown C type " type))))
     converter))
 
-(def ^:private from-objc-converters
+(def ^:private from-c-converters
   {:void "%s"
    :id "make_objc_object (%s)"
    :selector "make_objc_selector (%s)"
@@ -51,11 +65,18 @@
    :long-long "make_integer ((long long) %s)"
    :unsigned-long-long "make_integer ((long long) %s)"
    'Boolean "make_boolean (%s)"})
-(defn from-objc-converter [type]
-  (let [converter (from-objc-converters type)]
-    (when-not converter
-      (throw (Error. (str "Unknown C type " type))))
-    converter))
+(defn from-c-converter [type]
+  (if (map? type)
+    (do
+      (assert (:c-compound type))
+      (let [c-name (:c-name type)
+            var-name (gensym c-name)]
+        [(str c-name " " var-name " = ") ";\n"
+         (str "make_compound (\"" c-name "\", " (:size type) ", &" var-name ")")]))
+    (let [converter (from-c-converters type)]
+      (when-not converter
+        (throw (Error. (str "Unknown C type " type))))
+      (string/split converter #"%s"))))
 
 (defn types-for-selector [selector]
   (let [typess (@objc-selectors selector)]
@@ -74,20 +95,24 @@
         num-args (first selector)]
     (if types
       (let [result-type (first types)
-            arg-types (rest types)]
+            arg-types (rest types)
+            [result-prefix result-suffix result-final] (from-c-converter result-type)]
         (assert (= num-args (count arg-types) (count args)))
+        (assert (nil? result-final))
         (if (zero? num-args)
-          (list 'c* (format (from-objc-converter result-type)
-                                 (str "[objc_object_get (~{}) "
-                                           (name (first selector-kws))
-                                           "]"))
+          (list 'c* (str result-prefix
+                         "[objc_object_get (~{}) "
+                         (name (first selector-kws))
+                         "]"
+                         result-suffix)
                 target)
-          (apply list 'c* (format (from-objc-converter result-type)
-                                       (str "[objc_object_get (~{}) "
-                                                 (apply str (map (fn [sel-kw type]
-                                                                        (str (name sel-kw) ": " (to-objc-converter type)))
-                                                                      selector-kws arg-types))
-                                                 "]"))
+          (apply list 'c* (str result-prefix
+                               "[objc_object_get (~{}) "
+                               (apply str (map (fn [sel-kw type]
+                                                 (str (name sel-kw) ": " (to-c-converter type)))
+                                               selector-kws arg-types))
+                               "]"
+                               result-suffix)
                  target args)))
       (let [selector-str (selector-string selector)]
         (if (zero? num-args)

@@ -1,4 +1,6 @@
 [
+[:compound CGRect "sizeof (CGRect)"]
+[:function Foundation/CGRect CGRectMake [:float :float :float :float]]
 [:selector [0 :load] [:void]]
 [:selector [0 :initialize] [:void]]
 [:selector [0 :init] [:id]]

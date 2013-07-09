@@ -66,6 +66,20 @@
 (defn compiling-for-objc []
   *objc*)
 
+(defn register-c-compound! [full-name size]
+  (let [sole-name (symbol (name full-name))]
+    (swap! namespaces update-in [(symbol (namespace full-name)) :defs sole-name] merge
+           {:c-name sole-name
+            :c-compound true
+            :size size})))
+
+(defn register-c-function! [full-name return-type arg-types]
+  (let [sole-name (symbol (name full-name))]
+    (swap! namespaces update-in [(symbol (namespace full-name)) :defs sole-name] merge
+           {:c-name sole-name
+            :c-function true
+            :return-type return-type
+            :arg-types arg-types})))
 
 (defmacro ^:private debug-prn
   [& args]
@@ -829,6 +843,39 @@
                      (emits " (" f-name)
                      (emit-arglist arg-names 2)
                      (emits ")"))))
+
+(defn- resolve-c-type [env type]
+  (c/resolve-c-type type
+                    (fn [sym]
+                      (let [var (resolve-existing-var env sym)]
+                        (when (:c-compound var)
+                          var)))))
+
+(defmethod emit :c-invoke
+  [{:keys [c-f args env] :as expr}]
+  (let [return-type (resolve-c-type env (:return-type c-f))
+        arg-types (map #(resolve-c-type env %) (:arg-types c-f))
+        arg-names (doall (map emit args))
+        [return-prefix return-suffix return-final] (c/from-c-converter return-type)]
+    (letfn [(emit-call []
+              (emits (:c-name c-f) " (")
+              (doseq [[arg arg-type] (interpose nil (map vector arg-names arg-types))]
+                (if arg
+                  (let [[arg-prefix arg-suffix] (string/split (c/to-c-converter arg-type) #"~\{\}")]
+                    (emits arg-prefix arg arg-suffix))
+                  (emits ", ")))
+              (emits ")"))]
+      (if return-final
+        (do
+          (emits return-prefix)
+          (emit-call)
+          (emits return-suffix)
+          (emit-value-wrap :c-invoke env
+                           (emits return-final)))
+        (emit-value-wrap :c-invoke env
+                         (emits return-prefix)
+                         (emit-call)
+                         (emits return-suffix))))))
 
 (defmethod emit :new
   [{:keys [ctor args env]}]
@@ -1609,15 +1656,19 @@
          fexpr (analyze enve f)
          argexprs (vec (map #(analyze enve %) args))
          argc (count args)]
-     (if (and *cljs-warn-fn-arity* (-> fexpr :info :fn-var))
+     (when (and *cljs-warn-fn-arity* (-> fexpr :info :fn-var))
        (let [{:keys [variadic max-fixed-arity method-params name]} (:info fexpr)]
          (when (and (not (some #{argc} (map count method-params)))
                     (or (not variadic)
                         (and variadic (< argc max-fixed-arity))))
            (warning env
-             (str "WARNING: Wrong number of args (" argc ") passed to " name)))))
-     {:env env :op :invoke :form form :f fexpr :args argexprs
-      :tag (or (-> fexpr :info :tag) (-> form meta :tag)) :children (into [fexpr] argexprs)})))
+                    (str "WARNING: Wrong number of args (" argc ") passed to " name)))))
+     (if (and (= (:op fexpr) :var)
+              (:c-function (:info fexpr)))
+       {:env env :op :c-invoke :form form :c-f (:info fexpr) :args argexprs
+        :children (into [fexpr] argexprs)}
+       {:env env :op :invoke :form form :f fexpr :args argexprs
+        :tag (or (-> fexpr :info :tag) (-> form meta :tag)) :children (into [fexpr] argexprs)}))))
 
 (defn analyze-symbol
   "Finds the var associated with sym"

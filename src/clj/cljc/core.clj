@@ -827,12 +827,15 @@
     (when-not types
       (throw (clojure.core/IllegalArgumentException. "super call must have type information.")))
     (let [result-type (first types)
-          arg-types (rest types)]
-      (apply list 'c* (core/format (c/from-objc-converter result-type)
-                                   (core/str "objc_msgSendSuper (&(struct objc_super) { objc_object_get (~{}), objc_object_get (~{}) }, "
-                                             "@selector (" (c/selector-string selector) ")"
-                                             (apply core/str (map #(core/str ", " (c/to-objc-converter %)) arg-types))
-                                             ")"))
+          arg-types (rest types)
+          [return-prefix return-suffix return-final] (c/from-c-converter result-type)]
+      (assert (core/nil? return-final))
+      (apply list 'c* (core/str return-prefix
+                                "objc_msgSendSuper (&(struct objc_super) { objc_object_get (~{}), objc_object_get (~{}) }, "
+                                "@selector (" (c/selector-string selector) ")"
+                                (apply core/str (map #(core/str ", " (c/to-c-converter %)) arg-types))
+                                ")"
+                                return-suffix)
              objc-self-name-var objc-class-name-var
              args))))
 

@@ -39,13 +39,13 @@
 
              (set! nextCount 1)
 
-             (set! label (c* "make_objc_object ([[UILabel alloc] initWithFrame: CGRectMake(10, 10, 300, 300)])"))
+             (set! label (§ (§ (§ UILabel) :alloc) :initWithFrame (Foundation/CGRectMake 10 10 300 300)))
 
              (§ label :setClipsToBounds true)
              (§ label :setText "Hello, ClojureC!")
              (§ label :setTextAlignment (c-int NSTextAlignmentCenter))
 
-             (c* "[objc_object_get (~{}) setFrame: CGRectMake (10, 320, 300, 100)]" button)
+             (§ button :setFrame (Foundation/CGRectMake 10 320 300 100))
              (§ button :setTitle "Count!" :forState (c-int UIControlStateNormal))
              (add-action button (c-int UIControlEventTouchUpInside)
                          (fn []
