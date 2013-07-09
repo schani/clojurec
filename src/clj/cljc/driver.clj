@@ -207,10 +207,31 @@
     (inspect-ast (last asts))
     (run-code ns-name (compile-asts asts) with-core)))
 
+(defn load-framework [framework frameworks-dir]
+  (let [framework-file (io/file frameworks-dir (str framework "-framework.clj"))
+        entries (read-string (slurp framework-file))]
+    (doseq [[kind & data] entries]
+      (case kind
+        :selector
+        (let [[selector types] data]
+          (c/objc-register-selector! selector types))
+
+        :compound
+        (let [[name size] data]
+          (cljc/register-c-compound! (symbol framework (str name)) size))
+
+        :function
+        (let [[return-type name arg-types] data]
+          (cljc/register-c-function! (symbol framework (str name)) return-type arg-types))
+
+        (throw (Error. (str "Invalid framework entry " kind)))))))
+
 (defn compile-file [src dest exports-file with-core]
   (cljc/reset-namespaces!)
   (when with-core
     (cljc/analyze-deps ['cljc.core]))
+  (doseq [framework (:frameworks *build-options*)]
+    (load-framework framework default-frameworks-dir))
   (let [asts (cljc/analyze-files [src])
         code (compile-asts asts)]
     (spit-code (io/file dest) code exports-file)))
@@ -242,17 +263,6 @@
     (when (:objc *build-options*)
       (compile-system-namespace-if-needed 'cljc.objc))
     (run-code ns-name (compile-expr ns-name with-core expr) with-core)))
-
-(defn load-framework [framework frameworks-dir]
-  (let [framework-file (io/file frameworks-dir (str framework "-framework.clj"))
-        entries (read-string (slurp framework-file))]
-    (doseq [[kind & data] entries]
-      (case kind
-        :selector
-        (let [[selector types] data]
-          (c/objc-register-selector! selector types))
-
-        (throw (Error. (str "Invalid framework entry " kind)))))))
 
 (comment
   ;; default build options
@@ -302,10 +312,12 @@
      (:compile options)
      (if (= (count remaining) 4)
        (let [[source namespace out-dir exports-dir] remaining
-             namespace (symbol namespace)]
-         (when-let [framework (:framework options)]
-           (load-framework framework default-frameworks-dir))
-         (binding [cljc/*objc* (:objc options)]
+             namespace (symbol namespace)
+             frameworks (if-let [f (:framework options)] [f] [])]
+         (binding [*build-options* (assoc *build-options*
+                                     :objc (:objc options)
+                                     :frameworks frameworks)
+                   cljc/*objc* (:objc options)]
            (compile-file-to-dirs source namespace out-dir exports-dir)))
        (do
          (print-usage)
@@ -315,7 +327,8 @@
      (if (= (count remaining) 2)
        (let [[main-name out-dir] remaining
              main-name (symbol main-name)]
-         (binding [cljc/*objc* (:objc options)]
+         (binding [*build-options* (assoc *build-options* :objc (:objc options))
+                   cljc/*objc* (:objc options)]
            (spit-driver nil main-name true out-dir)))
        (do
          (print-usage)
@@ -324,7 +337,8 @@
      (:ios-driver options)
      (if (= (count remaining) 3)
        (let [[main-namespace app-delegate-class out-dir] remaining]
-         (binding [cljc/*objc* true]
+         (binding [*build-options* (assoc *build-options* :objc true)
+                   cljc/*objc* true]
            (spit-objc-driver main-namespace app-delegate-class out-dir))))
 
      :else
