@@ -6032,7 +6032,7 @@ reduces them without incurring seq initialization"
         :regularExpressionWithPattern s
         :options (c* "make_integer (NSRegularExpressionCaseInsensitive)")
         :error nil)
-     (let [result (c* "re_pattern (~{})" s)]
+     (let [result (c* "pcre_pattern (~{})" s)]
        (when (has-type? result Array)
          (let [[msg offset] result]
            (throw (Exception. (str "Cannot compile pattern " (pr-str s)
@@ -6050,13 +6050,17 @@ reduces them without incurring seq initialization"
                     (c* "make_objc_object ([objc_object_get (~{}) substringWithRange: [objc_object_get (~{}) rangeAtIndex: integer_get (~{})]])" s tcr i))
                   (range num-groups))))))
  (do
-   (defn- pcre-match-offsets [re s]
-     (let [offsets (c* "re_match_offsets (~{}, ~{})" (.-re re) s)]
-       (when offsets
-         (if (integer? offsets)
-           (throw (Exception. (str "PCRE search error " offsets " for pattern "
-                                   (pr-str s) " against " (pr-str s)))))
-         offsets)))
+   (defn- pcre-match-offsets
+     ([re s offset]
+        (let [offsets (c* "pcre_match_offsets (~{}, ~{}, ~{})" (.-re re) s offset)]
+          (when offsets
+            (if (integer? offsets)
+              (throw (Exception. (str "PCRE search error " offsets " for pattern "
+                                      (pr-str re) " against " (pr-str s)
+                                      " at offset " offset))))
+            offsets)))
+     ([re s]
+        (pcre-match-offsets re s 0)))
 
    (defn- pcre-offsets->matches
      "Returns \"whole-match\" if there were no captures, otherwise
@@ -6107,6 +6111,41 @@ reduces them without incurring seq initialization"
    (let [offsets (pcre-match-offsets re s)]
      (when (and offsets (= (count s) (- (nth offsets 1) (nth offsets 0))))
        (pcre-offsets->matches s offsets)))))
+
+(ns cljc.string)
+
+(def split
+  "Splits string s into a sequence of substrings on boundaries defined
+   by matches for pattern re.  If limit is positive, returns no more
+   than limit items, the last of which will be the remainder of s.  If
+   limit is negative, fully splits s.  If limit is zero, fully splits
+   s, omitting any trailing empty matches.  If limit is omitted,
+   calls (split s re 0)."
+  ;; This should match Clojure fairly closely.
+  (letfn [(do-split [s s-len re limit split-start search-i]
+            ;; At this point, limit will be negative or positive.
+            (lazy-seq
+             (if (or (= limit 1) (= search-i s-len))
+               [(subs s split-start)]
+               (if-let [offsets (pcre-match-offsets re s search-i)]
+                 (let [[match-start match-end] offsets
+                       next-limit (if (pos? limit) (dec limit) limit)]
+                   (cons (subs s split-start match-start)
+                         (do-split s s-len re next-limit
+                                   match-end
+                                   (if (= match-start match-end)
+                                     (inc match-end)
+                                     match-end))))
+                 [(subs s split-start)]))))]
+    (fn
+      ([s re limit]
+         (if (zero? limit)
+           (reverse (drop-while empty? (reverse (split s re -1))))
+           (do-split s (count s) re limit 0 0)))
+      ([s re]
+         (split s re 0)))))
+  
+(ns cljc.core)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; I/O ;;;;;;;;;;;;;;;;
 
