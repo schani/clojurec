@@ -6032,7 +6032,7 @@ reduces them without incurring seq initialization"
         :regularExpressionWithPattern s
         :options (c* "make_integer (NSRegularExpressionCaseInsensitive)")
         :error nil)
-     (let [result (c* "re_pattern (~{})" s)]
+     (let [result (c* "pcre_pattern (~{})" s)]
        (when (has-type? result Array)
          (let [[msg offset] result]
            (throw (Exception. (str "Cannot compile pattern " (pr-str s)
@@ -6052,7 +6052,7 @@ reduces them without incurring seq initialization"
  (do
    (defn- pcre-match-offsets
      ([re s offset]
-        (let [offsets (c* "re_match_offsets (~{}, ~{}, ~{})" (.-re re) s offset)]
+        (let [offsets (c* "pcre_match_offsets (~{}, ~{}, ~{})" (.-re re) s offset)]
           (when offsets
             (if (integer? offsets)
               (throw (Exception. (str "PCRE search error " offsets " for pattern "

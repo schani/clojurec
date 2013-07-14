@@ -937,7 +937,7 @@ strchr_offset (const char *str, cljc_unichar_t c)
 /// pcre_compile() time?
 
 value_t*
-re_pattern (value_t* pattern_str)
+pcre_pattern (value_t* pattern_str)
 {
 	int offset;
 	const char *errmsg;
@@ -952,7 +952,7 @@ re_pattern (value_t* pattern_str)
 }
 
 value_t*
-re_match_offsets (value_t* re, value_t* s, value_t *offset)
+pcre_match_offsets (value_t* re, value_t* s, value_t *offset)
 {
 	pcre *c_re = raw_pointer_get (re);
 	const char *c_str = string_get_utf8 (s);
