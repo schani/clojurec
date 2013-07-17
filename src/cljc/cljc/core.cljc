@@ -6071,6 +6071,18 @@ reduces them without incurring seq initialization"
        (map #(apply subs s %)
             (partition-all 2 offsets))))))
 
+(def ^:private re-first-match-range
+  (if-objc
+   (fn [re s offset]
+     (let [string-length (§ s :length)
+           range-length (- string-length offset)
+           match (c* "make_objc_object ([objc_object_get (~{}) firstMatchInString: objc_object_get (~{}) options: 0 range: NSMakeRange (integer_get (~{}), integer_get (~{}))])"
+                     re s offset range-length)
+           match-location (c* "make_integer ([objc_object_get (~{}) range].location)" match)
+           match-length (c* "make_integer ([objc_object_get (~{}) range].length)" match)]
+       [match-location (+ match-location match-length)]))
+   pcre-match-offsets))
+
 (defn re-seq
   "Returns a lazy sequence of successive matches of regex re in string s.
    Each match will be \"whole-match\" if re has no captures, otherwise
@@ -6127,7 +6139,7 @@ reduces them without incurring seq initialization"
             (lazy-seq
              (if (or (= limit 1) (= search-i s-len))
                [(subs s split-start)]
-               (if-let [offsets (pcre-match-offsets re s search-i)]
+               (if-let [offsets (re-first-match-range re s search-i)]
                  (let [[match-start match-end] offsets
                        next-limit (if (pos? limit) (dec limit) limit)]
                    (cons (subs s split-start match-start)
