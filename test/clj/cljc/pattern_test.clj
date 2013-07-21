@@ -24,24 +24,25 @@
              ["22" "2"]
              ["32" "3"]]]))))
 
+(def ^:private find-match-cases
+  [["" "x"]
+   ["x" ""]
+   ["x" "y"]
+   ["xy" "x"]
+   ["x" "x"]
+   ["x" "yx"]
+   ["x" "yxy"]])
+
 (deftest re-find
   (testing "re-find"
-    (is (= (core-run '(pr (re-find (re-pattern "") "") [""]))))
-    (is (= (core-run '(pr (re-find (re-pattern "") "foo") [""]))))
-    (is (= (core-run '(pr (re-find (re-pattern "foo") "") [nil]))))
-    (is (= (core-run '(pr (re-find (re-pattern "foo") "bar") [nil]))))
-    (is (= (core-run '(pr (re-find (re-pattern "foo") "foo") ["foo"]))))
-    (is (= (core-run '(pr (re-find (re-pattern "barfoo") "foo") ["foo"]))))
-    (is (= (core-run '(pr (re-find (re-pattern "barfoobar") "foo") ["foo"]))))))
+    (doseq [[re s] find-match-cases]
+      (is (= (core-run `(pr (re-find (re-pattern ~re) ~s)))
+             [(clojure.core/re-find (re-pattern re) s)])))))
 
 (deftest re-matches
   (testing "re-matches"
-    (is (= (core-run '(pr (re-matches (re-pattern "") "") [""]))))
-    (is (= (core-run '(pr (re-matches (re-pattern "") "foo") [nil]))))
-    (is (= (core-run '(pr (re-matches (re-pattern "foo") "") [nil]))))
-    (is (= (core-run '(pr (re-matches (re-pattern "foo") "bar") [nil]))))
-    (is (= (core-run '(pr (re-matches (re-pattern "foo") "foo") ["foo"]))))
-    (is (= (core-run '(pr (re-matches (re-pattern "barfoo") "foo") [nil]))))
-    (is (= (core-run '(pr (re-matches (re-pattern "barfoobar") "foo") [nil]))))))
+    (doseq [[re s] find-match-cases]
+      (is (= (core-run `(pr (re-matches (re-pattern ~re) ~s)))
+             [(clojure.core/re-matches (re-pattern re) s)])))))
 
 (use-fixtures :once (fn [f] (clean-default-run-dir true) (f)))
