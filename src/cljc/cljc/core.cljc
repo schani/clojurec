@@ -6124,6 +6124,37 @@ reduces them without incurring seq initialization"
      (when (and offsets (= (count s) (- (nth offsets 1) (nth offsets 0))))
        (pcre-offsets->matches s offsets)))))
 
+(defn re-partition
+  "Splits the string into a lazy sequence of substrings, alternating
+   between substrings that match the pattern and the substrings
+   between the matches.  The sequence always starts with the substring
+   before the first match, or an empty string if the beginning of the
+   string matches.
+
+   For example: (re-partition #\"[a-z]+\" \"abc123def\")
+
+   Returns: (\"\" \"abc\" \"123\" \"def\")"
+  ;; This is modeled after clojure-contrib.str-util/partition, but
+  ;; behaves differently in part due to the fact that PCRE matches
+  ;; differently.  For example, with PCRE the empty string matches
+  ;; nothing.  In Java, it matches everything.
+  [re s]
+  (let [s-len (count s)]
+    ((fn step [prev-end search-i]
+       (lazy-seq
+        (if-let [offsets (re-first-match-range re s search-i)]
+          (let [[match-start match-end] offsets
+                matches (pcre-offsets->matches s offsets)]
+            (cons (subs s prev-end match-start)
+                  (cons matches
+                        (step match-end
+                              (if (= match-start match-end)
+                                (inc match-end)
+                                match-end)))))
+          (when (< prev-end s-len)
+            (list (subs s prev-end))))))
+     0 0)))
+
 (ns cljc.string)
 
 (def split

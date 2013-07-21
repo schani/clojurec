@@ -45,4 +45,21 @@
       (is (= (core-run `(pr (re-matches (re-pattern ~re) ~s)))
              [(clojure.core/re-matches (re-pattern re) s)])))))
 
+(defmacro ^:private test-re-partition []
+  (let [tests (for [[re s expected] [["-" "" ()]
+                                     ["-" "-" ["" "-"]]
+                                     ["-" "x-" ["x" "-"]]
+                                     ["-" "-x" ["" "-" "x"]]
+                                     ["-" "-x" ["" "-" "x"]]
+                                     ["-" "x-y-z" ["x" "-" "y" "-" "z"]]
+                                     ["x(y)" "xyy" ["" ["xy" "y"] "y"]]
+                                     ]]
+                `(is (= (core-run '(pr (cljc.core/re-partition (re-pattern ~re) ~s)))
+                        [~expected])))]
+    `(do ~@tests)))
+
+(deftest re-partition
+  (testing "re-partition"
+    (test-re-partition)))
+
 (use-fixtures :once (fn [f] (clean-default-run-dir true) (f)))
