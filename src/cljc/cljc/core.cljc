@@ -6157,6 +6157,11 @@ reduces them without incurring seq initialization"
       ([s re]
          (split s re 0)))))
   
+(defn split-lines
+  "Splits s on \\n or \\r\\n."
+  [s]
+  (split s (re-pattern "\r?\n")))
+
 (ns cljc.core)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; I/O ;;;;;;;;;;;;;;;;

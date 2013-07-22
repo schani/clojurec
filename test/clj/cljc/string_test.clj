@@ -113,4 +113,14 @@
     (test-split "x1y234z5" "\\d" -1 ["x" "y" "" "" "z" ""])
     (test-split "x1y234z5" "\\d+" -1 ["x" "y" "z" ""])))
 
+(deftest split-lines
+  (testing "split-lines"
+    (is (= (core-run '(pr (cljc.string/split-lines "x"))) [["x"]]))
+    (is (= (core-run '(pr (cljc.string/split-lines "x\n"))) [["x"]]))
+    (is (= (core-run '(pr (cljc.string/split-lines "x\r\n"))) [["x"]]))
+    (is (= (core-run '(pr (cljc.string/split-lines "x\ny"))) [["x" "y"]]))
+    (is (= (core-run '(pr (cljc.string/split-lines "x\r\ny"))) [["x" "y"]]))
+    (is (= (core-run '(pr (cljc.string/split-lines "x\ny\n"))) [["x" "y"]]))
+    (is (= (core-run '(pr (cljc.string/split-lines "x\r\ny\r\n"))) [["x" "y"]]))))
+
 (use-fixtures :once (fn [f] (clean-default-run-dir true) (f)))
