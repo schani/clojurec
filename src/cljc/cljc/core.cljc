@@ -2456,7 +2456,9 @@ reduces them without incurring seq initialization"
 (defn reverse
   "Returns s with its characters reversed."
   [s]
-  (apply str (cljc.core/reverse s)))
+  (if-objc
+   (apply str (cljc.core/reverse s))
+   (c* "make_string_copy_free (g_utf8_strreverse (string_get_utf8 (~{}) , -1))" s)))
 
 ;; Q: These string adjustment functions currently use the Glib
 ;; functions -- should we be using something more like ICU/Java's idea
@@ -2508,7 +2510,7 @@ reduces them without incurring seq initialization"
 (defn trim-newline [s]
   "Removes all trailing newline \n or return \r characters from
    string.  Similar to Perl's chomp."
-  (apply str (reverse (drop-while #{\return \newline} (reverse s)))))
+  (apply str (cljc.core/reverse (drop-while #{\return \newline} (reverse s)))))
 
 (ns cljc.core)
 
@@ -6183,7 +6185,7 @@ reduces them without incurring seq initialization"
     (fn
       ([s re limit]
          (if (zero? limit)
-           (reverse (drop-while empty? (reverse (split s re -1))))
+           (cljc.core/reverse (drop-while empty? (cljc.core/reverse (split s re -1))))
            (do-split s (count s) re limit 0 0)))
       ([s re]
          (split s re 0)))))
