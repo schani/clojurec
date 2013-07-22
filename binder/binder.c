@@ -111,9 +111,25 @@ visitor_func (CXCursor cursor, CXCursor parent, CXClientData client_data)
 		case CXCursor_ObjCInterfaceDecl:
 			//printf ("@interface %s\n", clang_getCString (clang_getCursorSpelling (cursor)));
 			return CXChildVisit_Recurse;
+		case CXCursor_TypedefDecl: {
+			CXType type = clang_getTypedefDeclUnderlyingType (cursor);
+			if (type.kind == CXType_Unexposed) {
+				CXString type_spelling_cxstring = clang_getTypeSpelling (type);
+				const char *type_spelling = clang_getCString (type_spelling_cxstring);
+				if (g_str_has_prefix (type_spelling, "struct ") || g_str_has_prefix (type_spelling, "union ")) {
+					CXString spelling_cxstring = clang_getCursorSpelling (cursor);
+					const char *spelling = clang_getCString (spelling_cxstring);
+					printf ("[:compound %s \"sizeof (%s)\"]\n", spelling, spelling);
+					clang_disposeString (spelling_cxstring);
+				}
+				clang_disposeString (type_spelling_cxstring);
+			}
+			return CXChildVisit_Continue;
+		}
 		case CXCursor_ObjCInstanceMethodDecl:
 		case CXCursor_ObjCClassMethodDecl: {
-			const char *spelling = clang_getCString (clang_getCursorSpelling (cursor));
+			CXString spelling_cxstring = clang_getCursorSpelling (cursor);
+			const char *spelling = clang_getCString (spelling_cxstring);
 			int num_args = clang_Cursor_getNumArguments (cursor);
 			CXCursor result_cursor;
 			clang_visitChildren (cursor, get_first_child_visitor_func, &result_cursor);
@@ -145,6 +161,7 @@ visitor_func (CXCursor cursor, CXCursor parent, CXClientData client_data)
 				}
 				printf ("]]\n");
 			}
+			clang_disposeString (spelling_cxstring);
 			return CXChildVisit_Continue;
 		}
 		default:
