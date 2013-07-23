@@ -130,7 +130,8 @@ get_first_child_visitor_func (CXCursor cursor, CXCursor parent, CXClientData cli
 static enum CXChildVisitResult
 visitor_func (CXCursor cursor, CXCursor parent, CXClientData client_data)
 {
-	switch (clang_getCursorKind (cursor)) {
+	enum CXCursorKind kind = clang_getCursorKind (cursor);
+	switch (kind) {
 		case CXCursor_ObjCInterfaceDecl:
 			//printf ("@interface %s\n", clang_getCString (clang_getCursorSpelling (cursor)));
 			return CXChildVisit_Recurse;
@@ -151,8 +152,10 @@ visitor_func (CXCursor cursor, CXCursor parent, CXClientData client_data)
 			}
 			return CXChildVisit_Continue;
 		}
+		case CXCursor_FunctionDecl:
 		case CXCursor_ObjCInstanceMethodDecl:
 		case CXCursor_ObjCClassMethodDecl: {
+			gboolean is_function = kind == CXCursor_FunctionDecl;
 			CXString spelling_cxstring = clang_getCursorSpelling (cursor);
 			const char *spelling = clang_getCString (spelling_cxstring);
 			int num_args = clang_Cursor_getNumArguments (cursor);
@@ -169,17 +172,21 @@ visitor_func (CXCursor cursor, CXCursor parent, CXClientData client_data)
 				}
 			}
 			if (have_types) {
-				printf ("[:selector [%d", num_args);
-				if (num_args == 0) {
-					printf (" :%s", spelling);
-				} else {
-					char **parts = g_strsplit (spelling, ":", 0);
-					for (int i = 0; i < num_args; ++i)
-						printf (" :%s", parts [i]);
-					g_strfreev (parts);
+				if (is_function)
+					printf ("[:function %s", spelling);
+				else {
+					printf ("[:selector [%d", num_args);
+					if (num_args == 0) {
+						printf (" :%s", spelling);
+					} else {
+						char **parts = g_strsplit (spelling, ":", 0);
+						for (int i = 0; i < num_args; ++i)
+							printf (" :%s", parts [i]);
+						g_strfreev (parts);
+					}
+					printf ("]");
 				}
-				printf ("] ");
-				printf ("[%s", cljc_name_for_type (result_cursor, clang_getCursorResultType (cursor)));
+				printf (" [%s", cljc_name_for_type (result_cursor, clang_getCursorResultType (cursor)));
 				for (int i = 0; i < num_args; ++i) {
 					CXCursor arg_cursor = clang_Cursor_getArgument (cursor, i);
 					printf (" %s", cljc_name_for_type (arg_cursor, clang_getCursorType (arg_cursor)));
