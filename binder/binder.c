@@ -218,6 +218,7 @@ main (int argc, const char *argv[])
 	CXCursor cursor = clang_getTranslationUnitCursor (TU);
 
 	register_type_name ("BOOL", "Boolean");
+	register_type_name ("_Bool", "Boolean");
 
 	printf ("[\n");
 	clang_visitChildren (cursor, visitor_func, NULL);
