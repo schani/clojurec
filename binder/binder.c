@@ -63,6 +63,8 @@ cljc_name_for_type (CXCursor cursor, CXType type)
 			return ":float";
 		case CXType_Double:
 			return ":double";
+		case CXType_LongDouble:
+			return ":long-double";
 		case CXType_ObjCId:
 			return ":id";
 		case CXType_ObjCClass:
@@ -95,7 +97,6 @@ cljc_name_for_type (CXCursor cursor, CXType type)
 		case CXType_UInt128:
 		case CXType_WChar:
 		case CXType_Int128:
-		case CXType_LongDouble:
 		case CXType_NullPtr:
 		case CXType_Overload:
 		case CXType_Dependent:

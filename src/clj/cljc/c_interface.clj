@@ -26,6 +26,7 @@
    :selector "objc_selector_get (~{})"
    :float "((float) number_get (~{}))"
    :double "number_get (~{})"
+   :long-double "((long double)number_get (~{}))"
    ;; FIXME: potential data loss - char is not a wide character
    :char "(char) character_get (~{})"
    ;; FIXME: more potential data loss when casting down to smaller integers
@@ -52,6 +53,7 @@
    :selector "make_objc_selector (%s)"
    :float "make_float (%s)"
    :double "make_float (%s)"
+   :long-double "make_float (%s)"
    :char "make_character ((cljc_unichar_t) %s)"
    :signed-char "make_integer ((long long) %s)"
    :unsigned-char "make_integer ((long long) %s)"
