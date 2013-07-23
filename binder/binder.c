@@ -127,6 +127,18 @@ get_first_child_visitor_func (CXCursor cursor, CXCursor parent, CXClientData cli
 	return CXChildVisit_Break;
 }
 
+static void
+print_type_fixme (CXCursor call_cursor, CXCursor cursor, CXType type)
+{
+	CXString spelling_cxstring = clang_getTypeSpelling (type);
+	const char *spelling = clang_getCString (spelling_cxstring);
+	CXString call_spelling_cxstring = clang_getCursorSpelling (call_cursor);
+	const char *call_spelling = clang_getCString (call_spelling_cxstring);
+	printf (";;FIXME: %s in %s\n", spelling, call_spelling);
+	clang_disposeString (spelling_cxstring);
+	clang_disposeString (call_spelling_cxstring);
+}
+
 static enum CXChildVisitResult
 visitor_func (CXCursor cursor, CXCursor parent, CXClientData client_data)
 {
@@ -167,9 +179,12 @@ visitor_func (CXCursor cursor, CXCursor parent, CXClientData client_data)
 					CXCursor arg_cursor = clang_Cursor_getArgument (cursor, i);
 					if (cljc_name_for_type (arg_cursor, clang_getCursorType (arg_cursor)) == NULL) {
 						have_types = FALSE;
+						print_type_fixme (cursor, arg_cursor, clang_getCursorType (arg_cursor));
 						break;
 					}
 				}
+			} else {
+				print_type_fixme (cursor, result_cursor, clang_getCursorResultType (cursor));
 			}
 			if (have_types) {
 				if (is_function)
