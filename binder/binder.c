@@ -1,18 +1,41 @@
 #include <clang-c/Index.h>
 #include <glib.h>
 
-/*
-static gboolean
-is_method_decl (CXCursor cursor)
+static GHashTable *type_name_hash_table;
+
+static void
+register_type_name (const char *name, const char *cljc_name)
 {
-	enum CXCursorKind kind = clang_getCursorKind (cursor);
-	return kind == CXCursor_ObjCInstanceMethodDecl || kind == CXCursor_ObjCClassMethodDecl;
+	if (!type_name_hash_table)
+		type_name_hash_table = g_hash_table_new (g_str_hash, g_str_equal);
+	g_hash_table_insert (type_name_hash_table, (gpointer)name, (gpointer)cljc_name);
 }
-*/
+
+static void
+register_compound (const char *name)
+{
+	register_type_name (g_strdup (name), g_strdup_printf ("Foundation/%s", name));
+}
+
+static const char*
+cljc_name_for_type_name (const char *name)
+{
+	if (!type_name_hash_table)
+		return NULL;
+	const char *cljc_name = g_hash_table_lookup (type_name_hash_table, name);
+	return cljc_name;
+}
 
 static const char*
 cljc_name_for_type (CXCursor cursor, CXType type)
 {
+	CXString spelling_cxstring = clang_getTypeSpelling (type);
+	const char *spelling = clang_getCString (spelling_cxstring);
+	const char *registered_name = cljc_name_for_type_name (spelling);
+	clang_disposeString (spelling_cxstring);
+	if (registered_name)
+		return registered_name;
+
 	switch (type.kind) {
 		case CXType_Void:
 			return ":void";
@@ -119,6 +142,8 @@ visitor_func (CXCursor cursor, CXCursor parent, CXClientData client_data)
 				if (g_str_has_prefix (type_spelling, "struct ") || g_str_has_prefix (type_spelling, "union ")) {
 					CXString spelling_cxstring = clang_getCursorSpelling (cursor);
 					const char *spelling = clang_getCString (spelling_cxstring);
+					g_assert (!cljc_name_for_type_name (spelling));
+					register_compound (spelling);
 					printf ("[:compound %s \"sizeof (%s)\"]\n", spelling, spelling);
 					clang_disposeString (spelling_cxstring);
 				}
