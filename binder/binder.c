@@ -168,9 +168,16 @@ visitor_func (CXCursor cursor, CXCursor parent, CXClientData client_data)
 		case CXCursor_FunctionDecl:
 		case CXCursor_ObjCInstanceMethodDecl:
 		case CXCursor_ObjCClassMethodDecl: {
-			gboolean is_function = kind == CXCursor_FunctionDecl;
 			CXString spelling_cxstring = clang_getCursorSpelling (cursor);
 			const char *spelling = clang_getCString (spelling_cxstring);
+
+			if (clang_Cursor_isVariadic (cursor)) {
+				printf (";;FIXME: variadic %s\n", spelling);
+				clang_disposeString (spelling_cxstring);
+				return CXChildVisit_Continue;
+			}
+
+			gboolean is_function = kind == CXCursor_FunctionDecl;
 			int num_args = clang_Cursor_getNumArguments (cursor);
 			CXCursor result_cursor;
 			clang_visitChildren (cursor, get_first_child_visitor_func, &result_cursor);
