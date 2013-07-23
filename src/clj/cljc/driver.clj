@@ -221,7 +221,7 @@
           (cljc/register-c-compound! (symbol framework (str name)) size))
 
         :function
-        (let [[return-type name arg-types] data]
+        (let [[name [return-type & arg-types]] data]
           (cljc/register-c-function! (symbol framework (str name)) return-type arg-types))
 
         (throw (Error. (str "Invalid framework entry " kind)))))))
