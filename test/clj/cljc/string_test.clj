@@ -123,4 +123,27 @@
     (is (= (core-run '(pr (cljc.string/split-lines "x\ny\n"))) [["x" "y"]]))
     (is (= (core-run '(pr (cljc.string/split-lines "x\r\ny\r\n"))) [["x" "y"]]))))
 
+(deftest index-of
+  (testing "index-of"
+    (is (= (core-run '(pr (cljc.string/index-of "" ""))) [0]))
+    (is (= (core-run '(pr (cljc.string/index-of "" "" 0))) [0]))
+    (is (= (core-run '(pr (cljc.string/index-of "" "" 1))) [0]))
+    (is (= (core-run '(pr (cljc.string/index-of "x" "" 1))) [1]))
+    (is (= (core-run '(pr (cljc.string/index-of "x" "" 2))) [1]))
+    (is (= (core-run '(pr (cljc.string/index-of "xyz" ""))) [0]))
+    (is (= (core-run '(pr (cljc.string/index-of "" "xyz"))) [nil]))
+    (is (= (core-run '(pr (cljc.string/index-of "x" "xyz"))) [nil]))
+    (is (= (core-run '(pr (cljc.string/index-of "xyz" "xyz"))) [0]))
+    (is (= (core-run '(pr (cljc.string/index-of "xyz..." "xyz"))) [0]))
+    (is (= (core-run '(pr (cljc.string/index-of "...xyz" "xyz"))) [3]))
+    (is (= (core-run '(pr (cljc.string/index-of "...xyz..." "xyz"))) [3]))
+    (is (= (core-run '(pr (cljc.string/index-of "xy" "xyz"))) [nil]))
+    (is (= (core-run '(pr (cljc.string/index-of "xyz" "a"))) [nil]))
+    (is (= (core-run '(pr (cljc.string/index-of "xyz" "y" 0))) [1]))
+    (is (= (core-run '(pr (cljc.string/index-of "xyz" "y" -1))) [1]))
+    (is (= (core-run '(pr (cljc.string/index-of "xyz" "y" 2))) [nil]))
+    (is (= (core-run '(pr (cljc.string/index-of "xyz" "z" 2))) [2]))
+    (is (= (core-run '(pr (cljc.string/index-of "xyz" "z" 3))) [nil]))
+    (is (= (core-run '(pr (cljc.string/index-of "xyz" "z" 100))) [nil]))))
+
 (use-fixtures :once (fn [f] (clean-default-run-dir true) (f)))

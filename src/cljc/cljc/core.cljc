@@ -6195,6 +6195,15 @@ reduces them without incurring seq initialization"
   [s]
   (split s (re-pattern "\r?\n")))
 
+(defn index-of
+  "Returns the first index of needle in haystack, or nil.  A negative
+   offset is treated as zero, and an offset greater than the string
+   length is treated as the string length."
+  ([haystack needle offset]
+     (c* "string_index_of (~{}, ~{}, ~{})" haystack needle offset))
+  ([haystack needle]
+     (index-of haystack needle 0)))
+
 (ns cljc.core)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; I/O ;;;;;;;;;;;;;;;;

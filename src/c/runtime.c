@@ -928,6 +928,52 @@ strchr_offset (const char *str, cljc_unichar_t c)
 	return p - str;
 }
 
+value_t*
+string_index_of (value_t *haystack, value_t *needle, value_t *offset)
+{
+	// FIXME: adjust for string length caching when available.
+	long long c_off = integer_get (offset);
+	if (c_off > LONG_MAX)
+		return value_nil;
+	if (c_off < 0)
+		c_off = 0;
+
+	const gchar *c_hay = g_utf8_normalize (string_get_utf8 (haystack),
+					       -1,
+					       G_NORMALIZE_DEFAULT_COMPOSE);
+	const gchar *c_needle = g_utf8_normalize (string_get_utf8 (needle),
+						  -1,
+						  G_NORMALIZE_DEFAULT_COMPOSE);
+	glong hay_len = -1;
+	const gchar *start;
+	if (c_off == 0)
+		start = c_hay;
+	else {
+		hay_len = g_utf8_strlen (c_hay, -1);
+		if (c_off >= hay_len) {
+			// Match Java's semantics for an empty needle.
+			if (g_utf8_strlen (c_needle, -1) == 0)
+				return make_integer (hay_len);
+			else
+				return value_nil;
+		}
+		// FIXME: step backwards if c_off is in the last 1/4 of string.
+		start = g_utf8_offset_to_pointer (c_hay, c_off);
+	}
+
+	const gchar *target = g_strstr_len (start, -1, c_needle);
+	if (target != NULL)
+		return make_integer (g_utf8_pointer_to_offset (c_hay, target));
+
+	if (hay_len < 0)
+		hay_len = g_utf8_strlen (c_hay, -1);
+	// Match Java's semantics for an empty needle.
+	if (g_utf8_strlen (c_needle, -1) == 0)
+		return make_integer (hay_len);
+	else
+		return value_nil;
+}
+
 ////////////////////////////////////////////////////////////
 /// Regular expressions
 ///

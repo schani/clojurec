@@ -296,6 +296,7 @@ extern const char* compound_get_name (value_t *v);
 extern void* compound_get_data_ptr (value_t *v);
 extern value_t* make_boolean (bool x);
 #ifndef HAVE_OBJC
+extern value_t *string_index_of (value_t *haystack, value_t *needle, value_t* offset);
 extern value_t* pcre_pattern (value_t *pattern_str);
 extern value_t* pcre_match_offsets (value_t* re, value_t* s, value_t *offset);
 #endif
