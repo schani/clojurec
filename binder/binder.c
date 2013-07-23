@@ -209,6 +209,9 @@ main (int argc, const char *argv[])
 		clang_disposeString(String);
 	}
 	CXCursor cursor = clang_getTranslationUnitCursor (TU);
+
+	register_type_name ("BOOL", "Boolean");
+
 	printf ("[\n");
 	clang_visitChildren (cursor, visitor_func, NULL);
 	printf ("]\n");
