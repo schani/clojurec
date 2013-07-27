@@ -13,7 +13,7 @@
 [:function _OSSwapInt64 [:unsigned-long-long :unsigned-long-long]]
 [:compound fd_set "sizeof (fd_set)"]
 ;;FIXME: const struct fd_set * in __darwin_fd_isset
-;;FIXME: const char * in __assert_rtn
+[:function __assert_rtn [:void :c-string-const :c-string-const :int :c-string-const]]
 [:compound _RuneEntry "sizeof (_RuneEntry)"]
 [:compound _RuneRange "sizeof (_RuneRange)"]
 [:compound _RuneCharClass "sizeof (_RuneCharClass)"]
@@ -237,9 +237,9 @@
 [:function copysignf [:float :float :float]]
 [:function copysign [:double :double :double]]
 [:function copysignl [:long-double :long-double :long-double]]
-;;FIXME: const char * in nanf
-;;FIXME: const char * in nan
-;;FIXME: const char * in nanl
+[:function nanf [:float :c-string-const]]
+[:function nan [:double :c-string-const]]
+[:function nanl [:long-double :c-string-const]]
 [:function nextafterf [:float :float :float]]
 [:function nextafter [:double :double :double]]
 [:function nextafterl [:long-double :long-double :long-double]]
@@ -312,7 +312,7 @@
 ;;FIXME: void (*)(int) in sigset
 ;;FIXME: const sigset_t * in sigsuspend
 ;;FIXME: const sigset_t *restrict in sigwait
-;;FIXME: const char * in psignal
+[:function psignal [:void :unsigned-int :c-string-const]]
 [:function sigblock [:int :int]]
 [:function sigsetmask [:int :int]]
 ;;FIXME: struct sigvec * in sigvec
@@ -327,12 +327,12 @@
 ;;FIXME: FILE *restrict in fgetpos
 ;;FIXME: char * in fgets
 ;;FIXME: FILE * in fopen
-;;FIXME: FILE *restrict in fprintf
+;;FIXME: variadic fprintf
 ;;FIXME: FILE * in fputc
-;;FIXME: const char *restrict in fputs
+;;FIXME: FILE *restrict in fputs
 ;;FIXME: void *restrict in fread
 ;;FIXME: FILE * in freopen
-;;FIXME: FILE *restrict in fscanf
+;;FIXME: variadic fscanf
 ;;FIXME: FILE * in fseek
 ;;FIXME: FILE * in fsetpos
 ;;FIXME: FILE * in ftell
@@ -340,24 +340,24 @@
 ;;FIXME: FILE * in getc
 [:function getchar [:int]]
 ;;FIXME: char * in gets
-;;FIXME: const char * in perror
-;;FIXME: const char *restrict in printf
+[:function perror [:void :c-string-const]]
+;;FIXME: variadic printf
 ;;FIXME: FILE * in putc
 [:function putchar [:int :int]]
-;;FIXME: const char * in puts
-;;FIXME: const char * in remove
-;;FIXME: const char * in rename
+[:function puts [:int :c-string-const]]
+[:function remove [:int :c-string-const]]
+[:function rename [:int :c-string-const :c-string-const]]
 ;;FIXME: FILE * in rewind
-;;FIXME: const char *restrict in scanf
+;;FIXME: variadic scanf
 ;;FIXME: FILE *restrict in setbuf
 ;;FIXME: FILE *restrict in setvbuf
-;;FIXME: char *restrict in sprintf
-;;FIXME: const char *restrict in sscanf
+;;FIXME: variadic sprintf
+;;FIXME: variadic sscanf
 ;;FIXME: FILE * in tmpfile
 ;;FIXME: char * in tmpnam
 ;;FIXME: FILE * in ungetc
 ;;FIXME: FILE *restrict in vfprintf
-;;FIXME: const char *restrict in vprintf
+;;FIXME: va_list in vprintf
 ;;FIXME: char *restrict in vsprintf
 ;;FIXME: char * in ctermid
 ;;FIXME: FILE * in fdopen
@@ -380,27 +380,27 @@
 ;;FIXME: char * in tempnam
 ;;FIXME: FILE * in fseeko
 ;;FIXME: FILE * in ftello
-;;FIXME: char *restrict in snprintf
+;;FIXME: variadic snprintf
 ;;FIXME: FILE *restrict in vfscanf
-;;FIXME: const char *restrict in vscanf
+;;FIXME: va_list in vscanf
 ;;FIXME: char *restrict in vsnprintf
-;;FIXME: const char *restrict in vsscanf
-;;FIXME: const char *restrict in dprintf
-;;FIXME: const char *restrict in vdprintf
+;;FIXME: va_list in vsscanf
+;;FIXME: variadic dprintf
+;;FIXME: va_list in vdprintf
 ;;FIXME: char **restrict in getdelim
 ;;FIXME: char **restrict in getline
-;;FIXME: char ** in asprintf
+;;FIXME: variadic asprintf
 ;;FIXME: char * in ctermid_r
 ;;FIXME: char * in fgetln
-;;FIXME: const char * in fmtcheck
+[:function fmtcheck [:c-string-const :c-string-const :c-string-const]]
 ;;FIXME: FILE * in fpurge
 ;;FIXME: FILE * in setbuffer
 ;;FIXME: FILE * in setlinebuf
 ;;FIXME: char ** in vasprintf
 ;;FIXME: FILE * in zopen
 ;;FIXME: FILE * in funopen
-;;FIXME: char *restrict in __sprintf_chk
-;;FIXME: char *restrict in __snprintf_chk
+;;FIXME: variadic __sprintf_chk
+;;FIXME: variadic __snprintf_chk
 ;;FIXME: char *restrict in __vsprintf_chk
 ;;FIXME: char *restrict in __vsnprintf_chk
 [:function getpriority [:int :int :unsigned-int]]
@@ -422,10 +422,10 @@
 [:function abort [:void]]
 [:function abs [:int :int]]
 ;;FIXME: void (*)(void) in atexit
-;;FIXME: const char * in atof
-;;FIXME: const char * in atoi
-;;FIXME: const char * in atol
-;;FIXME: const char * in atoll
+[:function atof [:double :c-string-const]]
+[:function atoi [:int :c-string-const]]
+[:function atol [:long :c-string-const]]
+[:function atoll [:long-long :c-string-const]]
 ;;FIXME: void * in bsearch
 ;;FIXME: void * in calloc
 [:function div [Foundation/div_t :int :int]]
@@ -437,7 +437,7 @@
 [:function llabs [:long-long :long-long]]
 [:function lldiv [Foundation/lldiv_t :long-long :long-long]]
 ;;FIXME: void * in malloc
-;;FIXME: const char * in mblen
+[:function mblen [:int :c-string-const :unsigned-long]]
 ;;FIXME: wchar_t *restrict in mbstowcs
 ;;FIXME: wchar_t *restrict in mbtowc
 ;;FIXME: void ** in posix_memalign
@@ -445,18 +445,18 @@
 [:function rand [:int]]
 ;;FIXME: void * in realloc
 [:function srand [:void :unsigned-int]]
-;;FIXME: const char * in strtod
-;;FIXME: const char * in strtof
-;;FIXME: const char * in strtol
-;;FIXME: const char * in strtold
-;;FIXME: const char * in strtoll
-;;FIXME: const char * in strtoul
-;;FIXME: const char * in strtoull
-;;FIXME: const char * in system
+;;FIXME: char ** in strtod
+;;FIXME: char ** in strtof
+;;FIXME: char ** in strtol
+;;FIXME: char ** in strtold
+;;FIXME: char ** in strtoll
+;;FIXME: char ** in strtoul
+;;FIXME: char ** in strtoull
+[:function system [:int :c-string-const]]
 ;;FIXME: char *restrict in wcstombs
 ;;FIXME: char * in wctomb
 [:function _Exit [:void :int]]
-;;FIXME: const char * in a64l
+[:function a64l [:long :c-string-const]]
 [:function drand48 [:double]]
 ;;FIXME: char * in ecvt
 ;;FIXME: unsigned short [3] in erand48
@@ -480,13 +480,13 @@
 ;;FIXME: unsigned int * in rand_r
 ;;FIXME: char * in realpath
 ;;FIXME: unsigned short * in seed48
-;;FIXME: const char * in setenv
-;;FIXME: const char * in setkey
+[:function setenv [:int :c-string-const :c-string-const :int]]
+[:function setkey [:void :c-string-const]]
 ;;FIXME: char * in setstate
 [:function srand48 [:void :long]]
 [:function srandom [:void :unsigned-int]]
 [:function unlockpt [:int :int]]
-;;FIXME: const char * in unsetenv
+[:function unsetenv [:int :c-string-const]]
 [:function arc4random [:unsigned-int]]
 ;;FIXME: unsigned char * in arc4random_addrandom
 ;;FIXME: void * in arc4random_buf
@@ -498,10 +498,10 @@
 [:function cgetclose [:int]]
 ;;FIXME: char ** in cgetent
 ;;FIXME: char ** in cgetfirst
-;;FIXME: const char * in cgetmatch
+[:function cgetmatch [:int :c-string-const :c-string-const]]
 ;;FIXME: char ** in cgetnext
 ;;FIXME: char * in cgetnum
-;;FIXME: const char * in cgetset
+[:function cgetset [:int :c-string-const]]
 ;;FIXME: char * in cgetstr
 ;;FIXME: char * in cgetustr
 [:function daemon [:int :int :int]]
@@ -509,7 +509,7 @@
 ;;FIXME: char * in devname_r
 ;;FIXME: char * in getbsize
 ;;FIXME: double [] in getloadavg
-;;FIXME: const char * in getprogname
+[:function getprogname [:c-string-const]]
 ;;FIXME: void * in heapsort
 ;;FIXME: void * in heapsort_b
 ;;FIXME: void * in mergesort
@@ -520,13 +520,13 @@
 ;;FIXME: void * in qsort_b
 ;;FIXME: void * in qsort_r
 ;;FIXME: const unsigned char ** in radixsort
-;;FIXME: const char * in setprogname
+[:function setprogname [:void :c-string-const]]
 ;;FIXME: const unsigned char ** in sradixsort
 [:function sranddev [:void]]
 [:function srandomdev [:void]]
 ;;FIXME: void * in reallocf
-;;FIXME: const char * in strtoq
-;;FIXME: const char * in strtouq
+;;FIXME: char ** in strtoq
+;;FIXME: char ** in strtouq
 ;;FIXME: void * in valloc
 ;;FIXME: void * in memchr
 ;;FIXME: const void * in memcmp
@@ -535,18 +535,18 @@
 ;;FIXME: void * in memset
 ;;FIXME: char * in strcat
 ;;FIXME: char * in strchr
-;;FIXME: const char * in strcmp
-;;FIXME: const char * in strcoll
+[:function strcmp [:int :c-string-const :c-string-const]]
+[:function strcoll [:int :c-string-const :c-string-const]]
 ;;FIXME: char * in strcpy
-;;FIXME: const char * in strcspn
+[:function strcspn [:unsigned-long :c-string-const :c-string-const]]
 ;;FIXME: char * in strerror
-;;FIXME: const char * in strlen
+[:function strlen [:unsigned-long :c-string-const]]
 ;;FIXME: char * in strncat
-;;FIXME: const char * in strncmp
+[:function strncmp [:int :c-string-const :c-string-const :unsigned-long]]
 ;;FIXME: char * in strncpy
 ;;FIXME: char * in strpbrk
 ;;FIXME: char * in strrchr
-;;FIXME: const char * in strspn
+[:function strspn [:unsigned-long :c-string-const :c-string-const]]
 ;;FIXME: char * in strstr
 ;;FIXME: char * in strtok
 ;;FIXME: char * in strxfrm
@@ -557,7 +557,7 @@
 ;;FIXME: char * in stpcpy
 ;;FIXME: char * in stpncpy
 ;;FIXME: char * in strndup
-;;FIXME: const char * in strnlen
+[:function strnlen [:unsigned-long :c-string-const :unsigned-long]]
 ;;FIXME: char * in strsignal
 ;;FIXME: void * in memmem
 ;;FIXME: void * in memset_pattern4
@@ -576,8 +576,8 @@
 ;;FIXME: char * in index
 ;;FIXME: char * in rindex
 [:function ffs [:int :int]]
-;;FIXME: const char * in strcasecmp
-;;FIXME: const char * in strncasecmp
+[:function strcasecmp [:int :c-string-const :c-string-const]]
+[:function strncasecmp [:int :c-string-const :c-string-const :unsigned-long]]
 [:function ffsl [:int :long]]
 [:function fls [:int :int]]
 [:function flsl [:int :long]]
@@ -615,8 +615,8 @@
 [:function imaxabs [:long :long]]
 [:compound imaxdiv_t "sizeof (imaxdiv_t)"]
 [:function imaxdiv [Foundation/imaxdiv_t :long :long]]
-;;FIXME: const char *restrict in strtoimax
-;;FIXME: const char *restrict in strtoumax
+;;FIXME: char **restrict in strtoimax
+;;FIXME: char **restrict in strtoumax
 ;;FIXME: const wchar_t *restrict in wcstoimax
 ;;FIXME: const wchar_t *restrict in wcstoumax
 ;;FIXME: void * in _Block_copy
@@ -888,7 +888,7 @@
 ;;FIXME: CFStringRef in CFStringCreateWithCharactersNoCopy
 ;;FIXME: CFStringRef in CFStringCreateWithSubstring
 ;;FIXME: CFStringRef in CFStringCreateCopy
-;;FIXME: CFStringRef in CFStringCreateWithFormat
+;;FIXME: variadic CFStringCreateWithFormat
 ;;FIXME: CFStringRef in CFStringCreateWithFormatAndArguments
 ;;FIXME: CFMutableStringRef in CFStringCreateMutable
 ;;FIXME: CFMutableStringRef in CFStringCreateMutableCopy
@@ -899,7 +899,7 @@
 ;;FIXME: CFStringRef in CFStringGetPascalString
 ;;FIXME: CFStringRef in CFStringGetCString
 ;;FIXME: ConstStringPtr in CFStringGetPascalStringPtr
-;;FIXME: const char * in CFStringGetCStringPtr
+;;FIXME: CFStringRef in CFStringGetCStringPtr
 ;;FIXME: const UniChar * in CFStringGetCharactersPtr
 ;;FIXME: CFStringRef in CFStringGetBytes
 ;;FIXME: CFStringRef in CFStringCreateFromExternalRepresentation
@@ -934,7 +934,7 @@
 ;;FIXME: CFMutableStringRef in CFStringAppendCharacters
 ;;FIXME: CFMutableStringRef in CFStringAppendPascalString
 ;;FIXME: CFMutableStringRef in CFStringAppendCString
-;;FIXME: CFMutableStringRef in CFStringAppendFormat
+;;FIXME: variadic CFStringAppendFormat
 ;;FIXME: CFMutableStringRef in CFStringAppendFormatAndArguments
 ;;FIXME: CFMutableStringRef in CFStringInsert
 ;;FIXME: CFMutableStringRef in CFStringDelete
@@ -1007,10 +1007,10 @@
 ;;FIXME: CFCalendarRef in CFCalendarGetRangeOfUnit
 ;;FIXME: CFCalendarRef in CFCalendarGetOrdinalityOfUnit
 ;;FIXME: CFCalendarRef in CFCalendarGetTimeRangeOfUnit
-;;FIXME: CFCalendarRef in CFCalendarComposeAbsoluteTime
-;;FIXME: CFCalendarRef in CFCalendarDecomposeAbsoluteTime
-;;FIXME: CFCalendarRef in CFCalendarAddComponents
-;;FIXME: CFCalendarRef in CFCalendarGetComponentDifference
+;;FIXME: variadic CFCalendarComposeAbsoluteTime
+;;FIXME: variadic CFCalendarDecomposeAbsoluteTime
+;;FIXME: variadic CFCalendarAddComponents
+;;FIXME: variadic CFCalendarGetComponentDifference
 ;;FIXME: CFStringRef in CFDateFormatterCreateDateFormatFromTemplate
 [:function CFDateFormatterGetTypeID [:unsigned-long]]
 ;;FIXME: CFDateFormatterRef in CFDateFormatterCreate
@@ -1366,19 +1366,19 @@
 ;;FIXME: CFBundleRef in CFBundleOpenBundleResourceFiles
 ;;FIXME: CFBundleRef in CFBundleCloseBundleResourceMap
 [:function _exit [:void :int]]
-;;FIXME: const char * in access
+[:function access [:int :c-string-const :int]]
 [:function alarm [:unsigned-int :unsigned-int]]
-;;FIXME: const char * in chdir
-;;FIXME: const char * in chown
+[:function chdir [:int :c-string-const]]
+[:function chown [:int :c-string-const :unsigned-int :unsigned-int]]
 [:function close [:int :int]]
 [:function dup [:int :int]]
 [:function dup2 [:int :int :int]]
-;;FIXME: const char * in execl
-;;FIXME: const char * in execle
-;;FIXME: const char * in execlp
-;;FIXME: const char * in execv
-;;FIXME: const char * in execve
-;;FIXME: const char * in execvp
+;;FIXME: variadic execl
+;;FIXME: variadic execle
+;;FIXME: variadic execlp
+;;FIXME: char *const * in execv
+;;FIXME: char *const * in execve
+;;FIXME: char *const * in execvp
 [:function fork [:int]]
 [:function fpathconf [:long :int :int]]
 ;;FIXME: char * in getcwd
@@ -1392,13 +1392,13 @@
 [:function getppid [:int]]
 [:function getuid [:unsigned-int]]
 [:function isatty [:int :int]]
-;;FIXME: const char * in link
+[:function link [:int :c-string-const :c-string-const]]
 [:function lseek [:long-long :int :long-long :int]]
-;;FIXME: const char * in pathconf
+[:function pathconf [:long :c-string-const :int]]
 [:function pause [:int]]
 ;;FIXME: int [2] in pipe
 ;;FIXME: void * in read
-;;FIXME: const char * in rmdir
+[:function rmdir [:int :c-string-const]]
 [:function setgid [:int :unsigned-int]]
 [:function setpgid [:int :int :int]]
 [:function setsid [:int]]
@@ -1409,12 +1409,12 @@
 [:function tcsetpgrp [:int :int :int]]
 ;;FIXME: char * in ttyname
 ;;FIXME: char * in ttyname_r
-;;FIXME: const char * in unlink
+[:function unlink [:int :c-string-const]]
 ;;FIXME: const void * in write
 ;;FIXME: char * in confstr
 ;;FIXME: char *const [] in getopt
 ;;FIXME: void * in brk
-;;FIXME: const char * in chroot
+[:function chroot [:int :c-string-const]]
 ;;FIXME: char * in crypt
 ;;FIXME: char * in encrypt
 [:function fchdir [:int :int]]
@@ -1425,7 +1425,7 @@
 [:function getpagesize [:int]]
 ;;FIXME: char * in getpass
 ;;FIXME: char * in getwd
-;;FIXME: const char * in lchown
+[:function lchown [:int :c-string-const :unsigned-int :unsigned-int]]
 [:function lockf [:int :int :int :long-long]]
 [:function nice [:int :int]]
 ;;FIXME: void * in pread
@@ -1436,7 +1436,7 @@
 [:function setreuid [:int :unsigned-int :unsigned-int]]
 ;;FIXME: const void *restrict in swab
 [:function sync [:void]]
-;;FIXME: const char * in truncate
+[:function truncate [:int :c-string-const :long-long]]
 [:function ualarm [:unsigned-int :unsigned-int :unsigned-int]]
 [:function usleep [:int :unsigned-int]]
 [:function vfork [:int]]
@@ -1445,34 +1445,34 @@
 ;;FIXME: char * in getlogin_r
 [:function fchown [:int :int :unsigned-int :unsigned-int]]
 ;;FIXME: char * in gethostname
-;;FIXME: const char *restrict in readlink
+;;FIXME: char *restrict in readlink
 [:function setegid [:int :unsigned-int]]
 [:function seteuid [:int :unsigned-int]]
-;;FIXME: const char * in symlink
+[:function symlink [:int :c-string-const :c-string-const]]
 ;;FIXME: fd_set *restrict in pselect
 ;;FIXME: fd_set *restrict in select
 [:function _Exit [:void :int]]
 ;;FIXME: const struct accessx_descriptor * in accessx_np
-;;FIXME: const char * in acct
+[:function acct [:int :c-string-const]]
 ;;FIXME: char * in add_profil
 [:function endusershell [:void]]
-;;FIXME: const char * in execvP
+;;FIXME: char *const * in execvP
 ;;FIXME: char * in fflagstostr
 ;;FIXME: char * in getdomainname
-;;FIXME: const char * in getgrouplist
+;;FIXME: int * in getgrouplist
 ;;FIXME: uuid_t in gethostuuid
 ;;FIXME: const void * in getmode
 ;;FIXME: uid_t * in getpeereid
 ;;FIXME: int * in getsgroups_np
 ;;FIXME: char * in getusershell
 ;;FIXME: int * in getwgroups_np
-;;FIXME: const char * in initgroups
-;;FIXME: const char * in iruserok
+[:function initgroups [:int :c-string-const :int]]
+[:function iruserok [:int :unsigned-long :int :c-string-const :c-string-const]]
 ;;FIXME: const void * in iruserok_sa
 [:function issetugid [:int]]
 ;;FIXME: char * in mkdtemp
-;;FIXME: const char * in mknod
-;;FIXME: const char * in mkpath_np
+[:function mknod [:int :c-string-const :unsigned-short :int]]
+[:function mkpath_np [:int :c-string-const :unsigned-short]]
 ;;FIXME: char * in mkstemp
 ;;FIXME: char * in mkstemps
 ;;FIXME: char * in mktemp
@@ -1483,16 +1483,16 @@
 ;;FIXME: char ** in rcmd
 ;;FIXME: char ** in rcmd_af
 [:function reboot [:int :int]]
-;;FIXME: const char * in revoke
+[:function revoke [:int :c-string-const]]
 ;;FIXME: int * in rresvport
 ;;FIXME: int * in rresvport_af
-;;FIXME: const char * in ruserok
-;;FIXME: const char * in setdomainname
+[:function ruserok [:int :c-string-const :int :c-string-const :c-string-const]]
+[:function setdomainname [:int :c-string-const :int]]
 ;;FIXME: const gid_t * in setgroups
 [:function sethostid [:void :long]]
-;;FIXME: const char * in sethostname
-;;FIXME: const char * in setkey
-;;FIXME: const char * in setlogin
+[:function sethostname [:int :c-string-const :int]]
+[:function setkey [:void :c-string-const]]
+[:function setlogin [:int :c-string-const]]
 ;;FIXME: void * in setmode
 [:function setrgid [:int :unsigned-int]]
 [:function setruid [:int :unsigned-int]]
@@ -1500,32 +1500,32 @@
 [:function setusershell [:void]]
 ;;FIXME: const uuid_t in setwgroups_np
 ;;FIXME: char ** in strtofflags
-;;FIXME: const char * in swapon
-[:function syscall [:int :int]]
+[:function swapon [:int :c-string-const]]
+;;FIXME: variadic syscall
 [:function ttyslot [:int]]
-;;FIXME: const char * in undelete
-;;FIXME: const char * in unwhiteout
+[:function undelete [:int :c-string-const]]
+[:function unwhiteout [:int :c-string-const]]
 ;;FIXME: void * in valloc
 ;;FIXME: char ** in getsubopt
 ;;FIXME: void * in fgetattrlist
 ;;FIXME: void * in fsetattrlist
-;;FIXME: const char * in getattrlist
-;;FIXME: const char * in setattrlist
-;;FIXME: const char * in exchangedata
+;;FIXME: void * in getattrlist
+;;FIXME: void * in setattrlist
+[:function exchangedata [:int :c-string-const :c-string-const :unsigned-int]]
 ;;FIXME: void * in getdirentriesattr
-;;FIXME: const char * in searchfs
-;;FIXME: const char * in fsctl
+;;FIXME: struct fssearchblock * in searchfs
+;;FIXME: void * in fsctl
 ;;FIXME: void * in ffsctl
 [:function fsync_volume_np [:int :int :int]]
-;;FIXME: const char * in sync_volume_np
+[:function sync_volume_np [:int :c-string-const :int]]
 [:compound fsignatures_t "sizeof (fsignatures_t)"]
 [:compound fstore_t "sizeof (fstore_t)"]
 [:compound fbootstraptransfer_t "sizeof (fbootstraptransfer_t)"]
-;;FIXME: const char * in open
-;;FIXME: const char * in creat
-[:function fcntl [:int :int :int]]
-;;FIXME: const char * in openx_np
-;;FIXME: const char * in open_dprotected_np
+;;FIXME: variadic open
+[:function creat [:int :c-string-const :unsigned-short]]
+;;FIXME: variadic fcntl
+;;FIXME: filesec_t in openx_np
+;;FIXME: variadic open_dprotected_np
 [:function flock [:int :int :int]]
 ;;FIXME: filesec_t in filesec_init
 ;;FIXME: filesec_t in filesec_dup
@@ -1534,20 +1534,20 @@
 ;;FIXME: filesec_t in filesec_query_property
 ;;FIXME: filesec_t in filesec_set_property
 ;;FIXME: filesec_t in filesec_unset_property
-;;FIXME: const char * in sel_getName
-;;FIXME: const char * in sel_registerName
-;;FIXME: const char * in object_getClassName
+[:function sel_getName [:c-string-const :selector]]
+[:function sel_registerName [:selector :c-string-const]]
+[:function object_getClassName [:c-string-const :id]]
 ;;FIXME: void * in object_getIndexedIvars
 [:function sel_isMapped [Boolean :selector]]
-;;FIXME: const char * in sel_getUid
+[:function sel_getUid [:selector :c-string-const]]
 [:function NSStringFromSelector [:id :selector]]
 [:function NSSelectorFromString [:selector :id]]
 [:function NSStringFromClass [:id :id]]
 [:function NSClassFromString [:id :id]]
 [:function NSStringFromProtocol [:id :id]]
 [:function NSProtocolFromString [:id :id]]
-;;FIXME: const char * in NSGetSizeAndAlignment
-[:function NSLog [:void :id]]
+;;FIXME: NSUInteger * in NSGetSizeAndAlignment
+;;FIXME: variadic NSLog
 ;;FIXME: va_list in NSLogv
 [:compound NSZone "sizeof (NSZone)"]
 ;;FIXME: NSZone * in NSDefaultMallocZone
@@ -1611,8 +1611,8 @@
 ;;FIXME: CFTypeRef in CFBridgingRetain
 ;;FIXME: CFTypeRef in CFBridgingRelease
 [:function _dispatch_object_validate [:void :id]]
-;;FIXME: const char * in dispatch_debug
-;;FIXME: const char * in dispatch_debugv
+;;FIXME: variadic dispatch_debug
+;;FIXME: va_list in dispatch_debugv
 [:function dispatch_retain [:void :id]]
 [:function dispatch_release [:void :id]]
 ;;FIXME: void * in dispatch_get_context
@@ -1632,8 +1632,8 @@
 ;;FIXME: void * in dispatch_apply_f
 [:function dispatch_get_current_queue [:id]]
 [:function dispatch_get_global_queue [:id :long :unsigned-long]]
-;;FIXME: const char * in dispatch_queue_create
-;;FIXME: const char * in dispatch_queue_get_label
+[:function dispatch_queue_create [:id :c-string-const :id]]
+[:function dispatch_queue_get_label [:c-string-const :id]]
 [:function dispatch_set_target_queue [:void :id :id]]
 [:function dispatch_main [:void]]
 ;;FIXME: dispatch_block_t in dispatch_after
@@ -1710,7 +1710,7 @@
 ;;FIXME: void (^)(dispatch_data_t, int) in dispatch_read
 ;;FIXME: void (^)(dispatch_data_t, int) in dispatch_write
 ;;FIXME: void (^)(int) in dispatch_io_create
-;;FIXME: const char * in dispatch_io_create_with_path
+;;FIXME: void (^)(int) in dispatch_io_create_with_path
 ;;FIXME: void (^)(int) in dispatch_io_create_with_io
 ;;FIXME: dispatch_io_handler_t in dispatch_io_read
 ;;FIXME: dispatch_io_handler_t in dispatch_io_write
@@ -1803,8 +1803,8 @@
 ;;FIXME: acl_t in acl_get_entry
 ;;FIXME: acl_t in acl_valid
 ;;FIXME: acl_type_t in acl_valid_fd_np
-;;FIXME: const char * in acl_valid_file_np
-;;FIXME: const char * in acl_valid_link_np
+;;FIXME: acl_type_t in acl_valid_file_np
+;;FIXME: acl_type_t in acl_valid_link_np
 ;;FIXME: acl_permset_t in acl_add_perm
 ;;FIXME: acl_t * in acl_calc_mask
 ;;FIXME: acl_permset_t in acl_clear_perms
@@ -1825,15 +1825,15 @@
 ;;FIXME: acl_entry_t in acl_get_tag_type
 ;;FIXME: acl_entry_t in acl_set_qualifier
 ;;FIXME: acl_entry_t in acl_set_tag_type
-;;FIXME: const char * in acl_delete_def_file
+[:function acl_delete_def_file [:int :c-string-const]]
 ;;FIXME: acl_t in acl_get_fd
 ;;FIXME: acl_t in acl_get_fd_np
 ;;FIXME: acl_t in acl_get_file
 ;;FIXME: acl_t in acl_get_link_np
 ;;FIXME: acl_t in acl_set_fd
 ;;FIXME: acl_t in acl_set_fd_np
-;;FIXME: const char * in acl_set_file
-;;FIXME: const char * in acl_set_link_np
+;;FIXME: acl_type_t in acl_set_file
+;;FIXME: acl_type_t in acl_set_link_np
 ;;FIXME: void * in acl_copy_ext
 ;;FIXME: void * in acl_copy_ext_native
 ;;FIXME: acl_t in acl_copy_int
@@ -1944,7 +1944,7 @@
 [:compound NSFastEnumerationState "sizeof (NSFastEnumerationState)"]
 [:selector [0 :nextObject] [:id]]
 ;;FIXME: void * in getValue:
-;;FIXME: const char * in objCType
+[:selector [0 :objCType] [:c-string-const]]
 [:selector [0 :charValue] [:char]]
 [:selector [0 :unsignedCharValue] [:unsigned-char]]
 [:selector [0 :shortValue] [:short]]
@@ -2170,9 +2170,9 @@
 [:selector [1 :formUnionWithCharacterSet] [:void :id]]
 [:selector [1 :formIntersectionWithCharacterSet] [:void :id]]
 [:selector [0 :invert] [:void]]
-;;FIXME: const char * in encodeValueOfObjCType:at:
+;;FIXME: const void * in encodeValueOfObjCType:at:
 [:selector [1 :encodeDataObject] [:void :id]]
-;;FIXME: const char * in decodeValueOfObjCType:at:
+;;FIXME: void * in decodeValueOfObjCType:at:
 [:selector [0 :decodeDataObject] [:id]]
 [:selector [1 :versionForClassName] [:long :id]]
 [:function NXReadNSObjectFromCoder [:id :id]]
@@ -2315,7 +2315,7 @@
 ;;FIXME: NSComparisonResult in compare:
 [:selector [1 :setDefaultBehavior] [:void :id]]
 [:selector [0 :defaultBehavior] [:id]]
-;;FIXME: const char * in objCType
+[:selector [0 :objCType] [:c-string-const]]
 [:selector [0 :doubleValue] [:double]]
 [:selector [0 :defaultDecimalNumberHandler] [:id]]
 ;;FIXME: NSRoundingMode in initWithRoundingMode:scale:raiseOnExactness:raiseOnOverflow:raiseOnUnderflow:raiseOnDivideByZero:
@@ -2342,8 +2342,8 @@
 ;;FIXME: NSUncaughtExceptionHandler * in NSGetUncaughtExceptionHandler
 ;;FIXME: NSUncaughtExceptionHandler * in NSSetUncaughtExceptionHandler
 [:selector [0 :currentHandler] [:id]]
-[:selector [5 :handleFailureInMethod :object :file :lineNumber :description] [:void :selector :id :id :long :id]]
-[:selector [4 :handleFailureInFunction :file :lineNumber :description] [:void :id :id :long :id]]
+;;FIXME: variadic handleFailureInMethod:object:file:lineNumber:description:
+;;FIXME: variadic handleFailureInFunction:file:lineNumber:description:
 [:selector [0 :availableData] [:id]]
 [:selector [0 :readDataToEndOfFile] [:id]]
 [:selector [1 :readDataOfLength] [:id :unsigned-long]]
@@ -2418,8 +2418,8 @@
 [:selector [1 :subpathsAtPath] [:id :id]]
 [:selector [1 :contentsAtPath] [:id :id]]
 [:selector [3 :createFileAtPath :contents :attributes] [Boolean :id :id :id]]
-;;FIXME: const char * in fileSystemRepresentationWithPath:
-;;FIXME: const char * in stringWithFileSystemRepresentation:length:
+[:selector [1 :fileSystemRepresentationWithPath] [:c-string-const :id]]
+[:selector [2 :stringWithFileSystemRepresentation :length] [:id :c-string-const :unsigned-long]]
 ;;FIXME: NSFileManagerItemReplacementOptions in replaceItemAtURL:withItemAtURL:backupItemName:options:resultingItemURL:error:
 ;;FIXME: NSError ** in setUbiquitous:itemAtURL:destinationURL:error:
 [:selector [1 :isUbiquitousItemAtURL] [Boolean :id]]
@@ -2802,12 +2802,12 @@
 [:compound NSMapTableValueCallBacks "sizeof (NSMapTableValueCallBacks)"]
 ;;FIXME: NSZone * in NSCreateMapTableWithZone
 [:function NSCreateMapTable [:id Foundation/NSMapTableKeyCallBacks Foundation/NSMapTableValueCallBacks :unsigned-long]]
-;;FIXME: const char * in signatureWithObjCTypes:
+[:selector [1 :signatureWithObjCTypes] [:id :c-string-const]]
 [:selector [0 :numberOfArguments] [:unsigned-long]]
-;;FIXME: const char * in getArgumentTypeAtIndex:
+[:selector [1 :getArgumentTypeAtIndex] [:c-string-const :unsigned-long]]
 [:selector [0 :frameLength] [:unsigned-long]]
 [:selector [0 :isOneway] [Boolean]]
-;;FIXME: const char * in methodReturnType
+[:selector [0 :methodReturnType] [:c-string-const]]
 [:selector [0 :methodReturnLength] [:unsigned-long]]
 [:selector [0 :name] [:id]]
 [:selector [0 :object] [:id]]
@@ -3413,7 +3413,7 @@
 [:compound CSSM_TP_APPLE_EVIDENCE_INFO "sizeof (CSSM_TP_APPLE_EVIDENCE_INFO)"]
 [:compound CSSM_TP_APPLE_EVIDENCE_HEADER "sizeof (CSSM_TP_APPLE_EVIDENCE_HEADER)"]
 [:compound CSSM_APPLE_CL_CSR_REQUEST "sizeof (CSSM_APPLE_CL_CSR_REQUEST)"]
-;;FIXME: const char * in cssmPerror
+[:function cssmPerror [:void :c-string-const :int]]
 ;;FIXME: const CSSM_OID * in cssmOidToAlg
 ;;FIXME: const CSSM_OID * in cssmAlgToOid
 [:compound CSSM_MANAGER_EVENT_NOTIFICATION "sizeof (CSSM_MANAGER_EVENT_NOTIFICATION)"]
@@ -3575,11 +3575,11 @@
 [:function CSSM_CL_CrlAbortCache [:int :long :long]]
 ;;FIXME: uint32 * in CSSM_CL_CrlDescribeFormat
 ;;FIXME: const void * in CSSM_CL_PassThrough
-;;FIXME: const char * in CSSM_DL_DbOpen
+;;FIXME: const CSSM_NET_ADDRESS * in CSSM_DL_DbOpen
 [:function CSSM_DL_DbClose [:int Foundation/CSSM_DL_DB_HANDLE]]
-;;FIXME: const char * in CSSM_DL_DbCreate
-;;FIXME: const char * in CSSM_DL_DbDelete
-;;FIXME: const char * in CSSM_DL_CreateRelation
+;;FIXME: const CSSM_NET_ADDRESS * in CSSM_DL_DbCreate
+;;FIXME: const CSSM_NET_ADDRESS * in CSSM_DL_DbDelete
+;;FIXME: const CSSM_DB_SCHEMA_ATTRIBUTE_INFO * in CSSM_DL_CreateRelation
 [:function CSSM_DL_DestroyRelation [:int Foundation/CSSM_DL_DB_HANDLE :unsigned-int]]
 ;;FIXME: const CSSM_ACCESS_CREDENTIALS * in CSSM_DL_Authenticate
 ;;FIXME: const CSSM_STRING * in CSSM_DL_GetDbAcl
@@ -3725,8 +3725,8 @@
 [:compound SecKeychainCallbackInfo "sizeof (SecKeychainCallbackInfo)"]
 [:function SecKeychainGetTypeID [:unsigned-long]]
 ;;FIXME: UInt32 * in SecKeychainGetVersion
-;;FIXME: const char * in SecKeychainOpen
-;;FIXME: const char * in SecKeychainCreate
+;;FIXME: SecKeychainRef * in SecKeychainOpen
+;;FIXME: const void * in SecKeychainCreate
 ;;FIXME: SecKeychainRef in SecKeychainDelete
 ;;FIXME: SecKeychainRef in SecKeychainSetSettings
 ;;FIXME: SecKeychainRef in SecKeychainCopySettings
@@ -3817,7 +3817,7 @@
 ;;FIXME: SecCertificateRef in SecTrustGetCertificateAtIndex
 ;;FIXME: CFArrayRef in SecTrustCopyProperties
 [:function SecTrustedApplicationGetTypeID [:unsigned-long]]
-;;FIXME: const char * in SecTrustedApplicationCreateFromPath
+;;FIXME: SecTrustedApplicationRef * in SecTrustedApplicationCreateFromPath
 ;;FIXME: SecTrustedApplicationRef in SecTrustedApplicationCopyData
 ;;FIXME: SecTrustedApplicationRef in SecTrustedApplicationSetData
 ;;FIXME: SecCertificateRef in SecTrustSettingsCopyTrustSettings
@@ -3880,7 +3880,7 @@
 ;;FIXME: AuthorizationItemSet * in AuthorizationFreeItemSet
 ;;FIXME: AuthorizationRef in AuthorizationExecuteWithPrivileges
 ;;FIXME: AuthorizationRef * in AuthorizationCopyPrivilegedReference
-;;FIXME: const char * in AuthorizationRightGet
+;;FIXME: CFDictionaryRef * in AuthorizationRightGet
 ;;FIXME: AuthorizationRef in AuthorizationRightSet
 ;;FIXME: AuthorizationRef in AuthorizationRightRemove
 [:function CMSDecoderGetTypeID [:unsigned-long]]
@@ -4493,7 +4493,7 @@
 ;;FIXME: CFMutableDictionaryRef in IORegistryEntryIDMatching
 ;;FIXME: const io_name_t in IOServiceOFPathToBSDName
 ;;FIXME: mach_msg_header_t * in OSGetNotificationFromMessage
-;;FIXME: const char * in IOCatalogueSendData
+[:function IOCatalogueSendData [:int :unsigned-int :unsigned-int :c-string-const :unsigned-int]]
 ;;FIXME: io_name_t in IOCatalogueTerminate
 ;;FIXME: char ** in IOCatalogueGetData
 ;;FIXME: io_name_t in IOCatalogueModuleLoaded
@@ -4511,7 +4511,7 @@
 ;;FIXME: DADiskRef in DADiskCreateFromBSDName
 ;;FIXME: DADiskRef in DADiskCreateFromIOMedia
 ;;FIXME: DADiskRef in DADiskCreateFromVolumePath
-;;FIXME: const char * in DADiskGetBSDName
+;;FIXME: DADiskRef in DADiskGetBSDName
 ;;FIXME: DADiskRef in DADiskCopyIOMedia
 ;;FIXME: CFDictionaryRef in DADiskCopyDescription
 ;;FIXME: DADiskRef in DADiskCopyWholeDisk
@@ -4567,9 +4567,9 @@
 ;;FIXME: FSRefParam * in PBExchangeObjectsSync
 ;;FIXME: FSRefParam * in PBExchangeObjectsAsync
 ;;FIXME: const FSRef * in FSReplaceObject
-;;FIXME: const char * in FSPathReplaceObject
+;;FIXME: CFStringRef in FSPathReplaceObject
 ;;FIXME: const FSRef * in FSGetTemporaryDirectoryForReplaceObject
-;;FIXME: const char * in FSPathGetTemporaryDirectoryForReplaceObject
+;;FIXME: char * in FSPathGetTemporaryDirectoryForReplaceObject
 ;;FIXME: const FSRef * in FSRenameUnicode
 ;;FIXME: FSRefParam * in PBRenameUnicodeSync
 ;;FIXME: FSRefParam * in PBRenameUnicodeAsync
@@ -4696,9 +4696,9 @@
 ;;FIXME: const FSRef * in FSCopyObjectSync
 ;;FIXME: const FSRef * in FSMoveObjectSync
 ;;FIXME: const FSRef * in FSMoveObjectToTrashSync
-;;FIXME: const char * in FSPathCopyObjectSync
-;;FIXME: const char * in FSPathMoveObjectSync
-;;FIXME: const char * in FSPathMoveObjectToTrashSync
+;;FIXME: CFStringRef in FSPathCopyObjectSync
+;;FIXME: CFStringRef in FSPathMoveObjectSync
+;;FIXME: char ** in FSPathMoveObjectToTrashSync
 [:function FSFileOperationGetTypeID [:unsigned-long]]
 ;;FIXME: FSFileOperationRef in FSFileOperationCreate
 ;;FIXME: FSFileOperationRef in FSFileOperationScheduleWithRunLoop
@@ -4934,7 +4934,7 @@
 ;;FIXME: void * in MPRemoteCallCFM
 [:function _MPIsFullyInitialized [:unsigned-char]]
 ;;FIXME: const char ** in _MPLibraryVersion
-;;FIXME: const char * in _MPLibraryIsCompatible
+[:function _MPLibraryIsCompatible [:unsigned-char :c-string-const :unsigned-int :unsigned-int :unsigned-int :unsigned-int]]
 [:compound AliasRecord "sizeof (AliasRecord)"]
 [:compound FSAliasInfo "sizeof (FSAliasInfo)"]
 ;;FIXME: const FSRef * in FSNewAlias
@@ -4948,7 +4948,7 @@
 ;;FIXME: const FSRef * in FSUpdateAlias
 ;;FIXME: const FSRef * in FSNewAliasUnicode
 ;;FIXME: const FSRef * in FSNewAliasMinimalUnicode
-;;FIXME: const char * in FSNewAliasFromPath
+;;FIXME: AliasHandle * in FSNewAliasFromPath
 ;;FIXME: const FSRef * in FSMatchAliasBulk
 ;;FIXME: AliasHandle in FSCopyAliasInfo
 ;;FIXME: AliasHandle in GetAliasSize
@@ -4970,7 +4970,7 @@
 ;;FIXME: LocaleRef in LocaleOperationGetName
 ;;FIXME: ItemCount * in LocaleOperationCountNames
 ;;FIXME: UniCharCount * in LocaleOperationGetIndName
-;;FIXME: const char * in DebugAssert
+;;FIXME: void * in DebugAssert
 [:function TaskLevel [:unsigned-int]]
 ;;FIXME: ConstStr255Param in NewDebugComponent
 ;;FIXME: ConstStr255Param in NewDebugOption
@@ -4979,14 +4979,14 @@
 ;;FIXME: SInt32 * in GetDebugOptionInfo
 [:function SetDebugOptionValue [:int :unsigned-int :int :unsigned-char]]
 ;;FIXME: DebugAssertOutputHandlerUPP in InstallDebugAssertOutputHandler
-;;FIXME: const char * in GetMacOSStatusErrorString
-;;FIXME: const char * in GetMacOSStatusCommentString
+[:function GetMacOSStatusErrorString [:c-string-const :int]]
+[:function GetMacOSStatusCommentString [:c-string-const :int]]
 ;;FIXME: DebugComponentCallbackUPP in NewDebugComponentCallbackUPP
 ;;FIXME: DebugAssertOutputHandlerUPP in NewDebugAssertOutputHandlerUPP
 ;;FIXME: DebugComponentCallbackUPP in DisposeDebugComponentCallbackUPP
 ;;FIXME: DebugAssertOutputHandlerUPP in DisposeDebugAssertOutputHandlerUPP
 ;;FIXME: Boolean * in InvokeDebugComponentCallbackUPP
-;;FIXME: const char * in InvokeDebugAssertOutputHandlerUPP
+;;FIXME: void * in InvokeDebugAssertOutputHandlerUPP
 ;;FIXME: ConstStr255Param in PLstrcmp
 ;;FIXME: ConstStr255Param in PLstrncmp
 ;;FIXME: StringPtr in PLstrcpy
@@ -5516,7 +5516,7 @@
 ;;FIXME: const decform * in num2dec
 ;;FIXME: const decimal * in dec2num
 ;;FIXME: const decform * in dec2str
-;;FIXME: const char * in str2dec
+;;FIXME: short * in str2dec
 ;;FIXME: const decimal * in dec2f
 ;;FIXME: const decimal * in dec2s
 ;;FIXME: const decimal * in dec2l
@@ -5932,11 +5932,11 @@
 [:compound IntlText "sizeof (IntlText)"]
 [:compound TScriptingSizeResource "sizeof (TScriptingSizeResource)"]
 [:compound AEBuildError "sizeof (AEBuildError)"]
-;;FIXME: AEDesc * in AEBuildDesc
+;;FIXME: variadic AEBuildDesc
 ;;FIXME: AEDesc * in vAEBuildDesc
-;;FIXME: AppleEvent * in AEBuildParameters
+;;FIXME: variadic AEBuildParameters
 ;;FIXME: AppleEvent * in vAEBuildParameters
-;;FIXME: const void * in AEBuildAppleEvent
+;;FIXME: variadic AEBuildAppleEvent
 ;;FIXME: const void * in vAEBuildAppleEvent
 ;;FIXME: const AEDesc * in AEPrintDescToHandle
 ;;FIXME: AEStreamRef in AEStreamOpen
@@ -6069,9 +6069,9 @@
 ;;FIXME: KCRef in KCLock
 ;;FIXME: KCRef in kcgetkeychainname
 ;;FIXME: AFPServerSignature * in kcfindapplesharepassword
-;;FIXME: const char * in kcfindinternetpassword
-;;FIXME: const char * in kcfindinternetpasswordwithpath
-;;FIXME: const char * in kcfindgenericpassword
+;;FIXME: void * in kcfindinternetpassword
+;;FIXME: void * in kcfindinternetpasswordwithpath
+;;FIXME: void * in kcfindgenericpassword
 ;;FIXME: SystemSoundCompletionUPP in NewSystemSoundCompletionUPP
 ;;FIXME: SystemSoundCompletionUPP in DisposeSystemSoundCompletionUPP
 ;;FIXME: void * in InvokeSystemSoundCompletionUPP
@@ -6391,10 +6391,10 @@
 ;;FIXME: CFArrayRef in MDItemsCreateWithURLs
 ;;FIXME: CFTypeRef in MDItemCopyAttribute
 ;;FIXME: CFDictionaryRef in MDItemCopyAttributes
-;;FIXME: CFDictionaryRef in MDItemCopyAttributeList
+;;FIXME: variadic MDItemCopyAttributeList
 ;;FIXME: CFArrayRef in MDItemCopyAttributeNames
 ;;FIXME: CFArrayRef in MDItemsCopyAttributes
-;;FIXME: CFDictionaryRef in __MDItemCopyAttributesEllipsis1
+;;FIXME: variadic __MDItemCopyAttributesEllipsis1
 [:function MDQueryGetTypeID [:unsigned-long]]
 ;;FIXME: MDQueryRef in MDQueryCreate
 ;;FIXME: MDQueryRef in MDQueryCreateSubset
@@ -6592,7 +6592,7 @@
 [:selector [0 :evictsObjectsWithDiscardedContent] [Boolean]]
 [:selector [1 :setEvictsObjectsWithDiscardedContent] [:void Boolean]]
 [:selector [2 :predicateWithFormat :argumentArray] [:id :id :id]]
-[:selector [1 :predicateWithFormat] [:id :id]]
+;;FIXME: variadic predicateWithFormat:
 ;;FIXME: va_list in predicateWithFormat:arguments:
 [:selector [1 :predicateWithValue] [:id Boolean]]
 ;;FIXME: BOOL (^)(id, NSDictionary *) in predicateWithBlock:
@@ -6617,7 +6617,7 @@
 [:selector [1 :orPredicateWithSubpredicates] [:id :id]]
 [:selector [1 :notPredicateWithSubpredicate] [:id :id]]
 [:selector [2 :expressionWithFormat :argumentArray] [:id :id :id]]
-[:selector [1 :expressionWithFormat] [:id :id]]
+;;FIXME: variadic expressionWithFormat:
 ;;FIXME: va_list in expressionWithFormat:arguments:
 [:selector [1 :expressionForConstantValue] [:id :id]]
 [:selector [0 :expressionForEvaluatedObject] [:id]]
@@ -7904,8 +7904,8 @@
 ;;FIXME: void * in msync
 ;;FIXME: const void * in munlock
 ;;FIXME: void * in munmap
-;;FIXME: const char * in shm_open
-;;FIXME: const char * in shm_unlink
+;;FIXME: variadic shm_open
+[:function shm_unlink [:int :c-string-const]]
 ;;FIXME: void * in posix_madvise
 ;;FIXME: void * in madvise
 ;;FIXME: const void * in mincore
@@ -7925,7 +7925,7 @@
 [:compound au_evclass_map_t "sizeof (au_evclass_map_t)"]
 ;;FIXME: const void * in audit
 ;;FIXME: void * in auditon
-;;FIXME: const char * in auditctl
+[:function auditctl [:int :c-string-const]]
 ;;FIXME: au_id_t * in getauid
 ;;FIXME: const au_id_t * in setauid
 ;;FIXME: struct auditinfo_addr * in getaudit_addr
@@ -7937,8 +7937,8 @@
 ;;FIXME: mach_port_name_t * in audit_session_port
 [:function _xpc_object_validate [:void :id]]
 [:function xpc_endpoint_create [:id :id]]
-;;FIXME: const char * in xpc_connection_create
-;;FIXME: const char * in xpc_connection_create_mach_service
+[:function xpc_connection_create [:id :c-string-const :id]]
+[:function xpc_connection_create_mach_service [:id :c-string-const :id :unsigned-long-long]]
 [:function xpc_connection_create_from_endpoint [:id :id]]
 [:function xpc_connection_set_target_queue [:void :id :id]]
 ;;FIXME: xpc_handler_t in xpc_connection_set_event_handler
@@ -7949,7 +7949,7 @@
 ;;FIXME: xpc_handler_t in xpc_connection_send_message_with_reply
 [:function xpc_connection_send_message_with_reply_sync [:id :id :id]]
 [:function xpc_connection_cancel [:void :id]]
-;;FIXME: const char * in xpc_connection_get_name
+[:function xpc_connection_get_name [:c-string-const :id]]
 [:function xpc_connection_get_euid [:unsigned-int :id]]
 [:function xpc_connection_get_egid [:unsigned-int :id]]
 [:function xpc_connection_get_pid [:int :id]]
@@ -7957,7 +7957,7 @@
 ;;FIXME: void * in xpc_connection_set_context
 ;;FIXME: void * in xpc_connection_get_context
 ;;FIXME: xpc_finalizer_t in xpc_connection_set_finalizer_f
-;;FIXME: const char * in xpc_debugger_api_misuse_info
+[:function xpc_debugger_api_misuse_info [:c-string-const]]
 [:function xpc_retain [:id :id]]
 [:function xpc_release [:void :id]]
 ;;FIXME: xpc_type_t in xpc_get_type
@@ -7982,11 +7982,11 @@
 [:function xpc_data_get_length [:unsigned-long :id]]
 ;;FIXME: const void * in xpc_data_get_bytes_ptr
 ;;FIXME: void * in xpc_data_get_bytes
-;;FIXME: const char * in xpc_string_create
-;;FIXME: const char * in xpc_string_create_with_format
-;;FIXME: const char * in xpc_string_create_with_format_and_arguments
+[:function xpc_string_create [:id :c-string-const]]
+;;FIXME: variadic xpc_string_create_with_format
+;;FIXME: va_list in xpc_string_create_with_format_and_arguments
 [:function xpc_string_get_length [:unsigned-long :id]]
-;;FIXME: const char * in xpc_string_get_string_ptr
+[:function xpc_string_get_string_ptr [:c-string-const :id]]
 ;;FIXME: const uuid_t in xpc_uuid_create
 ;;FIXME: const uint8_t * in xpc_uuid_get_bytes
 [:function xpc_fd_create [:id :int]]
@@ -8005,7 +8005,7 @@
 [:function xpc_array_set_double [:void :id :unsigned-long :double]]
 [:function xpc_array_set_date [:void :id :unsigned-long :long-long]]
 ;;FIXME: const void * in xpc_array_set_data
-;;FIXME: const char * in xpc_array_set_string
+[:function xpc_array_set_string [:void :id :unsigned-long :c-string-const]]
 ;;FIXME: const uuid_t in xpc_array_set_uuid
 [:function xpc_array_set_fd [:void :id :unsigned-long :int]]
 [:function xpc_array_set_connection [:void :id :unsigned-long :id]]
@@ -8015,41 +8015,41 @@
 [:function xpc_array_get_double [:double :id :unsigned-long]]
 [:function xpc_array_get_date [:long-long :id :unsigned-long]]
 ;;FIXME: const void * in xpc_array_get_data
-;;FIXME: const char * in xpc_array_get_string
+[:function xpc_array_get_string [:c-string-const :id :unsigned-long]]
 ;;FIXME: const uint8_t * in xpc_array_get_uuid
 [:function xpc_array_dup_fd [:int :id :unsigned-long]]
 [:function xpc_array_create_connection [:id :id :unsigned-long]]
 ;;FIXME: const char *const * in xpc_dictionary_create
 [:function xpc_dictionary_create_reply [:id :id]]
-;;FIXME: const char * in xpc_dictionary_set_value
-;;FIXME: const char * in xpc_dictionary_get_value
+[:function xpc_dictionary_set_value [:void :id :c-string-const :id]]
+[:function xpc_dictionary_get_value [:id :id :c-string-const]]
 [:function xpc_dictionary_get_count [:unsigned-long :id]]
 ;;FIXME: xpc_dictionary_applier_t in xpc_dictionary_apply
 [:function xpc_dictionary_get_remote_connection [:id :id]]
-;;FIXME: const char * in xpc_dictionary_set_bool
-;;FIXME: const char * in xpc_dictionary_set_int64
-;;FIXME: const char * in xpc_dictionary_set_uint64
-;;FIXME: const char * in xpc_dictionary_set_double
-;;FIXME: const char * in xpc_dictionary_set_date
-;;FIXME: const char * in xpc_dictionary_set_data
-;;FIXME: const char * in xpc_dictionary_set_string
-;;FIXME: const char * in xpc_dictionary_set_uuid
-;;FIXME: const char * in xpc_dictionary_set_fd
-;;FIXME: const char * in xpc_dictionary_set_connection
-;;FIXME: const char * in xpc_dictionary_get_bool
-;;FIXME: const char * in xpc_dictionary_get_int64
-;;FIXME: const char * in xpc_dictionary_get_uint64
-;;FIXME: const char * in xpc_dictionary_get_double
-;;FIXME: const char * in xpc_dictionary_get_date
+[:function xpc_dictionary_set_bool [:void :id :c-string-const Boolean]]
+[:function xpc_dictionary_set_int64 [:void :id :c-string-const :long-long]]
+[:function xpc_dictionary_set_uint64 [:void :id :c-string-const :unsigned-long-long]]
+[:function xpc_dictionary_set_double [:void :id :c-string-const :double]]
+[:function xpc_dictionary_set_date [:void :id :c-string-const :long-long]]
+;;FIXME: const void * in xpc_dictionary_set_data
+[:function xpc_dictionary_set_string [:void :id :c-string-const :c-string-const]]
+;;FIXME: const uuid_t in xpc_dictionary_set_uuid
+[:function xpc_dictionary_set_fd [:void :id :c-string-const :int]]
+[:function xpc_dictionary_set_connection [:void :id :c-string-const :id]]
+[:function xpc_dictionary_get_bool [Boolean :id :c-string-const]]
+[:function xpc_dictionary_get_int64 [:long-long :id :c-string-const]]
+[:function xpc_dictionary_get_uint64 [:unsigned-long-long :id :c-string-const]]
+[:function xpc_dictionary_get_double [:double :id :c-string-const]]
+[:function xpc_dictionary_get_date [:long-long :id :c-string-const]]
 ;;FIXME: const void * in xpc_dictionary_get_data
-;;FIXME: const char * in xpc_dictionary_get_string
+[:function xpc_dictionary_get_string [:c-string-const :id :c-string-const]]
 ;;FIXME: const uint8_t * in xpc_dictionary_get_uuid
-;;FIXME: const char * in xpc_dictionary_dup_fd
-;;FIXME: const char * in xpc_dictionary_create_connection
+[:function xpc_dictionary_dup_fd [:int :id :c-string-const]]
+[:function xpc_dictionary_create_connection [:id :id :c-string-const]]
 ;;FIXME: xpc_connection_handler_t in xpc_main
 [:function xpc_transaction_begin [:void]]
 [:function xpc_transaction_end [:void]]
-;;FIXME: const char * in xpc_set_event_stream_handler
+;;FIXME: xpc_handler_t in xpc_set_event_stream_handler
 [:function IOSurfaceGetTypeID [:unsigned-long]]
 ;;FIXME: IOSurfaceRef in IOSurfaceCreate
 ;;FIXME: IOSurfaceRef in IOSurfaceLookup
@@ -8114,8 +8114,8 @@
 ;;FIXME: CFMachPortRef in CGWindowServerCreateServerPort
 [:function CGEnableEventStateCombining [:int :unsigned-int]]
 [:function CGInhibitLocalEvents [:int :unsigned-int]]
-[:function CGPostMouseEvent [:int Foundation/CGPoint :unsigned-int :unsigned-int :unsigned-int]]
-[:function CGPostScrollWheelEvent [:int :unsigned-int :int]]
+;;FIXME: variadic CGPostMouseEvent
+;;FIXME: variadic CGPostScrollWheelEvent
 [:function CGPostKeyboardEvent [:int :unsigned-short :unsigned-short :unsigned-int]]
 [:function CGSetLocalEventsFilterDuringSuppressionState [:int :unsigned-int :unsigned-int]]
 [:function CGSetLocalEventsSuppressionInterval [:int :double]]
@@ -8201,7 +8201,7 @@
 ;;FIXME: CGEventRef in CGEventCreateFromData
 ;;FIXME: CGEventRef in CGEventCreateMouseEvent
 ;;FIXME: CGEventRef in CGEventCreateKeyboardEvent
-;;FIXME: CGEventRef in CGEventCreateScrollWheelEvent
+;;FIXME: variadic CGEventCreateScrollWheelEvent
 ;;FIXME: CGEventRef in CGEventCreateCopy
 ;;FIXME: CGEventSourceRef in CGEventCreateSourceFromEvent
 ;;FIXME: CGEventRef in CGEventSetSource

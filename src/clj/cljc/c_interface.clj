@@ -40,6 +40,7 @@
    :unsigned-long "((unsigned long) number_get_as_integer (~{}))"
    :long-long "number_get_as_integer (~{})"
    :unsigned-long-long "((unsigned long long) number_get_as_integer (~{}))"
+   :c-string-const "string_get_utf8 (~{})"
    'Boolean "truth (~{})"})
 (defn to-c-converter [type]
   (let [converter (to-c-converters type)]
@@ -66,6 +67,7 @@
    :unsigned-long "make_integer ((long long) %s)"
    :long-long "make_integer ((long long) %s)"
    :unsigned-long-long "make_integer ((long long) %s)"
+   :c-string-const "make_string_copy (%s)"
    'Boolean "make_boolean (%s)"})
 (defn from-c-converter [type]
   (if (map? type)

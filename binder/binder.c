@@ -92,6 +92,12 @@ cljc_name_for_type (CXCursor cursor, CXType type)
 				return NULL; /* FIXME: this means we're doing something wrong */
 			return cljc_name_for_type (referenced, enum_type);
 		}
+		case CXType_Pointer: {
+			CXType pointee_type = clang_getPointeeType (type);
+			if (pointee_type.kind == CXType_Char_S && clang_isConstQualifiedType (pointee_type))
+				return ":c-string-const";
+			return NULL;
+		}
 		case CXType_Char16:
 		case CXType_Char32:
 		case CXType_UInt128:
@@ -101,7 +107,6 @@ cljc_name_for_type (CXCursor cursor, CXType type)
 		case CXType_Overload:
 		case CXType_Dependent:
 		case CXType_Complex:
-		case CXType_Pointer:
 		case CXType_BlockPointer:
 		case CXType_LValueReference:
 		case CXType_RValueReference:
