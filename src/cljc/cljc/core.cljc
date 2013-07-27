@@ -54,6 +54,11 @@
   (-get-message [this]
     info))
 
+(deftype IllegalArgumentException [info]
+  IThrowable
+  (-get-message [this]
+    info))
+
 (defn- error [cause]
   (throw (Exception. cause)))
 
@@ -6203,6 +6208,116 @@ reduces them without incurring seq initialization"
      (c* "string_index_of (~{}, ~{}, ~{})" haystack needle offset))
   ([haystack needle]
      (index-of haystack needle 0)))
+
+(defn- parse-integer
+  ;; FIXME: quick hack -- does not handle error conditions yet.
+  ;; Should probably throw NumberFormatException when appropriate,
+  ;; decide general semantics (parseInteger vs strtoll() style, etc.).
+  ([s base]
+     (c* "make_integer (g_ascii_strtoll (string_get_utf8 (~{}), NULL, integer_get (~{})))"
+         s base))
+  ([s] (parse-integer s 10)))
+
+(defn- replacement->handler [r]
+  ;; Returns a function to handle "foo$1$3bar$2" replacements in s, if any.
+  (if (vector? r)
+    (let [s (r 0)]
+      (fn [match] s))
+    (let [fragments (re-partition (re-pattern "\\$\\d+") r)]
+      (if-not (seq fragments)
+        (fn [match] r)
+        (let [replacement-parts (map-indexed ;; Produces ("foo" 1 "bar" 3 ...).
+                                 (fn [i x] (if (even? i) x (parse-integer (subs x 1))))
+                                 fragments)]
+          (fn [match]
+            (let [match-item (vec match)]
+              (loop [parts replacement-parts
+                     result (sb-make "")]
+                (if-not (seq parts)
+                  (-to-string result)
+                  (let [[part & remainder] parts]
+                    (recur remainder
+                           (-append! result
+                                     (if (integer? part)
+                                       (match-item part)
+                                       part)))))))))))))
+
+(defn replace
+  "Replaces all instance of match with replacement in s.
+
+   match/replacement can be:
+
+   string / string
+   char / char
+   pattern / (string or function of match).
+
+   See also replace-first.
+
+   The replacement is literal (i.e. none of its characters are treated
+   specially) for all cases above except pattern / string.
+
+   For pattern / string, $1, $2, etc. in the replacement string are
+   substituted with the string that matched the corresponding
+   parenthesized group in the pattern.  If you wish your replacement
+   string r to be used literally, use (re-quote-replacement r) as the
+   replacement argument.
+
+   Example:
+   (clojure.string/replace \"Almost Pig Latin\" #\"\\b(\\w)(\\w+)\\b\" \"$2$1ay\")
+   -> \"lmostAay igPay atinLay\""
+  [s match replacement]
+  (cond
+   (has-type? match Character)
+   (apply str (map #(if (= % match) replacement %) s))
+
+   (has-type? match String)
+   (let [match-len (count match)
+         s-len (count s)]
+     (loop [offset 0
+            prev-match-end 0
+            result (sb-make "")]
+       (if-let [match-pos (index-of s match offset)]
+         (let [result (-> result
+                          (-append! (subs s prev-match-end match-pos))
+                          (-append! replacement))]
+           (if (= offset s-len) ;; Empty match string at end of s.
+             (-to-string result)
+             (recur (+ match-pos (max 1 match-len))
+                    (+ match-pos match-len)
+                    result)))
+         (-to-string (-append! result (subs s prev-match-end))))))
+
+   (instance? Pattern match)
+   (if (or (has-type? replacement String) (vector? replacement))
+     (let [replacement-handler (replacement->handler replacement)]
+       ;; Q: Do we want to validate that for $N, N <= number-of-captures?
+       (replace s match replacement-handler))
+     (let [s-len (count s)]
+       (loop [offset 0
+              prev-match-end 0
+              result (sb-make "")]
+         (if (> offset s-len)
+           (-to-string (-append! result (subs s prev-match-end)))
+           (if-let [match-offsets (re-first-match-range match s offset)]
+             (let [[match-start match-end] match-offsets
+                   replacement-str (replacement (pcre-offsets->matches s match-offsets))]
+               (recur (if (= match-start match-end)
+                        (inc match-end)
+                        match-end)
+                      match-end
+                      (-> result
+                          (-append! (subs s prev-match-end match-start))
+                          (-append! replacement-str))))
+             (-to-string (-append! result (subs s offset))))))))
+
+   :else (throw (IllegalArgumentException. (str "Invalid match arg: " match)))))
+
+(defn re-quote-replacement
+  "Given a replacement string that you wish to be a literal
+   replacement for a pattern match in replace or replace-first, do the
+   necessary escaping of special characters in the replacement."
+  [replacement]
+  [replacement])
 
 (ns cljc.core)
 

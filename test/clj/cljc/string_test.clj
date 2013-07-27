@@ -146,4 +146,32 @@
     (is (= (core-run '(pr (cljc.string/index-of "xyz" "z" 3))) [nil]))
     (is (= (core-run '(pr (cljc.string/index-of "xyz" "z" 100))) [nil]))))
 
+(deftest replace
+  (testing "replace"
+    (is (= (core-run '(pr (cljc.string/replace "" \x \y))) [""]))
+    (is (= (core-run '(pr (cljc.string/replace "xyx" \x \y))) ["yyy"]))
+    (is (= (core-run '(pr (cljc.string/replace "xyx" \y \x))) ["xxx"]))
+
+    (is (= (core-run '(pr (cljc.string/replace "" "" ""))) [""]))
+    (is (= (core-run '(pr (cljc.string/replace "x" "x" ""))) [""]))
+    (is (= (core-run '(pr (cljc.string/replace "xyz" "" "-"))) ["-x-y-z-"]))
+    (is (= (core-run '(pr (cljc.string/replace "xyxyxy" "x" "z"))) ["zyzyzy"]))
+    (is (= (core-run '(pr (cljc.string/replace "xyx" "x" "zz"))) ["zzyzz"]))
+    (is (= (core-run '(pr (cljc.string/replace "xyx" "y" "zz"))) ["xzzx"]))
+    (is (= (core-run '(pr (cljc.string/replace "x" "" ""))) ["x"]))
+    (is (= (core-run '(pr (cljc.string/replace "x" "y" ""))) ["x"]))
+
+    (is (= (core-run '(pr (cljc.string/replace "" (re-pattern "y") ""))) [""]))
+    (is (= (core-run '(pr (cljc.string/replace "x" (re-pattern "y") ""))) ["x"]))
+    (is (= (core-run '(pr (cljc.string/replace "x" (re-pattern "x") "y"))) ["y"]))
+    (is (= (core-run '(pr (cljc.string/replace "x" (re-pattern "x") ""))) [""]))
+    (is (= (core-run '(pr (cljc.string/replace "xyz" (re-pattern ".") ""))) [""]))
+
+    (is (= (core-run '(pr (cljc.string/replace
+                           "wxyz" (re-pattern "(.)(.)") "$2$1"))) ["xwzy"]))
+    (is (= (core-run '(pr (cljc.string/replace
+                           "wxyz" (re-pattern "(.)(.)")
+                           (cljc.string/re-quote-replacement "$2$1"))
+                          ["$2$1"]))))))
+
 (use-fixtures :once (fn [f] (clean-default-run-dir true) (f)))
