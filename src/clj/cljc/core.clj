@@ -816,7 +816,7 @@
       (list 'c* (core/str "make_objc_object ([" (core/str x) " class])"))
       (throw (clojure.core/IllegalArgumentException. "Sole argument to § must be a symbol denoting an Objective-C class.")))
     (let [[selector args] (c/deconstruct-msg-form ys)]
-      (c/make-msg-send selector x args))))
+      (c/make-msg-send &env selector x args))))
 
 (def ^:private objc-self-name-var '_cljc-objc-self_)
 (def ^:private objc-class-name-var '_cljc-objc-self-class_)

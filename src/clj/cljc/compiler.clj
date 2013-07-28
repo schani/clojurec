@@ -73,6 +73,18 @@
             :c-compound true
             :size size})))
 
+(defn register-c-enum! [full-name]
+  (let [sole-name (symbol (name full-name))]
+    (swap! namespaces update-in [(symbol (namespace full-name)) :defs sole-name] merge
+           {:c-name sole-name
+            :c-enum true})))
+
+(defn register-c-enum-member! [full-name]
+  (let [sole-name (symbol (name full-name))]
+    (swap! namespaces update-in [(symbol (namespace full-name)) :defs sole-name] merge
+           {:c-name sole-name
+            :c-enum-member true})))
+
 (defn register-c-function! [full-name return-type arg-types]
   (let [sole-name (symbol (name full-name))]
     (swap! namespaces update-in [(symbol (namespace full-name)) :defs sole-name] merge
@@ -456,7 +468,8 @@
   (let [name (:name info)
 	field (:field info)
 	local (:local info)
-        objc-field (:objc-field info)]
+        objc-field (:objc-field info)
+        c-enum-member (:c-enum-member info)]
     (cond
      local (let [[num-ups index] (env-stack-lookup name)]
 	     (assert (and num-ups index))
@@ -467,6 +480,7 @@
      objc-field (let [class (:objc-class info)]
                   (assert *gthis-ups*)
                   (str "(((" class "*)objc_object_get (env_fetch (env, " *gthis-ups* ", 1)))->" name ")"))
+     c-enum-member (str "make_integer ((long long)" (:c-name info) ")")
      :else (str "VAR_NAME (" name ")"))))
 
 (defmethod emit :meta
@@ -844,17 +858,16 @@
                      (emit-arglist arg-names 2)
                      (emits ")"))))
 
-(defn- resolve-c-type [env type]
-  (c/resolve-c-type type
-                    (fn [sym]
-                      (let [var (resolve-existing-var env sym)]
-                        (when (:c-compound var)
-                          var)))))
+(c/set-symbol-lookup-fn!
+ (fn [env sym]
+   (let [var (resolve-existing-var env sym)]
+     (when (some var #{:c-compound :c-enum})
+       var))))
 
 (defmethod emit :c-invoke
   [{:keys [c-f args env] :as expr}]
-  (let [return-type (resolve-c-type env (:return-type c-f))
-        arg-types (map #(resolve-c-type env %) (:arg-types c-f))
+  (let [return-type (c/resolve-c-type env (:return-type c-f))
+        arg-types (map #(c/resolve-c-type env %) (:arg-types c-f))
         arg-names (doall (map emit args))
         [return-prefix return-suffix return-final] (c/from-c-converter return-type)]
     (letfn [(emit-call []

@@ -740,6 +740,14 @@ compound_get_data_ptr (value_t *v)
 	return c->data;
 }
 
+void*
+compound_get_data_ptr_guarded (value_t *v, const char *name)
+{
+	if (strcmp (name, compound_get_name (v)) != 0)
+		assert (false);
+	return compound_get_data_ptr (v);
+}
+
 value_t*
 make_boolean (bool x)
 {
