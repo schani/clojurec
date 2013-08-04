@@ -8,7 +8,11 @@
 (defn objc-reset-selectors! []
   (swap! objc-selectors (constantly {})))
 
-(defn resolve-c-type [type symbol-lookup]
+(def ^:private symbol-lookup-fn (atom nil))
+(defn set-symbol-lookup-fn! [f]
+  (swap! symbol-lookup-fn (constantly f)))
+
+(defn resolve-c-type [env type]
   (cond (or (keyword? type) (#{'Boolean} type))
         type
 
@@ -16,7 +20,7 @@
         type
 
         (symbol? type)
-        (symbol-lookup type)
+        (@symbol-lookup-fn env type)
 
         :else
         (throw (Error. (str "Unknown type " type)))))
@@ -26,6 +30,7 @@
    :selector "objc_selector_get (~{})"
    :float "((float) number_get (~{}))"
    :double "number_get (~{})"
+   :long-double "((long double)number_get (~{}))"
    ;; FIXME: potential data loss - char is not a wide character
    :char "(char) character_get (~{})"
    ;; FIXME: more potential data loss when casting down to smaller integers
@@ -39,19 +44,30 @@
    :unsigned-long "((unsigned long) number_get_as_integer (~{}))"
    :long-long "number_get_as_integer (~{})"
    :unsigned-long-long "((unsigned long long) number_get_as_integer (~{}))"
+   :c-string-const "string_get_utf8 (~{})"
    'Boolean "truth (~{})"})
 (defn to-c-converter [type]
-  (let [converter (to-c-converters type)]
-    (when-not converter
-      (throw (Error. (str "Unknown C type " type))))
-    converter))
+  (if (map? type)
+    (cond (:c-compound type)
+          (str "(*(" (:c-name type) "*)compound_get_data_ptr_guarded (~{}, \"" (:c-name type) "\"))")
+
+          (:c-enum type)
+          (str "((" (:c-name type) ")integer_get (~{}))")
+
+          :else
+          (throw (Error. (str "Unknown C type " type))))
+    (let [converter (to-c-converters type)]
+      (when-not converter
+        (throw (Error. (str "Unknown C type " type))))
+      converter)))
 
 (def ^:private from-c-converters
-  {:void "%s"
+  {:void ["" ";\n" "value_nil"]
    :id "make_objc_object (%s)"
    :selector "make_objc_selector (%s)"
    :float "make_float (%s)"
    :double "make_float (%s)"
+   :long-double "make_float (%s)"
    :char "make_character ((cljc_unichar_t) %s)"
    :signed-char "make_integer ((long long) %s)"
    :unsigned-char "make_integer ((long long) %s)"
@@ -64,19 +80,27 @@
    :unsigned-long "make_integer ((long long) %s)"
    :long-long "make_integer ((long long) %s)"
    :unsigned-long-long "make_integer ((long long) %s)"
+   :c-string-const "make_string_copy (%s)"
    'Boolean "make_boolean (%s)"})
 (defn from-c-converter [type]
   (if (map? type)
-    (do
-      (assert (:c-compound type))
-      (let [c-name (:c-name type)
-            var-name (gensym c-name)]
-        [(str c-name " " var-name " = ") ";\n"
-         (str "make_compound (\"" c-name "\", " (:size type) ", &" var-name ")")]))
+    (cond (:c-compound type)
+          (let [c-name (:c-name type)
+                var-name (gensym c-name)]
+            [(str c-name " " var-name " = ") ";\n"
+             (str "make_compound (\"" c-name "\", " (:size type) ", &" var-name ")")])
+
+          (:c-enum type)
+          ["make_integer ((long long)" ")"]
+
+          :else
+          (throw (Error. (str "Unknown C type " type))))
     (let [converter (from-c-converters type)]
       (when-not converter
         (throw (Error. (str "Unknown C type " type))))
-      (string/split converter #"%s"))))
+      (if (string? converter)
+        (string/split converter #"%s")
+        converter))))
 
 (defn types-for-selector [selector]
   (let [typess (@objc-selectors selector)]
@@ -89,31 +113,34 @@
       (name (first selector-kws))
       (apply str (map #(str (name %) ":") selector-kws)))))
 
-(defn make-msg-send [selector target args]
+(defn make-msg-send [env selector target args]
   (let [types (types-for-selector selector)
         selector-kws (rest selector)
         num-args (first selector)]
     (if types
-      (let [result-type (first types)
+      (let [types (map #(resolve-c-type env %) types)
+            result-type (first types)
             arg-types (rest types)
             [result-prefix result-suffix result-final] (from-c-converter result-type)]
         (assert (= num-args (count arg-types) (count args)))
-        (assert (nil? result-final))
-        (if (zero? num-args)
-          (list 'c* (str result-prefix
-                         "[objc_object_get (~{}) "
-                         (name (first selector-kws))
-                         "]"
-                         result-suffix)
-                target)
-          (apply list 'c* (str result-prefix
-                               "[objc_object_get (~{}) "
-                               (apply str (map (fn [sel-kw type]
-                                                 (str (name sel-kw) ": " (to-c-converter type)))
-                                               selector-kws arg-types))
-                               "]"
-                               result-suffix)
-                 target args)))
+        (let [send (if (zero? num-args)
+                     (list 'c* (str result-prefix
+                                    "[objc_object_get (~{}) "
+                                    (name (first selector-kws))
+                                    "]"
+                                    result-suffix)
+                           target)
+                     (apply list 'c* (str result-prefix
+                                          "[objc_object_get (~{}) "
+                                          (apply str (map (fn [sel-kw type]
+                                                            (str (name sel-kw) ": " (to-c-converter type)))
+                                                          selector-kws arg-types))
+                                          "]"
+                                          result-suffix)
+                            target args))]
+          (if result-final
+            (list 'do send (list 'c* result-final))
+            send)))
       (let [selector-str (selector-string selector)]
         (if (zero? num-args)
           (list 'cljc.objc/objc-msg-send target (list 'c* (str "make_objc_selector (@selector (" selector-str "))")))

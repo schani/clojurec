@@ -49,6 +49,6 @@
 (use-fixtures :once
               (fn [f]
                 (clean-default-run-dir true)
-                (load-framework "Foundation" default-frameworks-dir)
+                (load-framework "UIKit" default-frameworks-dir)
                 (f)
                 (c/objc-reset-selectors!)))

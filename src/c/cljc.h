@@ -294,6 +294,7 @@ extern void* raw_pointer_get (value_t *v);
 extern value_t* make_compound (const char *name, size_t size, void *data_ptr);
 extern const char* compound_get_name (value_t *v);
 extern void* compound_get_data_ptr (value_t *v);
+extern void* compound_get_data_ptr_guarded (value_t *v, const char *name);
 extern value_t* make_boolean (bool x);
 #ifndef HAVE_OBJC
 extern value_t *string_index_of (value_t *haystack, value_t *needle, value_t* offset);

@@ -35,19 +35,19 @@
                  window (§ (§ (§ UIWindow) :alloc) :initWithFrame frame)
                  view-controller (§ (§ (§ UIViewController) :alloc) :init)
                  view (§ view-controller :view)
-                 button (§ (§ UIButton) :buttonWithType (c-int UIButtonTypeRoundedRect))]
+                 button (§ (§ UIButton) :buttonWithType UIKit/UIButtonTypeRoundedRect)]
 
              (set! nextCount 1)
 
-             (set! label (§ (§ (§ UILabel) :alloc) :initWithFrame (Foundation/CGRectMake 10 10 300 300)))
+             (set! label (§ (§ (§ UILabel) :alloc) :initWithFrame (UIKit/CGRectMake 10 10 300 300)))
 
              (§ label :setClipsToBounds true)
              (§ label :setText "Hello, ClojureC!")
-             (§ label :setTextAlignment (c-int NSTextAlignmentCenter))
+             (§ label :setTextAlignment UIKit/NSTextAlignmentCenter)
 
-             (§ button :setFrame (Foundation/CGRectMake 10 320 300 100))
-             (§ button :setTitle "Count!" :forState (c-int UIControlStateNormal))
-             (add-action button (c-int UIControlEventTouchUpInside)
+             (§ button :setFrame (UIKit/CGRectMake 10 320 300 100))
+             (§ button :setTitle "Count!" :forState UIKit/UIControlStateNormal)
+             (add-action button UIKit/UIControlEventTouchUpInside
                          (fn []
                            (let [text (str nextCount)]
                              (set! nextCount (inc nextCount))

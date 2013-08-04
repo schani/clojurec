@@ -220,6 +220,14 @@
         (let [[name size] data]
           (cljc/register-c-compound! (symbol framework (str name)) size))
 
+        :enum
+        (let [name (last data)
+              members (take (dec (count data)) data)]
+          (when name
+            (cljc/register-c-enum! (symbol framework (str name))))
+          (doseq [member members]
+            (cljc/register-c-enum-member! (symbol framework (str member)))))
+
         :function
         (let [[name [return-type & arg-types]] data]
           (cljc/register-c-function! (symbol framework (str name)) return-type arg-types))

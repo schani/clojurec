@@ -1,5 +1,8 @@
+#include <string.h>
 #include <clang-c/Index.h>
 #include <glib.h>
+
+static const char *framework_name;
 
 static GHashTable *type_name_hash_table;
 
@@ -14,7 +17,13 @@ register_type_name (const char *name, const char *cljc_name)
 static void
 register_compound (const char *name)
 {
-	register_type_name (g_strdup (name), g_strdup_printf ("Foundation/%s", name));
+	register_type_name (g_strdup (name), g_strdup_printf ("%s/%s", framework_name, name));
+}
+
+static void
+register_enum (const char *name)
+{
+	register_type_name (g_strdup (name), g_strdup_printf ("%s/%s", framework_name, name));
 }
 
 static const char*
@@ -63,6 +72,8 @@ cljc_name_for_type (CXCursor cursor, CXType type)
 			return ":float";
 		case CXType_Double:
 			return ":double";
+		case CXType_LongDouble:
+			return ":long-double";
 		case CXType_ObjCId:
 			return ":id";
 		case CXType_ObjCClass:
@@ -90,17 +101,21 @@ cljc_name_for_type (CXCursor cursor, CXType type)
 				return NULL; /* FIXME: this means we're doing something wrong */
 			return cljc_name_for_type (referenced, enum_type);
 		}
+		case CXType_Pointer: {
+			CXType pointee_type = clang_getPointeeType (type);
+			if (pointee_type.kind == CXType_Char_S && clang_isConstQualifiedType (pointee_type))
+				return ":c-string-const";
+			return NULL;
+		}
 		case CXType_Char16:
 		case CXType_Char32:
 		case CXType_UInt128:
 		case CXType_WChar:
 		case CXType_Int128:
-		case CXType_LongDouble:
 		case CXType_NullPtr:
 		case CXType_Overload:
 		case CXType_Dependent:
 		case CXType_Complex:
-		case CXType_Pointer:
 		case CXType_BlockPointer:
 		case CXType_LValueReference:
 		case CXType_RValueReference:
@@ -127,10 +142,73 @@ get_first_child_visitor_func (CXCursor cursor, CXCursor parent, CXClientData cli
 	return CXChildVisit_Break;
 }
 
+static void
+print_type_fixme (CXCursor call_cursor, CXCursor cursor, CXType type)
+{
+	CXString spelling_cxstring = clang_getTypeSpelling (type);
+	const char *spelling = clang_getCString (spelling_cxstring);
+	CXString call_spelling_cxstring = clang_getCursorSpelling (call_cursor);
+	const char *call_spelling = clang_getCString (call_spelling_cxstring);
+	printf (";;FIXME: %s in %s\n", spelling, call_spelling);
+	clang_disposeString (spelling_cxstring);
+	clang_disposeString (call_spelling_cxstring);
+}
+
+typedef enum {
+	STATE_BASE,
+	STATE_ENUM
+} VisitorState;
+
+static VisitorState visitor_state = STATE_BASE;
+static gboolean have_enum_members = FALSE;
+static char *enum_name;
+
 static enum CXChildVisitResult
 visitor_func (CXCursor cursor, CXCursor parent, CXClientData client_data)
 {
 	enum CXCursorKind kind = clang_getCursorKind (cursor);
+
+	switch (visitor_state) {
+		case STATE_BASE:
+			break;
+		case STATE_ENUM: {
+			gboolean is_typedef = FALSE;
+
+			if (kind == CXCursor_EnumConstantDecl || kind == CXCursor_UnexposedAttr)
+				break;
+			if (kind == CXCursor_TypedefDecl) {
+				CXType type = clang_getTypedefDeclUnderlyingType (cursor);
+				if (type.kind == CXType_Unexposed) {
+					CXString type_spelling_cxstring = clang_getTypeSpelling (type);
+					const char *type_spelling = clang_getCString (type_spelling_cxstring);
+					if (g_str_has_prefix (type_spelling, "enum ")) {
+						CXString spelling_cxstring = clang_getCursorSpelling (cursor);
+						const char *spelling = clang_getCString (spelling_cxstring);
+						if (enum_name)
+							g_free (enum_name);
+						enum_name = g_strdup (spelling);
+						clang_disposeString (spelling_cxstring);
+
+						is_typedef = TRUE;
+					}
+					clang_disposeString (type_spelling_cxstring);
+				}
+			}
+			if (have_enum_members)
+				printf (" %s]\n", enum_name ? enum_name : "nil");
+			if (enum_name)
+				register_enum (enum_name);
+			g_free (enum_name);
+			enum_name = NULL;
+			visitor_state = STATE_BASE;
+			if (is_typedef)
+				return CXChildVisit_Continue;
+			break;
+		}
+		default:
+			g_assert_not_reached ();
+	}
+
 	switch (kind) {
 		case CXCursor_ObjCInterfaceDecl:
 			//printf ("@interface %s\n", clang_getCString (clang_getCursorSpelling (cursor)));
@@ -152,12 +230,45 @@ visitor_func (CXCursor cursor, CXCursor parent, CXClientData client_data)
 			}
 			return CXChildVisit_Continue;
 		}
+		case CXCursor_EnumDecl: {
+			CXString spelling_cxstring = clang_getCursorSpelling (cursor);
+			const char *spelling = clang_getCString (spelling_cxstring);
+			g_assert (visitor_state == STATE_BASE);
+			visitor_state = STATE_ENUM;
+			g_assert (!enum_name);
+			if (strlen (spelling) > 0)
+				enum_name = g_strdup (spelling);
+			else
+				enum_name = NULL;
+			have_enum_members = FALSE;
+			clang_disposeString (spelling_cxstring);
+			return CXChildVisit_Recurse;
+		}
+		case CXCursor_EnumConstantDecl: {
+			CXString spelling_cxstring = clang_getCursorSpelling (cursor);
+			const char *spelling = clang_getCString (spelling_cxstring);
+			g_assert (visitor_state == STATE_ENUM);
+			if (!have_enum_members) {
+				printf ("[:enum");
+				have_enum_members = TRUE;
+			}
+			printf (" %s", spelling);
+			clang_disposeString (spelling_cxstring);
+			return CXChildVisit_Continue;
+		}
 		case CXCursor_FunctionDecl:
 		case CXCursor_ObjCInstanceMethodDecl:
 		case CXCursor_ObjCClassMethodDecl: {
-			gboolean is_function = kind == CXCursor_FunctionDecl;
 			CXString spelling_cxstring = clang_getCursorSpelling (cursor);
 			const char *spelling = clang_getCString (spelling_cxstring);
+
+			if (clang_Cursor_isVariadic (cursor)) {
+				printf (";;FIXME: variadic %s\n", spelling);
+				clang_disposeString (spelling_cxstring);
+				return CXChildVisit_Continue;
+			}
+
+			gboolean is_function = kind == CXCursor_FunctionDecl;
 			int num_args = clang_Cursor_getNumArguments (cursor);
 			CXCursor result_cursor;
 			clang_visitChildren (cursor, get_first_child_visitor_func, &result_cursor);
@@ -167,9 +278,12 @@ visitor_func (CXCursor cursor, CXCursor parent, CXClientData client_data)
 					CXCursor arg_cursor = clang_Cursor_getArgument (cursor, i);
 					if (cljc_name_for_type (arg_cursor, clang_getCursorType (arg_cursor)) == NULL) {
 						have_types = FALSE;
+						print_type_fixme (cursor, arg_cursor, clang_getCursorType (arg_cursor));
 						break;
 					}
 				}
+			} else {
+				print_type_fixme (cursor, result_cursor, clang_getCursorResultType (cursor));
 			}
 			if (have_types) {
 				if (is_function)
@@ -205,6 +319,14 @@ visitor_func (CXCursor cursor, CXCursor parent, CXClientData client_data)
 int
 main (int argc, const char *argv[])
 {
+	g_assert (argc >= 3);
+
+	framework_name = argv [1];
+	/* Remove framework name from argument list */
+	for (int i = 1; argv [i]; ++i)
+		argv [i] = argv [i + 1];
+	--argc;
+
 	CXIndex Index = clang_createIndex(0, 0);
 	CXTranslationUnit TU = clang_parseTranslationUnit(Index, 0,
 							  argv, argc, 0, 0, CXTranslationUnit_None);
