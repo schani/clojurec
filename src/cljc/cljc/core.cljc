@@ -6146,21 +6146,41 @@ reduces them without incurring seq initialization"
   ;; differently.  For example, with PCRE the empty string matches
   ;; nothing.  In Java, it matches everything.
   [re s]
-  (let [s-len (count s)]
-    ((fn step [prev-end search-i]
-       (lazy-seq
-        (if-let [offsets (re-first-match-range re s search-i)]
-          (let [[match-start match-end] offsets
-                matches (pcre-offsets->matches s offsets)]
-            (cons (subs s prev-end match-start)
-                  (cons matches
-                        (step match-end
-                              (if (= match-start match-end)
-                                (inc match-end)
-                                match-end)))))
-          (when (< prev-end s-len)
-            (list (subs s prev-end))))))
-     0 0)))
+  (if-objc
+   (let [s-len (count s)
+         num-groups (§ re :getNumberOfCaptureGroups)]
+     ((fn step [prev-end search-i]
+        (lazy-seq
+         (let [tcr (§ re :firstMatchInString s :options 0 :range (UIKit/NSMakeRange search-i (- s-len search-i)))
+               range (§ tcr :getRange)
+               match-start (c* "make_integer (((NSRange*)compound_get_data_ptr (~{}))->loc)" range)]
+           (if (not= loc UIKit/NSNotFound)
+             (let [matches (text-checking-result->matches s num-groups tcr)
+                   match-end (UIKit/NSMaxRange range)]
+               (cons (subs s prev-end match-start)
+                     (cons matches
+                           (step match-end
+                                 (if (= match-start match-end)
+                                   (inc match-end)
+                                   match-end)))))
+             (when (< prev-end s-len)
+               (list (subs s prev-end)))))))
+      0 0))
+   (let [s-len (count s)]
+     ((fn step [prev-end search-i]
+        (lazy-seq
+         (if-let [offsets (re-first-match-range re s search-i)]
+           (let [[match-start match-end] offsets
+                 matches (pcre-offsets->matches s offsets)]
+             (cons (subs s prev-end match-start)
+                   (cons matches
+                         (step match-end
+                               (if (= match-start match-end)
+                                 (inc match-end)
+                                 match-end)))))
+           (when (< prev-end s-len)
+             (list (subs s prev-end))))))
+      0 0))))
 
 (ns cljc.string)
 
@@ -6205,7 +6225,17 @@ reduces them without incurring seq initialization"
    offset is treated as zero, and an offset greater than the string
    length is treated as the string length."
   ([haystack needle offset]
-     (c* "string_index_of (~{}, ~{}, ~{})" haystack needle offset))
+     (if-objc
+      (let [str-len (§ s :length)
+            offset (max (min offset len) 0)
+            len (- str-len offset)
+            range (§ haystack :rangeOfString needle
+                              :options UIKit/NSLiteralSearch
+                              :range (UIKit/NSMakeRange offset len))
+            found-offset (c* "make_integer (((NSRange*)compound_get_data_ptr (~{}))->loc)" range)]
+        (when (not= found-offset UIKit/NSNotFound)
+          found-offset))
+      (c* "string_index_of (~{}, ~{}, ~{})" haystack needle offset)))
   ([haystack needle]
      (index-of haystack needle 0)))
 
