@@ -1,18 +1,7 @@
 (ns cljc.pattern-test
   (:use clojure.test
+        cljc.test
         cljc.driver))
-
-(defn- run [x]
-  (run-expr 'cljc.pattern-test false x))
-
-(defn- core-run [x]
-  (run-expr 'cljc.pattern-test true x))
-
-(defmacro run-and-print [& exprs]
-  `(run '(do ~@(map #(list 'cljc.core/print %) exprs))))
-
-(defmacro core-run-and-print [& exprs]
-  `(core-run '(do ~@(map #(list 'println %) exprs))))
 
 (deftest re-seq
   (testing "re-seq"

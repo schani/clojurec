@@ -1,16 +1,12 @@
 (ns cljc.objc-test
-  (:require [clojure.java.io :as io]
-            [cljc.c-interface :as c])
+  (:require [cljc.c-interface :as c])
   (:use clojure.test
+        cljc.test
         cljc.driver))
-
-(defn- core-run [x]
-  (binding [*build-options* (assoc *build-options* :objc true)]
-    (run-expr 'cljc.objc-test true x)))
 
 (deftest foundation
   (testing "Foundation"
-    (is (= (core-run '(println (§ "abc" :length))) [3]))))
+    (is (= (objc-run '(println (§ "abc" :length))) [3]))))
 
 (deftest marshalling
   (testing "marshalling"
@@ -31,20 +27,20 @@
               [[1 :testDouble] [:double :double]]]]
       (c/objc-register-selector! selector types))
     (binding [*build-options* (update-in *build-options* [:make-args] conj "EXTRA_OBJS=TestClass.o" "TEST_CFLAGS=-I../../test/objc")]
-      (is (= (core-run '(do (c-decl* "#import \"TestClass.h\"\n") (println (§ (§ TestClass) :testBool false)))) [true]))
-      (is (= (core-run '(do (c-decl* "#import \"TestClass.h\"\n") (println (§ (§ TestClass) :testChar \A)))) [\B]))
-      (is (= (core-run '(do (c-decl* "#import \"TestClass.h\"\n") (println (§ (§ TestClass) :testSignedChar -2)))) [-1]))
-      (is (= (core-run '(do (c-decl* "#import \"TestClass.h\"\n") (println (§ (§ TestClass) :testUnsignedChar 1)))) [2]))
-      (is (= (core-run '(do (c-decl* "#import \"TestClass.h\"\n") (println (§ (§ TestClass) :testShort -2)))) [-1]))
-      (is (= (core-run '(do (c-decl* "#import \"TestClass.h\"\n") (println (§ (§ TestClass) :testUnsignedShort 1)))) [2]))
-      (is (= (core-run '(do (c-decl* "#import \"TestClass.h\"\n") (println (§ (§ TestClass) :testInt -2)))) [-1]))
-      (is (= (core-run '(do (c-decl* "#import \"TestClass.h\"\n") (println (§ (§ TestClass) :testUnsignedInt 1)))) [2]))
-      (is (= (core-run '(do (c-decl* "#import \"TestClass.h\"\n") (println (§ (§ TestClass) :testLong -2)))) [-1]))
-      (is (= (core-run '(do (c-decl* "#import \"TestClass.h\"\n") (println (§ (§ TestClass) :testUnsignedLong 1)))) [2]))
-      (is (= (core-run '(do (c-decl* "#import \"TestClass.h\"\n") (println (§ (§ TestClass) :testLongLong -2)))) [-1]))
-      (is (= (core-run '(do (c-decl* "#import \"TestClass.h\"\n") (println (§ (§ TestClass) :testUnsignedLongLong 1)))) [2]))
-      (is (= (core-run '(do (c-decl* "#import \"TestClass.h\"\n") (println (§ (§ TestClass) :testFloat 1)))) [2.0]))
-      (is (= (core-run '(do (c-decl* "#import \"TestClass.h\"\n") (println (§ (§ TestClass) :testDouble 1)))) [2.0])))))
+      (is (= (objc-run '(do (c-decl* "#import \"TestClass.h\"\n") (println (§ (§ TestClass) :testBool false)))) [true]))
+      (is (= (objc-run '(do (c-decl* "#import \"TestClass.h\"\n") (println (§ (§ TestClass) :testChar \A)))) [\B]))
+      (is (= (objc-run '(do (c-decl* "#import \"TestClass.h\"\n") (println (§ (§ TestClass) :testSignedChar -2)))) [-1]))
+      (is (= (objc-run '(do (c-decl* "#import \"TestClass.h\"\n") (println (§ (§ TestClass) :testUnsignedChar 1)))) [2]))
+      (is (= (objc-run '(do (c-decl* "#import \"TestClass.h\"\n") (println (§ (§ TestClass) :testShort -2)))) [-1]))
+      (is (= (objc-run '(do (c-decl* "#import \"TestClass.h\"\n") (println (§ (§ TestClass) :testUnsignedShort 1)))) [2]))
+      (is (= (objc-run '(do (c-decl* "#import \"TestClass.h\"\n") (println (§ (§ TestClass) :testInt -2)))) [-1]))
+      (is (= (objc-run '(do (c-decl* "#import \"TestClass.h\"\n") (println (§ (§ TestClass) :testUnsignedInt 1)))) [2]))
+      (is (= (objc-run '(do (c-decl* "#import \"TestClass.h\"\n") (println (§ (§ TestClass) :testLong -2)))) [-1]))
+      (is (= (objc-run '(do (c-decl* "#import \"TestClass.h\"\n") (println (§ (§ TestClass) :testUnsignedLong 1)))) [2]))
+      (is (= (objc-run '(do (c-decl* "#import \"TestClass.h\"\n") (println (§ (§ TestClass) :testLongLong -2)))) [-1]))
+      (is (= (objc-run '(do (c-decl* "#import \"TestClass.h\"\n") (println (§ (§ TestClass) :testUnsignedLongLong 1)))) [2]))
+      (is (= (objc-run '(do (c-decl* "#import \"TestClass.h\"\n") (println (§ (§ TestClass) :testFloat 1)))) [2.0]))
+      (is (= (objc-run '(do (c-decl* "#import \"TestClass.h\"\n") (println (§ (§ TestClass) :testDouble 1)))) [2.0])))))
 
 (use-fixtures :once
               (fn [f]

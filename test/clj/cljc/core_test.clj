@@ -1,19 +1,8 @@
 (ns cljc.core-test
   (:require [clojure.java.io :as io])
   (:use clojure.test
+        cljc.test
         cljc.driver))
-
-(defn- run [x]
-  (run-expr 'cljc.core-test false x))
-
-(defn- core-run [x]
-  (run-expr 'cljc.core-test true x))
-
-(defmacro run-and-print [& exprs]
-  `(run '(do ~@(map #(list 'cljc.core/print %) exprs))))
-
-(defmacro core-run-and-print [& exprs]
-  `(core-run '(do ~@(map #(list 'println %) exprs))))
 
 (deftest c-decl
   (testing "emitting declarations"
@@ -792,7 +781,7 @@
                                 (and (= len (count word))
                                      (empty? (reduce remove-one word chars))))
 
-                             `(pr (filter (fn [word] (check-word 5 "abcdefg" word))
+                             `(pr (filter (fn [word] (cljc.test/check-word 5 "abcdefg" word))
                                           (~'split-string-seq (slurp ~filename) \newline))))))
            ['("badge" "caged" "faced")]))))
 

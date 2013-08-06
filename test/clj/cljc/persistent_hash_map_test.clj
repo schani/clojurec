@@ -1,9 +1,7 @@
 (ns cljc.persistent-hash-map-test
   (:use clojure.test
+        cljc.test
         cljc.driver))
-
-(defn- core-run [x]
-  (run-expr 'cljc.persistent-hash-map-test true x))
 
 (deftest bitmap-indexed-node-test
   (testing "BitmapIndexedNode"
