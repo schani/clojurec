@@ -2,6 +2,7 @@
   (:require [clojure.java.io :as io]
             [cljc.compiler :as cljc])
   (:use clojure.test
+        cljc.test
         cljc.driver))
 
 (deftest inherited-test
@@ -20,4 +21,4 @@
         (is (= [true]
                (make-and-run run-dir)))))))
 
-(use-fixtures :once (fn [f] (clean-default-run-dir true) (f)))
+(use-fixtures :once (cljc-once-fixture :c))

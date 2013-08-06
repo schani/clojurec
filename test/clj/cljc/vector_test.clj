@@ -206,4 +206,4 @@
                         (println (vec (dec (count vec))))
                         (println (count vec))))))))
 
-(use-fixtures :once (fn [f] (clean-default-run-dir true) (f)))
+(use-fixtures :once (cljc-once-fixture :c))

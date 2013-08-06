@@ -948,4 +948,4 @@
                         (str sb)))))
            ['abc012345678910111213141516171819]))))
 
-(use-fixtures :once (fn [f] (clean-default-run-dir true) (f)))
+(use-fixtures :once (cljc-once-fixture :c))

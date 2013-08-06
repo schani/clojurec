@@ -51,4 +51,4 @@
   (testing "re-partition"
     (test-re-partition)))
 
-(use-fixtures :once (fn [f] (clean-default-run-dir true) (f)))
+(use-fixtures :once (cljc-once-fixture :c))

@@ -19,3 +19,19 @@
 (defn objc-run [x]
   (binding [*build-options* (assoc *build-options* :objc true)]
     (run-expr 'cljc.test true x)))
+
+(defn cljc-once-fixture [target]
+  (case target
+    :c
+    (fn [f]
+      (clean-default-run-dir true)
+      (f))
+
+    :objc
+    (fn [f]
+      (clean-default-run-dir true)
+      (load-framework "UIKit" default-frameworks-dir)
+      (f)
+      (c/objc-reset-selectors!))
+
+    (throw (Error. (str "Unknown test target " target)))))

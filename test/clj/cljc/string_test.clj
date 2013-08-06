@@ -163,4 +163,4 @@
                            (cljc.string/re-quote-replacement "$2$1"))
                           ["$2$1"]))))))
 
-(use-fixtures :once (fn [f] (clean-default-run-dir true) (f)))
+(use-fixtures :once (cljc-once-fixture :c))

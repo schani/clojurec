@@ -42,9 +42,4 @@
       (is (= (objc-run '(do (c-decl* "#import \"TestClass.h\"\n") (println (§ (§ TestClass) :testFloat 1)))) [2.0]))
       (is (= (objc-run '(do (c-decl* "#import \"TestClass.h\"\n") (println (§ (§ TestClass) :testDouble 1)))) [2.0])))))
 
-(use-fixtures :once
-              (fn [f]
-                (clean-default-run-dir true)
-                (load-framework "UIKit" default-frameworks-dir)
-                (f)
-                (c/objc-reset-selectors!)))
+(use-fixtures :once (cljc-once-fixture :objc))
