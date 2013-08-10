@@ -2301,7 +2301,7 @@
 [:enum NSASCIIStringEncoding NSNEXTSTEPStringEncoding NSJapaneseEUCStringEncoding NSUTF8StringEncoding NSISOLatin1StringEncoding NSSymbolStringEncoding NSNonLossyASCIIStringEncoding NSShiftJISStringEncoding NSISOLatin2StringEncoding NSUnicodeStringEncoding NSWindowsCP1251StringEncoding NSWindowsCP1252StringEncoding NSWindowsCP1253StringEncoding NSWindowsCP1254StringEncoding NSWindowsCP1250StringEncoding NSISO2022JPStringEncoding NSMacOSRomanStringEncoding NSUTF16StringEncoding NSUTF16BigEndianStringEncoding NSUTF16LittleEndianStringEncoding NSUTF32StringEncoding NSUTF32BigEndianStringEncoding NSUTF32LittleEndianStringEncoding nil]
 [:enum NSStringEncodingConversionAllowLossy NSStringEncodingConversionExternalRepresentation NSStringEncodingConversionOptions]
 [:selector [0 :length] [:unsigned-int]]
-[:selector [1 :characterAtIndex] [:unsigned-short :unsigned-int]]
+[:selector [1 :characterAtIndex] [Character :unsigned-int]]
 ;;FIXME: unichar * in getCharacters:range:
 [:selector [1 :substringFromIndex] [:id :unsigned-int]]
 [:selector [1 :substringToIndex] [:id :unsigned-int]]
@@ -2456,7 +2456,7 @@
 [:selector [1 :characterSetWithCharactersInString] [:id :id]]
 [:selector [1 :characterSetWithBitmapRepresentation] [:id :id]]
 [:selector [1 :characterSetWithContentsOfFile] [:id :id]]
-[:selector [1 :characterIsMember] [Boolean :unsigned-short]]
+[:selector [1 :characterIsMember] [Boolean Character]]
 [:selector [0 :bitmapRepresentation] [:id]]
 [:selector [0 :invertedSet] [:id]]
 [:selector [1 :longCharacterIsMember] [Boolean :unsigned-long]]

@@ -13,7 +13,7 @@
   (swap! symbol-lookup-fn (constantly f)))
 
 (defn resolve-c-type [env type]
-  (cond (or (keyword? type) (#{'Boolean} type))
+  (cond (or (keyword? type) (#{'Boolean 'Character} type))
         type
 
         (and (seq? type) (= (first type) '§))
@@ -45,7 +45,8 @@
    :long-long "number_get_as_integer (~{})"
    :unsigned-long-long "((unsigned long long) number_get_as_integer (~{}))"
    :c-string-const "string_get_utf8 (~{})"
-   'Boolean "truth (~{})"})
+   'Boolean "truth (~{})"
+   'Character "character_get (~{})"})
 (defn to-c-converter [type]
   (cond
    (nil? type)
@@ -87,7 +88,8 @@
    :long-long "make_integer ((long long) %s)"
    :unsigned-long-long "make_integer ((long long) %s)"
    :c-string-const "make_string_copy (%s)"
-   'Boolean "make_boolean (%s)"})
+   'Boolean "make_boolean (%s)"
+   'Character "make_character (%s)"})
 (defn from-c-converter [type]
   (cond
    (nil? type)

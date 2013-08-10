@@ -342,6 +342,7 @@ main (int argc, const char *argv[])
 
 	register_type_name ("BOOL", "Boolean");
 	register_type_name ("_Bool", "Boolean");
+	register_type_name ("unichar", "Character");
 
 	printf ("[\n");
 	clang_visitChildren (cursor, visitor_func, NULL);
