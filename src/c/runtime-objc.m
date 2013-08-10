@@ -5,7 +5,7 @@
 
 #import <Foundation/Foundation.h>
 
-#include "khash.h"
+#include "gc-khash.h"
 
 #include "cljc.h"
 

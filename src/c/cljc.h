@@ -1,6 +1,8 @@
 #ifndef __CLJC_CLJC_H__
 #define __CLJC_CLJC_H__
 
+extern void* cljc_calloc_uncollectable (size_t count, size_t size);
+
 #ifdef HAVE_OBJC
 typedef unsigned short cljc_unichar_t;
 #else

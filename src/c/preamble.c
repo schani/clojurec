@@ -20,6 +20,6 @@
 #include <pcre.h>
 #endif
 
-#include "khash.h"
+#include "gc-khash.h"
 
 #include "cljc.h"

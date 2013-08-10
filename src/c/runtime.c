@@ -12,9 +12,18 @@
 #include <pcre.h>
 #endif
 
-#include "khash.h"
+#include "gc-khash.h"
 
 #include "cljc.h"
+
+void*
+cljc_calloc_uncollectable (size_t count, size_t size)
+{
+	size_t total = count * size;
+	void *p = GC_malloc_uncollectable (total);
+	memset (p, 0, total);
+	return p;
+}
 
 value_t *value_nil = NULL;
 value_t *value_true = VALUE_NONE;
