@@ -373,10 +373,14 @@ objc_object_send_message (int nargs, closure_t *closure, value_t *obj, value_t *
 				break;
 			}
                         case '^':
-                                if (strncmp(type, "^{value=", 8) == 0)
+                                if (strncmp (type, "^{value=", 8) == 0) {
                                         [invocation setArgument: &arg atIndex: i];
-                                else
+				} else if (arg == value_nil) {
+					void *p = NULL;
+					[invocation setArgument: &p atIndex: i];
+				} else {
                                         assert (0);
+				}
                                 break;
 			case '{': {
 				const char *compound_name = compound_get_name (arg);
