@@ -211,6 +211,7 @@ visitor_func (CXCursor cursor, CXCursor parent, CXClientData client_data)
 
 	switch (kind) {
 		case CXCursor_ObjCInterfaceDecl:
+		case CXCursor_ObjCCategoryDecl:
 			//printf ("@interface %s\n", clang_getCString (clang_getCursorSpelling (cursor)));
 			return CXChildVisit_Recurse;
 		case CXCursor_TypedefDecl: {
