@@ -47,19 +47,25 @@
    :c-string-const "string_get_utf8 (~{})"
    'Boolean "truth (~{})"})
 (defn to-c-converter [type]
-  (if (map? type)
-    (cond (:c-compound type)
-          (str "(*(" (:c-name type) "*)compound_get_data_ptr_guarded (~{}, \"" (:c-name type) "\"))")
+  (cond
+   (nil? type)
+   "~{}"
 
-          (:c-enum type)
-          (str "((" (:c-name type) ")integer_get (~{}))")
+   (map? type)
+   (cond (:c-compound type)
+         (str "(*(" (:c-name type) "*)compound_get_data_ptr_guarded (~{}, \"" (:c-name type) "\"))")
 
-          :else
-          (throw (Error. (str "Unknown C type " type))))
-    (let [converter (to-c-converters type)]
-      (when-not converter
-        (throw (Error. (str "Unknown C type " type))))
-      converter)))
+         (:c-enum type)
+         (str "((" (:c-name type) ")integer_get (~{}))")
+
+         :else
+         (throw (Error. (str "Unknown C type " type))))
+
+   :else
+   (let [converter (to-c-converters type)]
+     (when-not converter
+       (throw (Error. (str "Unknown C type " type))))
+     converter)))
 
 (def ^:private from-c-converters
   {:void ["" ";\n" "value_nil"]
@@ -83,24 +89,30 @@
    :c-string-const "make_string_copy (%s)"
    'Boolean "make_boolean (%s)"})
 (defn from-c-converter [type]
-  (if (map? type)
-    (cond (:c-compound type)
-          (let [c-name (:c-name type)
-                var-name (gensym c-name)]
-            [(str c-name " " var-name " = ") ";\n"
-             (str "make_compound (\"" c-name "\", " (:size type) ", &" var-name ")")])
+  (cond
+   (nil? type)
+   ["" ""]
 
-          (:c-enum type)
-          ["make_integer ((long long)" ")"]
+   (map? type)
+   (cond (:c-compound type)
+         (let [c-name (:c-name type)
+               var-name (gensym c-name)]
+           [(str c-name " " var-name " = ") ";\n"
+            (str "make_compound (\"" c-name "\", " (:size type) ", &" var-name ")")])
 
-          :else
-          (throw (Error. (str "Unknown C type " type))))
-    (let [converter (from-c-converters type)]
-      (when-not converter
-        (throw (Error. (str "Unknown C type " type))))
-      (if (string? converter)
-        (string/split converter #"%s")
-        converter))))
+         (:c-enum type)
+         ["make_integer ((long long)" ")"]
+
+         :else
+         (throw (Error. (str "Unknown C type " type))))
+
+   :else
+   (let [converter (from-c-converters type)]
+     (when-not converter
+       (throw (Error. (str "Unknown C type " type))))
+     (if (string? converter)
+       (string/split converter #"%s")
+       converter))))
 
 (defn types-for-selector [selector]
   (let [typess (@objc-selectors selector)]
