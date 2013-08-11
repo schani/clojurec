@@ -5,7 +5,6 @@
 
 (deftest re-seq
   (testing "re-seq"
-    (is (= (core-run '(pr (re-seq (re-pattern "") "foo"))) [["" "" ""]]))
     (is (= (core-run '(pr (re-seq (re-pattern "foo") "foo"))) [["foo"]]))
     (is (= (core-run '(pr (re-seq (re-pattern "\\d") "123"))) [["1" "2" "3"]]))
     (is (= (core-run '(pr (re-seq (re-pattern "(\\d)2") "122232")))
@@ -14,8 +13,7 @@
              ["32" "3"]]]))))
 
 (def ^:private find-match-cases
-  [["" "x"]
-   ["x" ""]
+  [["x" ""]
    ["x" "y"]
    ["xy" "x"]
    ["x" "x"]
