@@ -10,7 +10,7 @@
     (let [run-dir (default-run-dir)
           init-name (init-function-name 'cljc.core-test)]
       (compile-cljc-core-if-needed)
-      (binding [*build-options* (assoc default-build-options
+      (binding [*build-options* (assoc *build-options*
                                   :init-function-name init-name)
                 cljc/*read-exports-fn* (read-exports-fn-for-dir run-dir)]
         (compile-file (.getAbsolutePath (io/file (java.lang.System/getProperty "user.dir") "test" "cljc" "core_test.cljc"))
