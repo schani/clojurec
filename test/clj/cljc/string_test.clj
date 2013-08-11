@@ -78,30 +78,6 @@
     (is (= (core-run '(pr (cljc.string/trim-newline "\r\n"))) [""]))
     (is (= (core-run '(pr (cljc.string/trim-newline " \t\n\r"))) [" \t"]))))
 
-(defmacro ^:private test-split [s pattern limit expected]
-  `(is (= (core-run '(pr (cljc.string/split ~s (re-pattern ~pattern) ~limit)))
-          [~expected])))
-
-(deftest split
-  (testing "split"
-    (test-split "x_y_z" "/" 0 ["x_y_z"])
-    (test-split "_" "_" 0 [])
-    (test-split "_x" "_" 0 ["" "x"])
-    (test-split "x_" "_" 0 ["x"])
-    (test-split "x_" "_" -1 ["x" ""])
-    (test-split "_x_" "_" 0 ["" "x"])
-    (test-split "_x_" "_" -1 ["" "x" ""])
-    (test-split "x_y_z" "_" 0 ["x" "y" "z"])
-    (test-split "x_y_z" "_" -1 ["x" "y" "z"])
-    (test-split "x_y_z" "_" 3 ["x" "y" "z"])
-    (test-split "x__y__z" "_" 0 ["x" "" "y" "" "z"])
-    (test-split "x_y_z" "." 0 [])
-    (test-split "x_y_z" "." 2 ["" "_y_z"])
-    (test-split "x_y_z" "_" 2 ["x" "y_z"])
-    (test-split "x1y2z3" "\\d" -1 ["x" "y" "z" ""])
-    (test-split "x1y234z5" "\\d" -1 ["x" "y" "" "" "z" ""])
-    (test-split "x1y234z5" "\\d+" -1 ["x" "y" "z" ""])))
-
 (deftest split-lines
   (testing "split-lines"
     (is (= (core-run '(pr (cljc.string/split-lines "x"))) [["x"]]))
@@ -148,19 +124,6 @@
     (is (= (core-run '(pr (cljc.string/replace "xyx" "x" "zz"))) ["zzyzz"]))
     (is (= (core-run '(pr (cljc.string/replace "xyx" "y" "zz"))) ["xzzx"]))
     (is (= (core-run '(pr (cljc.string/replace "x" "" ""))) ["x"]))
-    (is (= (core-run '(pr (cljc.string/replace "x" "y" ""))) ["x"]))
-
-    (is (= (core-run '(pr (cljc.string/replace "" (re-pattern "y") ""))) [""]))
-    (is (= (core-run '(pr (cljc.string/replace "x" (re-pattern "y") ""))) ["x"]))
-    (is (= (core-run '(pr (cljc.string/replace "x" (re-pattern "x") "y"))) ["y"]))
-    (is (= (core-run '(pr (cljc.string/replace "x" (re-pattern "x") ""))) [""]))
-    (is (= (core-run '(pr (cljc.string/replace "xyz" (re-pattern ".") ""))) [""]))
-
-    (is (= (core-run '(pr (cljc.string/replace
-                           "wxyz" (re-pattern "(.)(.)") "$2$1"))) ["xwzy"]))
-    (is (= (core-run '(pr (cljc.string/replace
-                           "wxyz" (re-pattern "(.)(.)")
-                           (cljc.string/re-quote-replacement "$2$1"))
-                          ["$2$1"]))))))
+    (is (= (core-run '(pr (cljc.string/replace "x" "y" ""))) ["x"]))))
 
 (use-fixtures :once (cljc-once-fixture :c))

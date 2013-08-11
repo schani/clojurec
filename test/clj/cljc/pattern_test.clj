@@ -32,6 +32,30 @@
       (is (= (core-run `(pr (re-matches (re-pattern ~re) ~s)))
              [(clojure.core/re-matches (re-pattern re) s)])))))
 
+(defmacro ^:private test-split [s pattern limit expected]
+  `(is (= (core-run '(pr (cljc.string/split ~s (re-pattern ~pattern) ~limit)))
+          [~expected])))
+
+(deftest split
+  (testing "split"
+    (test-split "x_y_z" "/" 0 ["x_y_z"])
+    (test-split "_" "_" 0 [])
+    (test-split "_x" "_" 0 ["" "x"])
+    (test-split "x_" "_" 0 ["x"])
+    (test-split "x_" "_" -1 ["x" ""])
+    (test-split "_x_" "_" 0 ["" "x"])
+    (test-split "_x_" "_" -1 ["" "x" ""])
+    (test-split "x_y_z" "_" 0 ["x" "y" "z"])
+    (test-split "x_y_z" "_" -1 ["x" "y" "z"])
+    (test-split "x_y_z" "_" 3 ["x" "y" "z"])
+    (test-split "x__y__z" "_" 0 ["x" "" "y" "" "z"])
+    (test-split "x_y_z" "." 0 [])
+    (test-split "x_y_z" "." 2 ["" "_y_z"])
+    (test-split "x_y_z" "_" 2 ["x" "y_z"])
+    (test-split "x1y2z3" "\\d" -1 ["x" "y" "z" ""])
+    (test-split "x1y234z5" "\\d" -1 ["x" "y" "" "" "z" ""])
+    (test-split "x1y234z5" "\\d+" -1 ["x" "y" "z" ""])))
+
 (defmacro ^:private test-re-partition []
   (let [tests (for [[re s expected] [["-" "" ()]
                                      ["-" "-" ["" "-"]]
@@ -50,3 +74,18 @@
     (test-re-partition)))
 
 (use-fixtures :once (cljc-once-fixture :c))
+(deftest replace
+  (testing "replace"
+    (is (= (core-run '(pr (cljc.string/replace "" (re-pattern "y") ""))) [""]))
+    (is (= (core-run '(pr (cljc.string/replace "x" (re-pattern "y") ""))) ["x"]))
+    (is (= (core-run '(pr (cljc.string/replace "x" (re-pattern "x") "y"))) ["y"]))
+    (is (= (core-run '(pr (cljc.string/replace "x" (re-pattern "x") ""))) [""]))
+    (is (= (core-run '(pr (cljc.string/replace "xyz" (re-pattern ".") ""))) [""]))
+
+    (is (= (core-run '(pr (cljc.string/replace
+                           "wxyz" (re-pattern "(.)(.)") "$2$1"))) ["xwzy"]))
+    (is (= (core-run '(pr (cljc.string/replace
+                           "wxyz" (re-pattern "(.)(.)")
+                           (cljc.string/re-quote-replacement "$2$1"))
+                          ["$2$1"]))))))
+
