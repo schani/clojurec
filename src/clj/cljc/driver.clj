@@ -134,16 +134,27 @@
     (when exports-file
       (spit exports-file (prn-str @cljc/exports)))))
 
+(defn make [make-args run-dir]
+  (let [{:keys [exit out err]} (apply shell/sh "make" (concat make-args [:dir run-dir]))]
+    (if (= exit 0)
+      true
+      {:compile-error exit :output out :error err})))
+
 (defn make-and-run [run-dir]
   (when (:with-makefile *build-options*)
-    (let [{:keys [exit out err]} (apply shell/sh "make" (concat (:make-args *build-options*) [:dir run-dir]))]
-      (if (= exit 0)
+    (let [make-result (make (:make-args *build-options*) run-dir)]
+      (if (true? make-result)
         (do
           (let [{:keys [exit out]} (shell/sh "./cljc" :dir run-dir)]
             (if (= exit 0)
               (read-string (str \[ out \]))
               {:run-error exit :output out})))
-        {:compile-error exit :output out :error err}))))
+        make-result))))
+
+(defn check-objc []
+  (binding [*build-options* (assoc *build-options* :objc true)]
+    (let [run-dir (default-run-dir)]
+      (true? (make ["test-objc"] run-dir)))))
 
 (defn c-file-extension []
   (if (cljc/compiling-for-objc) ".m" ".c"))

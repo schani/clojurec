@@ -26,13 +26,15 @@
   (f))
 
 (defn- once-fixture-objc [f]
-  (binding [*build-options* (assoc *build-options*
-                              :objc true
-                              :frameworks ["UIKit"])
-            cljc/*objc* true]
-    (clean-default-run-dir true)
-    (f)
-    (c/objc-reset-selectors!)))
+  (if (check-objc)
+    (binding [*build-options* (assoc *build-options*
+                                :objc true
+                                :frameworks ["UIKit"])
+              cljc/*objc* true]
+      (clean-default-run-dir true)
+      (f)
+      (c/objc-reset-selectors!))
+    (println "Cannot build Objective-C code - not running tests.  Check `make test-objc` in `run/objc`.")))
 
 (defn cljc-once-fixture [target]
   (case target
