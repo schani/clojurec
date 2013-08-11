@@ -263,13 +263,13 @@
       (compile-file-to-dirs src-file namespace (default-run-dir) (default-run-dir)))))
 
 (defn compile-cljc-core-if-needed []
-  (compile-system-namespace-if-needed 'cljc.core))
+  (compile-system-namespace-if-needed 'cljc.core)
+  (when (:objc *build-options*)
+    (compile-system-namespace-if-needed 'cljc.objc)))
 
 (defn run-expr [ns-name with-core expr]
   (binding [cljc/*objc* (:objc *build-options*)]
     (compile-cljc-core-if-needed)
-    (when (:objc *build-options*)
-      (compile-system-namespace-if-needed 'cljc.objc))
     (run-code ns-name (compile-expr ns-name with-core expr) with-core)))
 
 (comment

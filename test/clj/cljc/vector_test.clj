@@ -206,4 +206,4 @@
                         (println (vec (dec (count vec))))
                         (println (count vec))))))))
 
-(use-fixtures :once (cljc-once-fixture :c))
+(use-fixtures :once (cljc-once-fixture :both))

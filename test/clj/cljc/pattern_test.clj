@@ -73,7 +73,6 @@
   (testing "re-partition"
     (test-re-partition)))
 
-(use-fixtures :once (cljc-once-fixture :c))
 (deftest replace
   (testing "replace"
     (is (= (core-run '(pr (cljc.string/replace "" (re-pattern "y") ""))) [""]))
@@ -89,3 +88,4 @@
                            (cljc.string/re-quote-replacement "$2$1"))
                           ["$2$1"]))))))
 
+(use-fixtures :once (cljc-once-fixture :both))

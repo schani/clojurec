@@ -5389,7 +5389,11 @@ reduces them without incurring seq initialization"
   ;; FIXME: print meta
   (if (satisfies? IPrintable obj)
     (-pr-seq obj opts)
-    (list "#<" (str obj) ">")))
+    (if-objc
+     (if (has-type? obj ObjCObject)
+       (list "#<" (c* "make_string (class_getName (objc_object_get (~{})))" (§ obj :class)) ">")
+       (list "#<unknown>"))
+     (list "#<unknown>"))))
 
 (defn- pr-sb [objs opts]
   (loop [sb (sb-make "")
@@ -6008,7 +6012,7 @@ reduces them without incurring seq initialization"
 ;; FIXME: implement seq for NSArray
 (defn split-string-seq [string char]
   (if-objc
-    (§ string :componentsSeparatedByString (str char))
+    (seq (§ string :componentsSeparatedByString (str char)))
     (split-string-seq-next-fn string
                               (c* "make_integer (strlen (string_get_utf8 (~{})))" string)
                               char
@@ -6035,10 +6039,13 @@ reduces them without incurring seq initialization"
   (if (satisfies? IPattern s)
     s
     (if-objc
-     (§ (§ NSRegularExpression)
-        :regularExpressionWithPattern s
-        :options (c* "make_integer (NSRegularExpressionCaseInsensitive)")
-        :error nil)
+     (let [re (§ (§ NSRegularExpression)
+                 :regularExpressionWithPattern s
+                 :options (c* "make_integer (NSRegularExpressionCaseInsensitive)")
+                 :error nil)]
+       (if re
+         re
+         (throw (Exception. (str "Invalid regular expression pattern " s)))))
      (let [result (c* "pcre_pattern (~{})" s)]
        (when (has-type? result Array)
          (let [[msg offset] result]
@@ -6048,46 +6055,46 @@ reduces them without incurring seq initialization"
 
 (if-objc
  (defn- text-checking-result->matches [s num-groups tcr]
-   (let [whole-match (c* "make_objc_object ([objc_object_get (~{}) substringWithRange: [objc_object_get (~{}) range]])" s tcr)]
+   (let [matches (map (fn [i]
+                        ;; FIXME: handle NSNotFound
+                        (§ s :substringWithRange (§ tcr :rangeAtIndex i)))
+                      (range (inc num-groups)))]
      (if (zero? num-groups)
-       whole-match
-       (cons whole-match
-             (map (fn [i]
-                    ;; FIXME: handle NSNotFound
-                    (c* "make_objc_object ([objc_object_get (~{}) substringWithRange: [objc_object_get (~{}) rangeAtIndex: integer_get (~{})]])" s tcr i))
-                  (range num-groups))))))
- (do
-   (defn- pcre-match-offsets
-     ([re s offset]
-        (let [offsets (c* "pcre_match_offsets (~{}, ~{}, ~{})" (.-re re) s offset)]
-          (when offsets
-            (if (integer? offsets)
-              (throw (Exception. (str "PCRE search error " offsets " for pattern "
-                                      (pr-str re) " against " (pr-str s)
-                                      " at offset " offset))))
-            offsets)))
-     ([re s]
-        (pcre-match-offsets re s 0)))
+       (first matches)
+       matches)))
+ (defn- pcre-match-offsets
+   ([re s offset]
+      (let [offsets (c* "pcre_match_offsets (~{}, ~{}, ~{})" (.-re re) s offset)]
+        (when offsets
+          (if (integer? offsets)
+            (throw (Exception. (str "PCRE search error " offsets " for pattern "
+                                    (pr-str re) " against " (pr-str s)
+                                    " at offset " offset))))
+          offsets)))
+   ([re s]
+      (pcre-match-offsets re s 0))))
 
-   (defn- pcre-offsets->matches
-     "Returns \"whole-match\" if there were no captures, otherwise
+(defn- re-offsets->matches
+  "Returns \"whole-match\" if there were no captures, otherwise
    [\"whole-match\" \"capture-1\" \"capture-2\" ...]."
-     [s offsets]
-     (if (= 2 (count offsets))
-       (apply subs s (take 2 offsets))
-       (map #(apply subs s %)
-            (partition-all 2 offsets))))))
+  [s offsets]
+  (if (= 2 (count offsets))
+    (apply subs s offsets)
+    (map #(apply subs s %)
+         (partition-all 2 offsets))))
 
 (def ^:private re-first-match-range
   (if-objc
    (fn [re s offset]
      (let [string-length (§ s :length)
            range-length (- string-length offset)
-           match (c* "make_objc_object ([objc_object_get (~{}) firstMatchInString: objc_object_get (~{}) options: 0 range: NSMakeRange (integer_get (~{}), integer_get (~{}))])"
-                     re s offset range-length)
-           match-location (c* "make_integer ([objc_object_get (~{}) range].location)" match)
-           match-length (c* "make_integer ([objc_object_get (~{}) range].length)" match)]
-       [match-location (+ match-location match-length)]))
+           tcr (§ re :firstMatchInString s :options 0 :range (UIKit/NSMakeRange offset range-length))]
+       (when tcr
+         (mapcat (fn [i]
+                   (let [match-location (c* "make_integer ([objc_object_get (~{}) rangeAtIndex: integer_get (~{})].location)" tcr i)
+                         match-length (c* "make_integer ([objc_object_get (~{}) rangeAtIndex: integer_get (~{})].length)" tcr i)]
+                     [match-location (+ match-location match-length)]))
+                 (range (§ tcr :numberOfRanges))))))
    pcre-match-offsets))
 
 (defn re-seq
@@ -6098,12 +6105,11 @@ reduces them without incurring seq initialization"
   (if-objc
    (let [num-groups (§ re :numberOfCaptureGroups)
          string-length (§ s :length)
-         matches (c* "make_objc_object ([objc_object_get (~{}) matchesInString: objc_object_get (~{}) options: 0 range: NSMakeRange (0, integer_get (~{}))])"
-                     re s string-length)]
-     (map #(text-checking-result->matches s num-groups %) matches))
+         tcrs (§ re :matchesInString s :options 0 :range (UIKit/NSMakeRange 0 string-length))]
+     (map #(text-checking-result->matches s num-groups %) tcrs))
    (when-let [offsets (pcre-match-offsets re s)]
      (lazy-seq
-      (cons (pcre-offsets->matches s offsets)
+      (cons (re-offsets->matches s offsets)
             (re-seq re (subs s (max 1 (nth offsets 1)))))))))
 
 (defn re-find
@@ -6122,14 +6128,16 @@ reduces them without incurring seq initialization"
   (if-objc
    (let [num-groups (§ re :numberOfCaptureGroups)
          string-length (§ s :length)
-         tcr (c* "make_objc_object ([objc_object_get (~{}) firstMatchInString: objc_object_get (~{}) options: 0 range: NSMakeRange (0, integer_get (~{}))])"
-                 re s string-length)
-         matched (c* "make_boolean ([objc_object_get (~{}) range].location != NSNotFound)" tcr)]
+         tcr (§ re :firstMatchInString s :options 0 :range (UIKit/NSMakeRange 0 string-length))
+         matched (and tcr (c* "make_boolean ([objc_object_get (~{}) range].location != NSNotFound)" tcr))]
      (when matched
-       (text-checking-result->matches s num-groups tcr)))
+       (let [match-location (c* "make_integer ([objc_object_get (~{}) range].location)" tcr)
+             match-length (c* "make_integer ([objc_object_get (~{}) range].length)" tcr)]
+         (when (and (= match-location 0) (= match-length string-length))
+           (text-checking-result->matches s num-groups tcr)))))
    (let [offsets (pcre-match-offsets re s)]
      (when (and offsets (= (count s) (- (nth offsets 1) (nth offsets 0))))
-       (pcre-offsets->matches s offsets)))))
+       (re-offsets->matches s offsets)))))
 
 (defn re-partition
   "Splits the string into a lazy sequence of substrings, alternating
@@ -6146,41 +6154,21 @@ reduces them without incurring seq initialization"
   ;; differently.  For example, with PCRE the empty string matches
   ;; nothing.  In Java, it matches everything.
   [re s]
-  (if-objc
-   (let [s-len (count s)
-         num-groups (§ re :getNumberOfCaptureGroups)]
-     ((fn step [prev-end search-i]
-        (lazy-seq
-         (let [tcr (§ re :firstMatchInString s :options 0 :range (UIKit/NSMakeRange search-i (- s-len search-i)))
-               range (§ tcr :getRange)
-               match-start (c* "make_integer (((NSRange*)compound_get_data_ptr (~{}))->loc)" range)]
-           (if (not= loc UIKit/NSNotFound)
-             (let [matches (text-checking-result->matches s num-groups tcr)
-                   match-end (UIKit/NSMaxRange range)]
-               (cons (subs s prev-end match-start)
-                     (cons matches
-                           (step match-end
-                                 (if (= match-start match-end)
-                                   (inc match-end)
-                                   match-end)))))
-             (when (< prev-end s-len)
-               (list (subs s prev-end)))))))
-      0 0))
-   (let [s-len (count s)]
-     ((fn step [prev-end search-i]
-        (lazy-seq
-         (if-let [offsets (re-first-match-range re s search-i)]
-           (let [[match-start match-end] offsets
-                 matches (pcre-offsets->matches s offsets)]
-             (cons (subs s prev-end match-start)
-                   (cons matches
-                         (step match-end
-                               (if (= match-start match-end)
-                                 (inc match-end)
-                                 match-end)))))
-           (when (< prev-end s-len)
-             (list (subs s prev-end))))))
-      0 0))))
+  (let [s-len (count s)]
+    ((fn step [prev-end search-i]
+       (lazy-seq
+        (if-let [offsets (re-first-match-range re s search-i)]
+          (let [[match-start match-end] offsets
+                matches (re-offsets->matches s offsets)]
+            (cons (subs s prev-end match-start)
+                  (cons matches
+                        (step match-end
+                              (if (= match-start match-end)
+                                (inc match-end)
+                                match-end)))))
+          (when (< prev-end s-len)
+            (list (subs s prev-end))))))
+     0 0)))
 
 (ns cljc.string)
 
@@ -6226,27 +6214,28 @@ reduces them without incurring seq initialization"
    length is treated as the string length."
   ([haystack needle offset]
      (if-objc
-      (let [str-len (§ s :length)
-            offset (max (min offset len) 0)
-            len (- str-len offset)
-            range (§ haystack :rangeOfString needle
-                              :options UIKit/NSLiteralSearch
-                              :range (UIKit/NSMakeRange offset len))
-            found-offset (c* "make_integer (((NSRange*)compound_get_data_ptr (~{}))->loc)" range)]
-        (when (not= found-offset UIKit/NSNotFound)
-          found-offset))
+      (let [str-len (§ haystack :length)
+            offset (max (min offset str-len) 0)]
+        (if (zero? (§ needle :length))
+          offset
+          (let [len (- str-len offset)
+                range (§ haystack :rangeOfString needle
+                                  :options UIKit/NSLiteralSearch
+                                  :range (UIKit/NSMakeRange offset len))
+                found-offset (c* "make_integer (((NSRange*)compound_get_data_ptr (~{}))->location)" range)]
+            (when (not= found-offset UIKit/NSNotFound)
+              found-offset))))
       (c* "string_index_of (~{}, ~{}, ~{})" haystack needle offset)))
   ([haystack needle]
      (index-of haystack needle 0)))
 
-(defn- parse-integer
-  ;; FIXME: quick hack -- does not handle error conditions yet.
-  ;; Should probably throw NumberFormatException when appropriate,
-  ;; decide general semantics (parseInteger vs strtoll() style, etc.).
-  ([s base]
-     (c* "make_integer (g_ascii_strtoll (string_get_utf8 (~{}), NULL, integer_get (~{})))"
-         s base))
-  ([s] (parse-integer s 10)))
+ (defn- parse-integer [s]
+   ;; FIXME: quick hack -- does not handle error conditions yet.
+   ;; Should probably throw NumberFormatException when appropriate,
+   ;; decide general semantics (parseInteger vs strtoll() style, etc.).
+   (if-objc
+    (§ s :integerValue)
+    (c* "make_integer (g_ascii_strtoll (string_get_utf8 (~{}), NULL, 10))" s base)))
 
 (defn- replacement->handler [r]
   ;; Returns a function to handle "foo$1$3bar$2" replacements in s, if any.
@@ -6297,10 +6286,10 @@ reduces them without incurring seq initialization"
    -> \"lmostAay igPay atinLay\""
   [s match replacement]
   (cond
-   (has-type? match Character)
+   (char? match)
    (apply str (map #(if (= % match) replacement %) s))
 
-   (has-type? match String)
+   (string? match)
    (let [match-len (count match)
          s-len (count s)]
      (loop [offset 0
@@ -6317,8 +6306,8 @@ reduces them without incurring seq initialization"
                     result)))
          (-to-string (-append! result (subs s prev-match-end))))))
 
-   (instance? Pattern match)
-   (if (or (has-type? replacement String) (vector? replacement))
+   (satisfies? IPattern match)
+   (if (or (string? replacement) (vector? replacement))
      (let [replacement-handler (replacement->handler replacement)]
        ;; Q: Do we want to validate that for $N, N <= number-of-captures?
        (replace s match replacement-handler))
@@ -6330,7 +6319,7 @@ reduces them without incurring seq initialization"
            (-to-string (-append! result (subs s prev-match-end)))
            (if-let [match-offsets (re-first-match-range match s offset)]
              (let [[match-start match-end] match-offsets
-                   replacement-str (replacement (pcre-offsets->matches s match-offsets))]
+                   replacement-str (replacement (re-offsets->matches s match-offsets))]
                (recur (if (= match-start match-end)
                         (inc match-end)
                         match-end)
@@ -6376,3 +6365,44 @@ reduces them without incurring seq initialization"
         0
         :else
         1))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Objective-C ;;;;;;;;;;;;;;;;
+
+(if-objc
+ (do
+   (extend-type (§ NSArray)
+     ISeqable
+     (-seq [array] (array-seq array 0))
+
+     ICollection
+     (-conj [coll o] (Cons. nil o coll nil))
+
+     ICounted
+     (-count [a] (§ a :count))
+
+     IIndexed
+     (-nth
+       ([coll n]
+          (§ coll :objectAtIndex n))
+       ([coll n not-found]
+          (if (and (<= 0 n) (< n (§ coll :count)))
+            (§ coll :objectAtIndex n)
+            not-found)))
+
+     ILookup
+     (-lookup
+       ([array k]
+          (§ array :objectAtIndex k))
+       ([array k not-found]
+          (-nth array k not-found)))
+
+     IReduce
+     (-reduce
+       ([array f]
+          (ci-reduce array f))
+       ([array f start]
+          (ci-reduce array f start)))
+
+     IPrintable
+     (-pr-seq [a opts]
+       (pr-sequential pr-seq "#<NSArray [" ", " "]>" opts a)))))

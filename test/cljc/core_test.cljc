@@ -1305,7 +1305,9 @@
   (assert (not= (C. nil) (B. nil)))
 
   (assert (instance? cljc.core/Integer 1))
-  (assert (instance? cljc.core/String "foo"))
+  (if-objc
+   nil
+   (assert (instance? cljc.core/String "foo")))
   (assert (instance? cljc.core/Array (array)))
   (assert (instance? cljc.core/Closure (fn [])))
 

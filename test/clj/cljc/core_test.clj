@@ -948,4 +948,4 @@
                         (str sb)))))
            ['abc012345678910111213141516171819]))))
 
-(use-fixtures :once (cljc-once-fixture :c))
+(use-fixtures :once (cljc-once-fixture :both))

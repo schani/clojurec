@@ -21,4 +21,4 @@
         (is (= [true]
                (make-and-run run-dir)))))))
 
-(use-fixtures :once (cljc-once-fixture :c))
+(use-fixtures :once (cljc-once-fixture :both))

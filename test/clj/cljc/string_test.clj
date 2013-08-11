@@ -126,4 +126,4 @@
     (is (= (core-run '(pr (cljc.string/replace "x" "" ""))) ["x"]))
     (is (= (core-run '(pr (cljc.string/replace "x" "y" ""))) ["x"]))))
 
-(use-fixtures :once (cljc-once-fixture :c))
+(use-fixtures :once (cljc-once-fixture :both))

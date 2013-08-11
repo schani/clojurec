@@ -60,4 +60,4 @@
                        (count (dissoc m1 3))
                        (every? boolean v))))))))))
 
-(use-fixtures :once (cljc-once-fixture :c))
+(use-fixtures :once (cljc-once-fixture :both))
