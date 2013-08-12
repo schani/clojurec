@@ -277,6 +277,8 @@ extern cljc_unichar_t character_get (value_t *v);
 extern value_t* make_string_with_size (long bytes);
 extern value_t* make_string_copy (const char *utf8);
 extern value_t* make_string_copy_free (char *utf8);
+#else
+#define make_string_copy	make_string
 #endif
 extern value_t* make_string (char *utf8);
 extern value_t* make_string_from_unichar (cljc_unichar_t c);

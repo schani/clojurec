@@ -13,6 +13,141 @@
 [:function _OSSwapInt64 [:unsigned-long-long :unsigned-long-long]]
 [:compound fd_set "sizeof (fd_set)"]
 ;;FIXME: const struct fd_set * in __darwin_fd_isset
+[:function sel_getName [:c-string-const :selector]]
+[:function sel_registerName [:selector :c-string-const]]
+[:function object_getClassName [:c-string-const :id]]
+;;FIXME: void * in object_getIndexedIvars
+[:function sel_isMapped [Boolean :selector]]
+[:function sel_getUid [:selector :c-string-const]]
+[:compound objc_property_attribute_t "sizeof (objc_property_attribute_t)"]
+[:function object_copy [:id :id :unsigned-long]]
+[:function object_dispose [:id :id]]
+[:function object_getClass [:id :id]]
+[:function object_setClass [:id :id :id]]
+[:function object_getClassName [:c-string-const :id]]
+;;FIXME: void * in object_getIndexedIvars
+;;FIXME: Ivar in object_getIvar
+;;FIXME: Ivar in object_setIvar
+;;FIXME: Ivar in object_setInstanceVariable
+;;FIXME: Ivar in object_getInstanceVariable
+[:function objc_getClass [:id :c-string-const]]
+[:function objc_getMetaClass [:id :c-string-const]]
+[:function objc_lookUpClass [:id :c-string-const]]
+[:function objc_getRequiredClass [:id :c-string-const]]
+[:function objc_getFutureClass [:id :c-string-const]]
+[:function objc_setFutureClass [:void :id :c-string-const]]
+;;FIXME: Class * in objc_getClassList
+;;FIXME: Class * in objc_copyClassList
+[:function objc_getProtocol [:id :c-string-const]]
+;;FIXME: Protocol ** in objc_copyProtocolList
+[:function class_getName [:c-string-const :id]]
+[:function class_isMetaClass [Boolean :id]]
+[:function class_getSuperclass [:id :id]]
+[:function class_setSuperclass [:id :id :id]]
+[:function class_getVersion [:int :id]]
+[:function class_setVersion [:void :id :int]]
+[:function class_getInstanceSize [:unsigned-long :id]]
+;;FIXME: Ivar in class_getInstanceVariable
+;;FIXME: Ivar in class_getClassVariable
+;;FIXME: Ivar * in class_copyIvarList
+;;FIXME: Method in class_getInstanceMethod
+;;FIXME: Method in class_getClassMethod
+;;FIXME: IMP in class_getMethodImplementation
+;;FIXME: IMP in class_getMethodImplementation_stret
+[:function class_respondsToSelector [Boolean :id :selector]]
+;;FIXME: Method * in class_copyMethodList
+[:function class_conformsToProtocol [Boolean :id :id]]
+;;FIXME: Protocol ** in class_copyProtocolList
+;;FIXME: objc_property_t in class_getProperty
+;;FIXME: objc_property_t * in class_copyPropertyList
+;;FIXME: const uint8_t * in class_getIvarLayout
+;;FIXME: const uint8_t * in class_getWeakIvarLayout
+[:function class_createInstance [:id :id :unsigned-long]]
+;;FIXME: void * in objc_constructInstance
+;;FIXME: void * in objc_destructInstance
+[:function objc_allocateClassPair [:id :id :c-string-const :unsigned-long]]
+[:function objc_registerClassPair [:void :id]]
+[:function objc_duplicateClass [:id :id :c-string-const :unsigned-long]]
+[:function objc_disposeClassPair [:void :id]]
+;;FIXME: IMP in class_addMethod
+;;FIXME: IMP in class_replaceMethod
+[:function class_addIvar [Boolean :id :c-string-const :unsigned-long :unsigned-char :c-string-const]]
+[:function class_addProtocol [Boolean :id :id]]
+;;FIXME: const objc_property_attribute_t * in class_addProperty
+;;FIXME: const objc_property_attribute_t * in class_replaceProperty
+;;FIXME: const uint8_t * in class_setIvarLayout
+;;FIXME: const uint8_t * in class_setWeakIvarLayout
+;;FIXME: Method in method_getName
+;;FIXME: IMP in method_getImplementation
+;;FIXME: Method in method_getTypeEncoding
+;;FIXME: Method in method_getNumberOfArguments
+;;FIXME: char * in method_copyReturnType
+;;FIXME: char * in method_copyArgumentType
+;;FIXME: Method in method_getReturnType
+;;FIXME: Method in method_getArgumentType
+;;FIXME: struct objc_method_description * in method_getDescription
+;;FIXME: IMP in method_setImplementation
+;;FIXME: Method in method_exchangeImplementations
+;;FIXME: Ivar in ivar_getName
+;;FIXME: Ivar in ivar_getTypeEncoding
+;;FIXME: Ivar in ivar_getOffset
+;;FIXME: objc_property_t in property_getName
+;;FIXME: objc_property_t in property_getAttributes
+;;FIXME: objc_property_attribute_t * in property_copyAttributeList
+;;FIXME: char * in property_copyAttributeValue
+[:function protocol_conformsToProtocol [Boolean :id :id]]
+[:function protocol_isEqual [Boolean :id :id]]
+[:function protocol_getName [:c-string-const :id]]
+;;FIXME: struct objc_method_description in protocol_getMethodDescription
+;;FIXME: struct objc_method_description * in protocol_copyMethodDescriptionList
+;;FIXME: objc_property_t in protocol_getProperty
+;;FIXME: objc_property_t * in protocol_copyPropertyList
+;;FIXME: Protocol ** in protocol_copyProtocolList
+[:function objc_allocateProtocol [:id :c-string-const]]
+[:function objc_registerProtocol [:void :id]]
+[:function protocol_addMethodDescription [:void :id :selector :c-string-const Boolean Boolean]]
+[:function protocol_addProtocol [:void :id :id]]
+;;FIXME: const objc_property_attribute_t * in protocol_addProperty
+;;FIXME: const char ** in objc_copyImageNames
+[:function class_getImageName [:c-string-const :id]]
+;;FIXME: const char ** in objc_copyClassNamesForImage
+[:function sel_getName [:c-string-const :selector]]
+[:function sel_getUid [:selector :c-string-const]]
+[:function sel_registerName [:selector :c-string-const]]
+[:function sel_isEqual [Boolean :selector :selector]]
+[:function objc_enumerationMutation [:void :id]]
+;;FIXME: void (*)(id) in objc_setEnumerationMutationHandler
+;;FIXME: void * in objc_setForwardHandler
+;;FIXME: IMP in imp_implementationWithBlock
+;;FIXME: IMP in imp_getBlock
+;;FIXME: IMP in imp_removeBlock
+[:enum OBJC_ASSOCIATION_ASSIGN OBJC_ASSOCIATION_RETAIN_NONATOMIC OBJC_ASSOCIATION_COPY_NONATOMIC OBJC_ASSOCIATION_RETAIN OBJC_ASSOCIATION_COPY nil]
+;;FIXME: const void * in objc_setAssociatedObject
+;;FIXME: const void * in objc_getAssociatedObject
+[:function objc_removeAssociatedObjects [:void :id]]
+;;FIXME: id * in objc_loadWeak
+;;FIXME: id * in objc_storeWeak
+;;FIXME: IMP in class_lookupMethod
+[:function class_respondsToMethod [Boolean :id :selector]]
+[:function _objc_flush_caches [:void :id]]
+;;FIXME: void * in object_copyFromZone
+[:function object_realloc [:id :id :unsigned-long]]
+;;FIXME: void * in object_reallocFromZone
+;;FIXME: void * in objc_getClasses
+[:function objc_addClass [:void :id]]
+;;FIXME: int (*)(const char *) in objc_setClassHandler
+[:function objc_setMultithreaded [:void Boolean]]
+;;FIXME: void * in class_createInstanceFromZone
+;;FIXME: struct objc_method_list * in class_addMethods
+;;FIXME: struct objc_method_list * in class_removeMethods
+[:function _objc_resolve_categories_for_class [:void :id]]
+[:function class_poseAs [:id :id :id]]
+;;FIXME: Method in method_getSizeOfArguments
+;;FIXME: struct objc_method * in method_getArgumentInfo
+[:function class_respondsToMethod [Boolean :id :selector]]
+;;FIXME: IMP in class_lookupMethod
+[:function objc_getOrigClass [:id :c-string-const]]
+;;FIXME: struct objc_method_list * in class_nextMethodList
 [:function __assert_rtn [:void :c-string-const :c-string-const :int :c-string-const]]
 [:compound _RuneEntry "sizeof (_RuneEntry)"]
 [:compound _RuneRange "sizeof (_RuneRange)"]
@@ -1581,12 +1716,6 @@
 ;;FIXME: filesec_t in filesec_query_property
 ;;FIXME: filesec_t in filesec_set_property
 ;;FIXME: filesec_t in filesec_unset_property
-[:function sel_getName [:c-string-const :selector]]
-[:function sel_registerName [:selector :c-string-const]]
-[:function object_getClassName [:c-string-const :id]]
-;;FIXME: void * in object_getIndexedIvars
-[:function sel_isMapped [Boolean :selector]]
-[:function sel_getUid [:selector :c-string-const]]
 [:function NSStringFromSelector [:id :selector]]
 [:function NSSelectorFromString [:selector :id]]
 [:function NSStringFromClass [:id :id]]

@@ -850,7 +850,7 @@ reduces them without incurring seq initialization"
   [s]
   (if-objc
     (and (has-type? s ObjCObject)
-         (c* "make_boolean ([[objc_object_get (~{}) class] isSubclassOfClass: [NSString class]])" s))
+         (§ (§ s :class) :isSubclassOfClass (§ NSString)))
     (has-type? s String)))
 
 (defn ^boolean keyword?
@@ -1385,7 +1385,7 @@ reduces them without incurring seq initialization"
 	end (min end len)
 	start (min start end)]
     (if-objc
-      (c* "make_objc_object ([objc_object_get (~{}) substringWithRange: NSMakeRange (integer_get (~{}), integer_get (~{}))])" s start (- end start))
+      (§ s :substringWithRange (UIKit/NSMakeRange start (- end start)))
       (c* "make_string_copy_free (g_utf8_substring (string_get_utf8 (~{}), integer_get (~{}), integer_get (~{})))" s start end))))
 
 (defn subs
@@ -1634,7 +1634,7 @@ reduces them without incurring seq initialization"
     IIndexed
     (-nth
       ([s n]
-         (c* "make_character ([objc_object_get (~{}) characterAtIndex: integer_get (~{})])" s n))
+         (§ s :characterAtIndex n))
       ([coll n not-found]
          (if (and (<= 0 n) (< n (count coll)))
            (-nth coll n)
@@ -5391,7 +5391,7 @@ reduces them without incurring seq initialization"
     (-pr-seq obj opts)
     (if-objc
      (if (has-type? obj ObjCObject)
-       (list "#<" (c* "make_string (class_getName (objc_object_get (~{})))" (§ obj :class)) ">")
+       (list "#<" (UIKit/class_getName (§ obj :class)) ">")
        (list "#<unknown>"))
      (list "#<unknown>"))))
 
@@ -6041,7 +6041,7 @@ reduces them without incurring seq initialization"
     (if-objc
      (let [re (§ (§ NSRegularExpression)
                  :regularExpressionWithPattern s
-                 :options (c* "make_integer (NSRegularExpressionCaseInsensitive)")
+                 :options UIKit/NSRegularExpressionCaseInsensitive
                  :error nil)]
        (if re
          re
@@ -6344,7 +6344,7 @@ reduces them without incurring seq initialization"
 
 (defn slurp [filename]
   (if-objc
-    (§ (§ NSString) :stringWithContentsOfFile filename :encoding (c* "make_integer (NSUTF8StringEncoding)") :error nil)
+    (§ (§ NSString) :stringWithContentsOfFile filename :encoding UIKit/NSUTF8StringEncoding :error nil)
     (c* "make_string_copy_free (slurp_file (string_get_utf8 (~{})))" filename)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; main function support ;;;;;;;;;;;;;;;;
