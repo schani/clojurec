@@ -71,6 +71,9 @@
     (c* "fputs (string_get_utf8 (~{}), stdout)" s)
     nil))
 
+(defn read-line []
+  (c* "make_string( fgets ( ((string_t*)(make_string_with_size(1024)))->utf8, 1024, stdin) )"))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; arrays ;;;;;;;;;;;;;;;;
 
 (defn aclone
@@ -1194,7 +1197,8 @@ reduces them without incurring seq initialization"
 (defn int
   "Coerce to int by stripping decimal places."
   [x]
-  (fix x))
+  (cond (char? x) (c* "make_integer ((long)character_get (~{}))" x)
+        :else (fix x)))
 
 (defn long
   "Coerce to long by stripping decimal places. Identical to `int'."
@@ -1592,6 +1596,9 @@ reduces them without incurring seq initialization"
           (satisfies? ISeq coll))
     (Cons. nil x coll nil)
     (Cons. nil x (seq coll) nil)))
+
+(defn ^boolean list? [x]
+  (satisfies? IList x))
 
 (extend-type Character
   IEquiv
@@ -2038,6 +2045,11 @@ reduces them without incurring seq initialization"
    (nil? (seq coll)) true
    (pred (first coll)) (recur pred (next coll))
    true false))
+
+(defn ^boolean not-every?
+  "Returns false if (pred x) is logical true for every x in
+  coll, else true."
+  [pred coll] (not (every? pred coll)))
 
 (defn some
   "Returns the first logical true value of (pred x) for any x in coll,
@@ -2843,7 +2855,7 @@ reduces them without incurring seq initialization"
   IEmptyableCollection
   (-empty [coll]
     (-with-meta cljc.core.PersistentVector/EMPTY meta))
-  
+
   IPrintable
   (-pr-seq [coll opts] (pr-sequential pr-seq "(" " " ")" opts coll)))
 
@@ -3977,7 +3989,7 @@ reduces them without incurring seq initialization"
 
   IHash
   (-hash [coll] (caching-hash coll hash-coll __hash))
-  
+
   IPrintable
   (-pr-seq [coll opts] (pr-sequential pr-seq "(" " " ")" opts coll)))
 
@@ -5370,6 +5382,34 @@ reduces them without incurring seq initialization"
          ([x y z] (reduce #(conj %1 (%2 x y z)) [] fs))
          ([x y z & args] (reduce #(conj %1 (apply %2 x y z args)) [] fs))))))
 
+(defn dorun
+  "When lazy sequences are produced via functions that have side
+  effects, any effects other than those needed to produce the first
+  element in the seq do not occur until the seq is consumed. dorun can
+  be used to force any effects. Walks through the successive nexts of
+  the seq, does not retain the head and returns nil."
+  ([coll]
+   (when (seq coll)
+     (recur (next coll))))
+  ([n coll]
+   (when (and (seq coll) (pos? n))
+     (recur (dec n) (next coll)))))
+
+(defn doall
+  "When lazy sequences are produced via functions that have side
+  effects, any effects other than those needed to produce the first
+  element in the seq do not occur until the seq is consumed. doall can
+  be used to force any effects. Walks through the successive nexts of
+  the seq, retains the head and returns it, thus causing the entire
+  seq to reside in memory at one time."
+  ([coll]
+   (dorun coll)
+   coll)
+  ([n coll]
+   (dorun n coll)
+   coll))
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Printing ;;;;;;;;;;;;;;;;
 
 (defn pr-sequential [print-one begin sep end opts coll]
@@ -5435,10 +5475,12 @@ reduces them without incurring seq initialization"
         (string-print string))
       (recur (next objs) true))))
 
-(defn newline [opts]
-  (string-print "\n")
-  (when (get opts :flush-on-newline)
-    (flush)))
+(defn newline
+  ([] (newline nil))
+  ([opts]
+     (string-print "\n")
+     (when (get opts :flush-on-newline)
+       (flush))))
 
 (def *flush-on-newline* true)
 (def *print-readably* true)
@@ -6202,7 +6244,7 @@ reduces them without incurring seq initialization"
            (do-split s (count s) re limit 0 0)))
       ([s re]
          (split s re 0)))))
-  
+
 (defn split-lines
   "Splits s on \\n or \\r\\n."
   [s]
