@@ -32,7 +32,7 @@
 (defn lambda? [exp]
   (tagged-list? exp 'lambda))
 (defn lambda-parameters [exp] (cadr exp))
-(defn lambda-body [exp] (caddr exp)) ; was cddr
+(defn lambda-body [exp] (cddr exp)) ; was cddr
 
 (defn make-lambda [parameters body]
   (cons 'lambda (cons parameters body)))
@@ -79,7 +79,7 @@
   (cadr exp)) ; was cdr
 
 (defn application? [exp] (list? exp))
-(defn operator [exp] (println "exp: " exp " op:" (car exp)) (car exp))
+(defn operator [exp] (car exp))
 (defn operands [exp] (cdr exp))
 (defn no-operands? [ops] (empty? ops))
 (defn first-operand [ops] (car ops))
@@ -191,7 +191,6 @@
 (defn lookup-variable-value [var env]
   (defn env-loop [env]
     (defn scan [vars vals]
-      (println "comparing: " var " with " (car vars))
       (cond (empty? vars) (env-loop (enclosing-environment env))
             (= var (car vars)) (car vals)
             :else (scan (cdr vars) (cdr vals))))
@@ -350,3 +349,5 @@
 
 (defn -main [& args]
   (driver-loop))
+
+#_(define (reduce f init seq) (if (null? seq) init (reduce f (f init (car seq)) (cdr seq))))

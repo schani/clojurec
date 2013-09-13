@@ -584,7 +584,7 @@ value_t* // was static symbol_t*
 make_symbol (const char *utf8)
 {
 	symbol_t *sym = (symbol_t*)alloc_value_retired (PTABLE_NAME (cljc_DOT_core_SLASH_Symbol), sizeof (symbol_t));
-	sym->utf8 = utf8;
+	sym->utf8 = strdup( utf8 );
 	return &sym->val;
 }
 

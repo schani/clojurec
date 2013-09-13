@@ -6313,10 +6313,10 @@ reduces them without incurring seq initialization"
     (§ s :integerValue)
     (c* "make_integer (g_ascii_strtoll (string_get_utf8 (~{}), NULL, 10))" s)))
 
-  (defn- parse-float [s]
-    (if-objc
-     :TODO
-     (c* "make_float (strtod (string_get_utf8 (~{}), NULL ) )" s s (count s))))
+ (defn- parse-float [s]
+   (if-objc
+   (§ s :floatValue)
+    (c* "make_float (g_ascii_strtod (string_get_utf8 (~{}), NULL ) )" s)))
 
 
 
