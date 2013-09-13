@@ -864,6 +864,36 @@ reduces them without incurring seq initialization"
   [s]
   (has-type? s Symbol))
 
+(declare str)
+(defn keyword
+  "Returns a Keyword with the given namespace and name.  Do not use :
+  in the keyword strings, it will be added automatically."
+  ([name] (c* "make_keyword( string_get_utf8(~{}) )" (if (symbol? name)
+                                                       (name name)
+                                                       name))
+     #_(cond
+      (keyword? name) (Keyword. nil name name nil)
+      (symbol? name) (Keyword. nil (name name) (name name) nil)
+      :else (Keyword. nil name name nil)))
+  ([ns name] (c* "make_keyword( string_get_utf8(~{}) )" (str ns "/" name))
+     #_(Keyword. ns name (str (when ns (str ns "/")) name) nil)))
+
+
+
+
+(defn symbol
+  ([name]
+     (if (symbol? name)
+       name
+       (symbol nil name)))
+  ([ns name]
+     (let [sym-str (if-not (nil? ns)
+                     (str ns "/" name)
+                     name)]
+       #_(Symbol. ns name sym-str nil nil)
+       (c* "make_symbol( string_get_utf8( make_string_copy( string_get_utf8 (~{}) ) ) )" sym-str))))
+
+
 (defn ^boolean number? [n]
   (or
    (has-type? n Integer)
@@ -1318,6 +1348,7 @@ reduces them without incurring seq initialization"
   (-append! [sb appendee])
   (-to-string [sb]))
 
+(declare println)
 (if-objc
   (do
     (deftype StringBuilder [string]
@@ -1744,10 +1775,13 @@ reduces them without incurring seq initialization"
   (-pr-seq [k opts]
     (list (str k))))
 
+(declare name)
 (extend-type Symbol
   IEquiv
   (-equiv [s o]
-    (identical? s o))
+    (or (identical? s o)
+        (and (symbol? s) (symbol? o)
+             (= (name s) (name o)))))
 
   IFn
   (-invoke [k coll]
@@ -6277,7 +6311,14 @@ reduces them without incurring seq initialization"
    ;; decide general semantics (parseInteger vs strtoll() style, etc.).
    (if-objc
     (§ s :integerValue)
-    (c* "make_integer (g_ascii_strtoll (string_get_utf8 (~{}), NULL, 10))" s base)))
+    (c* "make_integer (g_ascii_strtoll (string_get_utf8 (~{}), NULL, 10))" s)))
+
+  (defn- parse-float [s]
+    (if-objc
+     :TODO
+     (c* "make_float (strtod (string_get_utf8 (~{}), NULL ) )" s s (count s))))
+
+
 
 (defn- replacement->handler [r]
   ;; Returns a function to handle "foo$1$3bar$2" replacements in s, if any.

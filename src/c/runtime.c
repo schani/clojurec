@@ -580,12 +580,12 @@ string_hash_code (const char *utf8)
         return hashmurmur3_32(utf8, len);
 }
 
-static symbol_t*
+value_t* // was static symbol_t*
 make_symbol (const char *utf8)
 {
 	symbol_t *sym = (symbol_t*)alloc_value_retired (PTABLE_NAME (cljc_DOT_core_SLASH_Symbol), sizeof (symbol_t));
 	sym->utf8 = utf8;
-	return sym;
+	return &sym->val;
 }
 
 KHASH_MAP_INIT_STR (SYMBOLS, symbol_t*);
@@ -620,12 +620,12 @@ symbol_get_utf8 (value_t *v)
 	return s->utf8;
 }
 
-static keyword_t*
+value_t*
 make_keyword (const char *utf8)
 {
 	keyword_t *kw = (keyword_t*)alloc_value_retired (PTABLE_NAME (cljc_DOT_core_SLASH_Keyword), sizeof (keyword_t));
 	kw->utf8 = utf8;
-	return kw;
+	return &kw->val;
 }
 
 KHASH_MAP_INIT_STR (KEYWORDS, keyword_t*);

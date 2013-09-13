@@ -1,4 +1,5 @@
-(ns sample.metacircular)
+(ns sample.metacircular
+  (:use [cljc.reader :only [read-string]]))
 
 ; WIP, reader not yet implemented in cljc
 ; otherwise works already, also in clojure
@@ -31,7 +32,7 @@
 (defn lambda? [exp]
   (tagged-list? exp 'lambda))
 (defn lambda-parameters [exp] (cadr exp))
-(defn lambda-body [exp] (cddr exp))
+(defn lambda-body [exp] (caddr exp)) ; was cddr
 
 (defn make-lambda [parameters body]
   (cons 'lambda (cons parameters body)))
@@ -75,10 +76,10 @@
   (tagged-list? exp 'quote))
 
 (defn text-of-quotation [exp]
-  (cdr exp))
+  (cadr exp)) ; was cdr
 
 (defn application? [exp] (list? exp))
-(defn operator [exp] (car exp))
+(defn operator [exp] (println "exp: " exp " op:" (car exp)) (car exp))
 (defn operands [exp] (cdr exp))
 (defn no-operands? [ops] (empty? ops))
 (defn first-operand [ops] (car ops))
@@ -190,6 +191,7 @@
 (defn lookup-variable-value [var env]
   (defn env-loop [env]
     (defn scan [vars vals]
+      (println "comparing: " var " with " (car vars))
       (cond (empty? vars) (env-loop (enclosing-environment env))
             (= var (car vars)) (car vals)
             :else (scan (cdr vars) (cdr vals))))
@@ -302,18 +304,19 @@
                    '<procedure-env>))
     (display object)))
 
-(defn read []
-  (read-line)
-  (list '+ 1000 (list '* 5 4) 4))
 
 (defn driver-loop []
   (prompt-for-input input-prompt)
-  (let [input (read)
-        output (seval input the-global-environment)]
-    (announce-output output-prompt)
-    (user-print output)
-    (if (not= 'quit input) (driver-loop))))
-
+  (let [input (try (read-string (read-line))
+                   (catch Exception e (str "Cannot read input: \n"
+                                           (-get-message e))))]
+    (if-not (= 'quit input)
+      (let [output (try (seval input the-global-environment)
+                        (catch Exception e ("Cannot evaluate: \n"
+                                            (-get-message e))))]
+        (announce-output output-prompt)
+        (user-print output)
+        (driver-loop)))))
 
 
 (declare sapply)

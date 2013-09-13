@@ -313,8 +313,9 @@
          (emitln ";")
          name#))))
 
-(defn FIXME-IMPLEMENT []
-  (throw (UnsupportedOperationException.)))
+(defn FIXME-IMPLEMENT
+  ([] (throw (UnsupportedOperationException.)))
+  ([msg] (throw (UnsupportedOperationException. msg))))
 
 (defmulti emit-constant class)
 (defmethod emit-constant nil [x] "value_nil")
@@ -333,7 +334,8 @@
 (defmethod emit-constant Boolean [x] (if x "value_true" "value_false"))
 
 (defmethod emit-constant java.util.regex.Pattern [x]
-  (FIXME-IMPLEMENT))
+  (emit-value-wrap :pattern-const nil (emits "pcre_pattern ( make_string (" (wrap-in-double-quotes (escape-string (str x))) "))"))
+  #_(FIXME-IMPLEMENT (str "Cannot emit java.util.regex.Pattern for constant " x " yet.")))
 
 (defmethod emit-constant clojure.lang.Keyword [x]
   (emit-value-wrap :keyword nil
@@ -926,7 +928,7 @@
 
      :else
      ;; actually, this case probably shouldn't happen
-     (FIXME-IMPLEMENT))))
+     (FIXME-IMPLEMENT (str "Cannot emit code for: " target " with value: " val)))))
 
 (defmethod emit :ns
   [{:keys [name requires uses requires-macros env]}]
@@ -1374,7 +1376,7 @@
      (when (and allowed-argcs (not (allowed-argcs argc)))
        (warning env
          (str "WARNING: Wrong number of args (" argc ") passed to " ctor)))
-     
+
      {:env env :op :new :form form :ctor ctorexpr :args argexprs
       :children (into [ctorexpr] argexprs)})))
 
