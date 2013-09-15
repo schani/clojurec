@@ -94,6 +94,9 @@
 	  (recur (inc i) args))))
     a))
 
+(defn ^boolean array? [cand]
+  (has-type? cand Array))
+
 (defn make-array [size]
   (c* "make_array (integer_get (~{}))" size))
 
@@ -891,7 +894,7 @@ reduces them without incurring seq initialization"
                      (str ns "/" name)
                      name)]
        #_(Symbol. ns name sym-str nil nil)
-       (c* "make_symbol( string_get_utf8( make_string_copy( string_get_utf8 (~{}) ) ) )" sym-str))))
+       (c* "make_symbol( string_get_utf8( ~{}) )" sym-str))))
 
 
 (defn ^boolean number? [n]
@@ -6315,7 +6318,7 @@ reduces them without incurring seq initialization"
 
  (defn- parse-float [s]
    (if-objc
-   (§ s :floatValue)
+    (§ s :floatValue)
     (c* "make_float (g_ascii_strtod (string_get_utf8 (~{}), NULL ) )" s)))
 
 

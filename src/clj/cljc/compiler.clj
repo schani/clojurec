@@ -334,8 +334,11 @@
 (defmethod emit-constant Boolean [x] (if x "value_true" "value_false"))
 
 (defmethod emit-constant java.util.regex.Pattern [x]
-  (emit-value-wrap :pattern-const nil (emits "pcre_pattern ( make_string (" (wrap-in-double-quotes (escape-string (str x))) "))"))
-  #_(FIXME-IMPLEMENT (str "Cannot emit java.util.regex.Pattern for constant " x " yet.")))
+
+  (emit-value-wrap :pattern-const
+                   nil
+                   (emits "FUNCALL1 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_re_pattern), make_string ("
+                          (wrap-in-double-quotes (escape-string (str x))) "))")))
 
 (defmethod emit-constant clojure.lang.Keyword [x]
   (emit-value-wrap :keyword nil
@@ -1987,7 +1990,7 @@
 (comment
 
 ;;the new way - use the REPL!!
-(require '[cljs.compiler :as comp])
+(require '[cljc.compiler :as comp])
 (def repl-env (comp/repl-env))
 (comp/repl repl-env)
 ;having problems?, try verbose mode
