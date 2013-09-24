@@ -1,4 +1,10 @@
 ;;; -*- clojure -*-
+(ns cljc.core
+  #_(:use-macros [cljc.core-macros :only [clj-defmacro]]))
+
+(def ^:dynamic *out*)
+(def ^:dynamic *err*)
+
 
 (ns cljc.core.PersistentVector)
 
@@ -224,8 +230,23 @@
   (-entry-key [coll entry])
   (-comparator [coll]))
 
-(defprotocol IPrintable
+(defprotocol ^:deprecated IPrintable
+  "Do not use this.  It is kept for backwards compatibility with existing
+   user code that depends on it, but it has been superceded by IPrintWithWriter
+   User code that depends on this should be changed to use -pr-writer instead."
   (-pr-seq [o opts]))
+
+(defprotocol IWriter
+  (-write [writer s])
+  (-flush [writer]))
+
+(defprotocol IPrintWithWriter
+  "The old IPrintable protocol's implementation consisted of building a giant
+   list of strings to concatenate.  This involved lots of concat calls,
+   intermediate vectors, and lazy-seqs, and was very slow in some older JS
+   engines.  IPrintWithWriter implements printing via the IWriter protocol, so it
+   be implemented efficiently in terms of e.g. a StringBuffer append."
+  (-pr-writer [o writer opts]))
 
 (defprotocol IPending
   (-realized? [d]))
@@ -340,6 +361,9 @@
   (-reduce
     ([_ f] (f))
     ([_ f start] start))
+
+  IPrintWithWriter
+  (-pr-writer [o writer _] (-write writer "nil"))
 
   IPrintable
   (-pr-seq [o opts] (list "nil")))
@@ -833,6 +857,10 @@ reduces them without incurring seq initialization"
 (defn ^boolean instance? [t o]
   (c* "make_boolean (~{}->ptable->constructor == ~{})" o t))
 
+(defn ^boolean undefined? [x]
+  (cljc.core/undefined? x))
+
+
 (defn ^boolean seq?
   "Return true if s satisfies ISeq"
   [s]
@@ -874,7 +902,7 @@ reduces them without incurring seq initialization"
   ([name] (c* "make_keyword( string_get_utf8(~{}) )" (if (symbol? name)
                                                        (name name)
                                                        name))
-     #_(cond
+     #_(cond ; TODO
       (keyword? name) (Keyword. nil name name nil)
       (symbol? name) (Keyword. nil (name name) (name name) nil)
       :else (Keyword. nil name name nil)))
@@ -893,8 +921,8 @@ reduces them without incurring seq initialization"
      (let [sym-str (if-not (nil? ns)
                      (str ns "/" name)
                      name)]
-       #_(Symbol. ns name sym-str nil nil)
-       (c* "make_symbol( string_get_utf8( ~{}) )" sym-str))))
+       (c* "make_symbol( string_get_utf8( ~{} ))" sym-str))))
+
 
 
 (defn ^boolean number? [n]
@@ -1228,7 +1256,7 @@ reduces them without incurring seq initialization"
     (c* "make_integer ((long)float_get (~{}))" q)))
 
 (defn int
-  "Coerce to int by stripping decimal places."
+  "Coerce to int by stripping decimal places or converting from char."
   [x]
   (cond (char? x) (c* "make_integer ((long)character_get (~{}))" x)
         :else (fix x)))
@@ -1353,44 +1381,52 @@ reduces them without incurring seq initialization"
 
 (declare println)
 (if-objc
-  (do
-    (deftype StringBuilder [string]
-      IStringBuilder
-      (-append! [sb appendee]
-        (§ string :appendString appendee)
-        sb)
-      (-to-string [sb]
-        (§ (§ NSString) :stringWithString string)))
+ (do
+   (deftype StringBuilder [string]
+     IStringBuilder
+     (-append! [sb appendee]
+       (§ string :appendString appendee)
+       sb)
+     (-to-string [sb]
+       (§ (§ NSString) :stringWithString string)))
 
-    (defn- sb-make [string]
-      (StringBuilder. (§ (§ NSMutableString) :stringWithString string))))
-  (do
-    (deftype StringBuilder [string size used]
-      IStringBuilder
-      (-append! [sb appendee]
-        (let [len (c* "make_integer (strlen (string_get_utf8 (~{})))" appendee)
-              new-used (+ used len)
-              new-sb (if (<= new-used size)
-                       (StringBuilder. string size new-used)
-                       (let [new-size (loop [size (if (< size 16)
-                                                    32
-                                                    (* size 2))]
-                                        (if (<= new-used size)
-                                          size
-                                          (recur (* size 2))))
-                             new-string (c* "make_string_with_size (integer_get (~{}))" new-size)]
-                         (c* "memcpy ((void*)string_get_utf8 (~{}), string_get_utf8 (~{}), integer_get (~{}))"
-                             new-string string used)
-                         (StringBuilder. new-string new-size new-used)))]
-          (c* "memcpy ((void*)string_get_utf8 (~{}) + integer_get (~{}), string_get_utf8 (~{}), integer_get (~{}))"
-              (.-string new-sb) used appendee len)
-          new-sb))
-      (-to-string [sb]
-        string))
+   (defn- sb-make
+     ([] (sb-make ""))
+     ([string]
+        (StringBuilder. (§ (§ NSMutableString) :stringWithString string)))))
+ (do
+   (deftype StringBuilder [^:mutable string ^:mutable size ^:mutable used]
+     IStringBuilder
+     (-append! [sb appendee]
+       (let [len (c* "make_integer (strlen (string_get_utf8 (~{})))" appendee)
+             new-used (+ used len)]
+         (if (<= new-used size)
+           (do (c* "memcpy ((void*)string_get_utf8 (~{}) + integer_get (~{}), string_get_utf8 (~{}), integer_get (~{}))"
+                   string used appendee len)
+               (set! used new-used))
+           (let [new-size (loop [size (if (< size 16)
+                                        32
+                                        (* size 2))]
+                            (if (<= new-used size)
+                              size
+                              (recur (* size 2))))
+                 new-string (c* "make_string_with_size (integer_get (~{}))" new-size)]
+             (c* "memcpy ((void*)string_get_utf8 (~{}), string_get_utf8 (~{}), integer_get (~{}))"
+                 new-string string used)
+             (c* "memcpy ((void*)string_get_utf8 (~{}) + integer_get (~{}), string_get_utf8 (~{}), integer_get (~{}))"
+                 new-string used appendee len)
+             (set! string new-string)
+             (set! size new-size)
+             (set! used new-used)))
+         sb))
+     (-to-string [sb]
+       (c* "make_string_copy (string_get_utf8(~{}))" string)))
 
-    (defn- sb-make [string]
-      (let [len (c* "make_integer (strlen (string_get_utf8 (~{})))" string)]
-        (StringBuilder. string len len)))))
+   (defn- sb-make
+     ([] (sb-make ""))
+     ([string]
+        (let [len (c* "make_integer (strlen (string_get_utf8 (~{})))" string)]
+          (StringBuilder. string len len))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;; basics ;;;;;;;;;;;;;;;;;;
 
@@ -1399,7 +1435,7 @@ reduces them without incurring seq initialization"
 ;; FIXME: use StringBuilder
 (defn str
   "With no args, returns the empty string. With one arg x, returns
-  x.toString().  (str nil) returns the empty string. With more than
+  String of x.  (str nil) returns the empty string. With more than
   one arg, returns the concatenation of the str values of the args."
   ([] "")
   ([x] (cond
@@ -1407,11 +1443,20 @@ reduces them without incurring seq initialization"
         (symbol? x) (c* "make_string ((char*)symbol_get_utf8 (~{}))" x)
         (keyword? x) (str ":" (c* "make_string ((char*)keyword_get_utf8 (~{}))" x))
         (char? x) (c* "make_string_from_unichar (character_get (~{}))" x)
+        (has-type? x Integer) (if-objc
+                               (c* "make_objc_object ([NSString stringWithFormat: @\"%lld\", integer_get (~{})])" x)
+                               (c* "make_string_copy_free (g_strdup_printf (\"%lld\", integer_get (~{})))" x))
+        (has-type? x Float) (if-objc
+                             (c* "make_objc_object ([NSString stringWithFormat: @\"%f\", float_get (~{})])" x)
+                             (c* "make_string_copy_free (g_strdup_printf (\"%f\", float_get (~{})))" x))
+        (has-type? x Boolean) (if x "true" "false")
         (nil? x) ""
         (satisfies? IStringBuilder x) (-to-string x)
-        :else (pr-str x)))
+        :else  (if-objc
+                (c* "make_objc_object ([NSString stringWithFormat: @\"#<RawPointer %p>\", ~{}])" x)
+                (c* "make_string_copy_free (g_strdup_printf (\"#<RawPointer %p>\", ~{}))" x))))
   ([& xs]
-     (loop [sb (sb-make "")
+     (loop [sb (sb-make)
             xs (seq xs)]
        (if xs
          (recur (-append! sb (str (first xs)))
@@ -1435,6 +1480,18 @@ reduces them without incurring seq initialization"
        (subs s start (count s))))
   ([s start end]
      (checked-substring s start end)))
+
+(declare map)
+(defn format
+  "Formats a string. TODO implement printf formatting natively in Clojure."
+  [fmt & args]
+  (let [args (map (fn [x]
+                    (if (or (keyword? x) (symbol? x))
+                      (str x)
+                      x))
+                args)]
+    "TODO"
+    #_(apply str fmt "TODO" args)))
 
 (defn- equiv-sequential
   "Assumes x is sequential. Returns true if x equals y, otherwise
@@ -2358,10 +2415,35 @@ reduces them without incurring seq initialization"
                    s)))]
     (lazy-seq (step pred coll))))
 
+(defn cycle
+  "Returns a lazy (infinite!) sequence of repetitions of the items in coll."
+  [coll] (lazy-seq
+          (when-let [s (seq coll)]
+            (concat s (cycle s)))))
+
+
 (defn split-at
   "Returns a vector of [(take n coll) (drop n coll)]"
   [n coll]
   [(take n coll) (drop n coll)])
+
+(defn repeat
+  "Returns a lazy (infinite!, or length n if supplied) sequence of xs."
+  ([x] (lazy-seq (cons x (repeat x))))
+  ([n x] (take n (repeat x))))
+
+(defn replicate
+  "Returns a lazy seq of n xs."
+  [n x] (take n (repeat x)))
+
+(defn repeatedly
+  "Takes a function of no args, presumably with side effects, and
+  returns an infinite (or length n if supplied) lazy sequence of calls
+  to it"
+  ([f] (lazy-seq (cons (f) (repeatedly f))))
+  ([n f] (take n (repeatedly f))))
+
+
 
 (defn iterate
   "Returns a lazy sequence of x, (f x), (f (f x)) etc. f must be free of side-effects"
@@ -2498,7 +2580,7 @@ reduces them without incurring seq initialization"
    If (cmap ch) is nil, append ch to the new string.
    If (cmap ch) is non-nil, append (str (cmap ch)) instead."
   [s cmap]
-  (loop [sb (sb-make "")
+  (loop [sb (sb-make)
          cs (seq s)]
     (if cs
       (let [c (first cs)
@@ -2566,11 +2648,13 @@ reduces them without incurring seq initialization"
    string.  Similar to Perl's chomp."
   (apply str (cljc.core/reverse (drop-while #{\return \newline} (reverse s)))))
 
+(declare split join replace)
+
 (ns cljc.core)
 
 ;; FIXME: horribly inefficient as well as incomplete
 (defn string-quote [s]
-  (loop [sb (sb-make "")
+  (loop [sb (sb-make)
          cs (seq s)]
     (if cs
       (let [c (first cs)]
@@ -5187,6 +5271,14 @@ reduces them without incurring seq initialization"
    (symbol? x) (c* "symbol_get_name (~{})" x)
    :else (error (str "Doesn't support name: " x))))
 
+
+(defn butlast [s]
+  (loop [ret [] s s]
+    (if (next s)
+      (recur (conj ret (first s)) (next s))
+      (seq ret))))
+
+
 (defn namespace
   "Returns the namespace String of a symbol or keyword, or nil if not present."
   [x]
@@ -5230,6 +5322,29 @@ reduces them without incurring seq initialization"
      (lazy-seq
       (when-let [s (seq coll)]
         (cons (take n s) (partition-all n step (drop step s)))))))
+
+(defn partition
+  "Returns a lazy sequence of lists of n items each, at offsets step
+  apart. If step is not supplied, defaults to n, i.e. the partitions
+  do not overlap. If a pad collection is supplied, use its elements as
+  necessary to complete last partition upto n items. In case there are
+  not enough padding elements, return a partition with less than n items."
+  ([n coll]
+     (partition n n coll))
+  ([n step coll]
+     (lazy-seq
+       (when-let [s (seq coll)]
+         (let [p (take n s)]
+           (when (== n (count p))
+             (cons p (partition n step (drop step s))))))))
+  ([n step pad coll]
+     (lazy-seq
+       (when-let [s (seq coll)]
+         (let [p (take n s)]
+           (if (== n (count p))
+             (cons p (partition n step pad (drop step s)))
+             (list (take n (concat p pad)))))))))
+
 
 (defn take-while
   "Returns a lazy sequence of successive items from coll while
@@ -5446,14 +5561,185 @@ reduces them without incurring seq initialization"
    (dorun n coll)
    coll))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Regular Expressions ;;;;;;;;;;;;;;;;
+
+(defprotocol IPattern)
+
+(defn regexp? [o]
+  (satisfies? IPattern o))
+
+(if-objc
+ (extend-type (§ NSRegularExpression)
+   IPattern
+   IPrintable
+   (-pr-seq [p opts]
+     (list "(re-pattern \"" (§ p :pattern) "\")")))
+ (deftype Pattern [pattern re]
+   IPattern
+   IPrintable
+   (-pr-seq [p opts]
+     (list "(re-pattern \"" (string-quote pattern) "\")"))))
+
+(defn re-pattern [s]
+  "Returns a pattern for use by re-seq, etc. (Currently accepts PCRE syntax.)"
+  (if (satisfies? IPattern s)
+    s
+    (if-objc
+     (let [re (§ (§ NSRegularExpression)
+                 :regularExpressionWithPattern s
+                 :options UIKit/NSRegularExpressionCaseInsensitive
+                 :error nil)]
+       (if re
+         re
+         (throw (Exception. (str "Invalid regular expression pattern " s)))))
+     (let [result (c* "pcre_pattern (~{})" s)]
+       (when (has-type? result Array)
+         (let [[msg offset] result]
+           (throw (Exception. (str "Cannot compile pattern " (pr-str s)
+                                   " (" msg "; index " offset ")")))))
+       (Pattern. s result)))))
+
+(if-objc
+ (defn- text-checking-result->matches [s num-groups tcr]
+   (let [matches (map (fn [i]
+                        ;; FIXME: handle NSNotFound
+                        (§ s :substringWithRange (§ tcr :rangeAtIndex i)))
+                      (range (inc num-groups)))]
+     (if (zero? num-groups)
+       (first matches)
+       matches)))
+ (defn- pcre-match-offsets
+   ([re s offset]
+      (let [offsets (c* "pcre_match_offsets (~{}, ~{}, ~{})" (.-re re) s offset)]
+        (when offsets
+          (if (integer? offsets)
+            (throw (Exception. (str "PCRE search error " offsets " for pattern "
+                                    (pr-str re) " against " (pr-str s)
+                                    " at offset " offset))))
+          offsets)))
+   ([re s]
+      (pcre-match-offsets re s 0))))
+
+(defn- re-offsets->matches
+  "Returns \"whole-match\" if there were no captures, otherwise
+   [\"whole-match\" \"capture-1\" \"capture-2\" ...]."
+  [s offsets]
+  (if (= 2 (count offsets))
+    (apply subs s offsets)
+    (map #(apply subs s %)
+         (partition-all 2 offsets))))
+
+(def ^:private re-first-match-range
+  (if-objc
+   (fn [re s offset]
+     (let [string-length (§ s :length)
+           range-length (- string-length offset)
+           tcr (§ re :firstMatchInString s :options 0 :range (UIKit/NSMakeRange offset range-length))]
+       (when tcr
+         (mapcat (fn [i]
+                   (let [match-location (c* "make_integer ([objc_object_get (~{}) rangeAtIndex: integer_get (~{})].location)" tcr i)
+                         match-length (c* "make_integer ([objc_object_get (~{}) rangeAtIndex: integer_get (~{})].length)" tcr i)]
+                     [match-location (+ match-location match-length)]))
+                 (range (§ tcr :numberOfRanges))))))
+   pcre-match-offsets))
+
+(defn re-seq
+  "Returns a lazy sequence of successive matches of regex re in string s.
+   Each match will be \"whole-match\" if re has no captures, otherwise
+   [\"whole-match\" \"capture-1\" \"capture-2\" ...]."
+  [re s]
+  (if-objc
+   (let [num-groups (§ re :numberOfCaptureGroups)
+         string-length (§ s :length)
+         tcrs (§ re :matchesInString s :options 0 :range (UIKit/NSMakeRange 0 string-length))]
+     (map #(text-checking-result->matches s num-groups %) tcrs))
+   (when-let [offsets (pcre-match-offsets re s)]
+     (lazy-seq
+      (cons (re-offsets->matches s offsets)
+            (re-seq re (subs s (max 1 (nth offsets 1)))))))))
+
+(defn re-find
+  "Returns the first match for regex re in string s or nil.  The
+   match, if any, will be \"whole-match\" if re has no captures,
+   otherwise [\"whole-match\" \"capture-1\" \"capture-2\" ...]."
+  [re s]
+  (first (re-seq re s)))
+
+(defn re-matches
+  "Returns the match for regex re in string s, if and only if re
+   matches s completely.  The match, if any, will be \"whole-match\"
+   if re has no captures, otherwise [\"whole-match\" \"capture-1\"
+   \"capture-2\" ...]."
+  [re s]
+  (if-objc
+   (let [num-groups (§ re :numberOfCaptureGroups)
+         string-length (§ s :length)
+         tcr (§ re :firstMatchInString s :options 0 :range (UIKit/NSMakeRange 0 string-length))
+         matched (and tcr (c* "make_boolean ([objc_object_get (~{}) range].location != NSNotFound)" tcr))]
+     (when matched
+       (let [match-location (c* "make_integer ([objc_object_get (~{}) range].location)" tcr)
+             match-length (c* "make_integer ([objc_object_get (~{}) range].length)" tcr)]
+         (when (and (= match-location 0) (= match-length string-length))
+           (text-checking-result->matches s num-groups tcr)))))
+   (let [offsets (pcre-match-offsets re s)]
+     (when (and offsets (= (count s) (- (nth offsets 1) (nth offsets 0))))
+       (re-offsets->matches s offsets)))))
+
+(defn re-partition
+  "Splits the string into a lazy sequence of substrings, alternating
+   between substrings that match the pattern and the substrings
+   between the matches.  The sequence always starts with the substring
+   before the first match, or an empty string if the beginning of the
+   string matches.
+
+   For example: (re-partition #\"[a-z]+\" \"abc123def\")
+
+   Returns: (\"\" \"abc\" \"123\" \"def\")"
+  ;; This is modeled after clojure-contrib.str-util/partition, but
+  ;; behaves differently in part due to the fact that PCRE matches
+  ;; differently.  For example, with PCRE the empty string matches
+  ;; nothing.  In Java, it matches everything.
+  [re s]
+  (let [s-len (count s)]
+    ((fn step [prev-end search-i]
+       (lazy-seq
+        (if-let [offsets (re-first-match-range re s search-i)]
+          (let [[match-start match-end] offsets
+                matches (re-offsets->matches s offsets)]
+            (cons (subs s prev-end match-start)
+                  (cons matches
+                        (step match-end
+                              (if (= match-start match-end)
+                                (inc match-end)
+                                match-end)))))
+          (when (< prev-end s-len)
+            (list (subs s prev-end))))))
+     0 0)))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Printing ;;;;;;;;;;;;;;;;
 
-(defn pr-sequential [print-one begin sep end opts coll]
-  (concat (list begin)
+(defn ^:deprecated pr-sequential
+  "Do not use this.  It is kept for backwards compatibility with the
+   old IPrintable protocol."
+  [print-one begin sep end opts coll]
+  (concat [begin]
           (flatten1
-            (interpose (list sep) (map #(print-one % opts) coll)))
-          (list end)))
+            (interpose [sep] (map #(print-one % opts) coll)))
+          [end]))
+
+(defn pr-sequential-writer [writer print-one begin sep end opts coll]
+  (-write writer begin)
+  (when (seq coll)
+    (print-one (first coll) writer opts))
+  (doseq [o (next coll)]
+    (-write writer sep)
+    (print-one o writer opts))
+  (-write writer end))
+
+(defn write-all [writer & ss]
+  (doseq [s ss]
+    (-write writer s)))
 
 (defn string-print [x]
   (*print-fn* x)
@@ -5462,55 +5748,106 @@ reduces them without incurring seq initialization"
 (defn flush [] ;stub
   nil)
 
-(defn- pr-seq [obj opts]
-  ;; FIXME: print meta
-  (if (satisfies? IPrintable obj)
-    (-pr-seq obj opts)
-    (if-objc
-     (if (has-type? obj ObjCObject)
-       (list "#<" (UIKit/class_getName (§ obj :class)) ">")
-       (list "#<unknown>"))
-     (list "#<unknown>"))))
+(deftype StringBufferWriter [sb]
+  IWriter
+  (-write [_ s] (-append! sb s))
+  (-flush [_] nil))
 
-(defn- pr-sb [objs opts]
-  (loop [sb (sb-make "")
-         objs (seq objs)
-         need-sep false]
-    (if objs
-      (recur (loop [sb (if need-sep (-append! sb " ") sb)
-                    strings (seq (pr-seq (first objs) opts))]
-               (if strings
-                 (recur (-append! sb (first strings))
-                        (next strings))
-                 sb))
-             (next objs)
-             true)
-      sb)))
+(defn- ^:deprecated pr-seq
+  "Do not use this.  It is kept for backwards compatibility with the
+   old IPrintable protocol."
+  [obj opts]
+  (cond
+    (nil? obj) (list "nil")
+    (undefined? obj) (list "#<undefined>")
+    :else (concat
+            (when (and (get opts :meta)
+                       (satisfies? IMeta obj)
+                       (meta obj))
+              (concat ["^"] (pr-seq (meta obj) opts) [" "]))
+            (cond
+             ;; handle CLJS ctors
+;            (and (not (nil? obj))
+;                 ^boolean (.-cljc$lang$type obj))
+;            (.cljc$lang$ctorPrSeq obj obj)
+
+             (satisfies? IPrintable obj) (-pr-seq obj opts)
+
+             (regexp? obj) (list "#\"" (.-pattern obj) "\"")
+
+             :else (list "#<" (str obj) ">")))))
+
+(defn- pr-writer
+  "Prefer this to pr-seq, because it makes the printing function
+   configurable, allowing efficient implementations such as appending
+   to a StringBuffer."
+  [obj writer opts]
+  (cond
+    (nil? obj) (-write writer "nil")
+    (undefined? obj) (-write writer "#<undefined>")
+    :else (do
+            (when (and (get opts :meta)
+                       (satisfies? IMeta obj)
+                       (meta obj))
+              (-write writer "^")
+              (pr-writer (meta obj) writer opts)
+              (-write writer " "))
+            (cond
+              ;; handle CLJS ctors
+;              (and (not (nil? obj))
+;                  ^boolean (.-cljc$lang$type obj))
+;               (.cljc$lang$ctorPrWriter obj obj writer opts)
+
+              ; Use the new, more efficient, IPrintWithWriter interface when possible.
+              (satisfies? IPrintWithWriter obj) (-pr-writer obj writer opts)
+
+              ; Fall back on the deprecated IPrintable if necessary.  Note that this
+              ; will only happen when ClojureScript users have implemented -pr-seq
+              ; for their custom types.
+              (satisfies? IPrintable obj) (apply write-all writer (-pr-seq obj opts))
+
+              (regexp? obj) (write-all writer "#\""
+                                       ; Replace \/ with / since clojure does not escape it.
+                                       (cljc.string/join (cljc.string/split (.-pattern obj) (re-pattern "\\\\/")))
+                                       "\"")
+
+              :else (write-all writer "#<" (str obj) ">")))))
+
+(defn pr-seq-writer [objs writer opts]
+  (pr-writer (first objs) writer opts)
+  (doseq [obj (next objs)]
+    (-write writer " ")
+    (pr-writer obj writer opts)))
+
+(defn- pr-sb-with-opts [objs opts]
+  (let [sb (sb-make)
+        writer (StringBufferWriter. sb)]
+    (pr-seq-writer objs writer opts)
+    (-flush writer)
+    sb))
 
 (defn pr-str-with-opts
   "Prints a sequence of objects to a string, observing all the
   options given in opts"
   [objs opts]
-  (str (pr-sb objs opts)))
+  (if (empty? objs)
+    ""
+    (str (pr-sb-with-opts objs opts))))
 
 (defn prn-str-with-opts
   "Same as pr-str-with-opts followed by (newline)"
   [objs opts]
-  (let [sb (pr-sb objs opts)]
-    (str (-append! sb "\n"))))
+  (if (empty? objs)
+    "\n"
+    (let [sb (pr-sb-with-opts objs opts)]
+      (-append! sb \newline)
+      (str sb))))
 
-(defn pr-with-opts
+(defn- pr-with-opts
   "Prints a sequence of objects using string-print, observing all
   the options given in opts"
   [objs opts]
-  (loop [objs (seq objs)
-         need-sep false]
-    (when objs
-      (when need-sep
-        (string-print " "))
-      (doseq [string (pr-seq (first objs) opts)]
-        (string-print string))
-      (recur (next objs) true))))
+  (string-print (pr-str-with-opts objs opts)))
 
 (defn newline
   ([] (newline nil))
@@ -5552,7 +5889,7 @@ reduces them without incurring seq initialization"
   "Prints the object(s) using string-print.
   print and println produce output for human consumption."}
   print
-  (fn cljs-core-print [& objs]
+  (fn cljc-core-print [& objs]
     (pr-with-opts objs (assoc (pr-opts) :readably false))))
 
 (defn print-str
@@ -5577,7 +5914,284 @@ reduces them without incurring seq initialization"
   (pr-with-opts objs (pr-opts))
   (newline (pr-opts)))
 
-;; FIXME: extend-protocol IPrintable
+(defn printf
+  "Prints formatted output, as per format"
+  [fmt & args]
+  (print (apply format fmt args)))
+
+(def ^:private char-escapes {"\"" "\\\""
+                             "\\" "\\\\"
+                             "\b" "\\b"
+                             "\f" "\\f"
+                             "\n" "\\n"
+                             "\r" "\\r"
+                             "\t" "\\t"})
+
+(defn ^:private quote-string
+  [s]
+  (str \"
+       (cljc.string/replace s #_(js/RegExp "[\\\\\"\b\f\n\r\t]" "g") (re-pattern "[\\\\\"\b\f\n\r\t]") ; TODO
+         (fn [match] (get char-escapes match)))
+       \"))
+
+;; FIXME: extend-protocol IPrintable in one place (for later removal)
+#_(extend-protocol ^:deprecation-nowarn IPrintable
+  Boolean
+  (-pr-seq [bool opts] (list (str bool)))
+
+  Integer
+  (-pr-seq [n opts] (list (str n)))
+
+  Float
+  (-pr-seq [n opts] (list (str n)))
+
+  Array
+  (-pr-seq [a opts]
+    ^:deprecation-nowarn (pr-sequential pr-seq "#<Array [" ", " "]>" opts a))
+
+  String
+  (-pr-seq [obj opts]
+    (cond
+     (keyword? obj)
+     (list (str ":"
+                (when-let [nspc (namespace obj)]
+                  (str nspc "/"))
+                (name obj)))
+     (symbol? obj)
+     (list (str (when-let [nspc (namespace obj)]
+                  (str nspc "/"))
+                (name obj)))
+     :else (list (if (:readably opts)
+                   (quote-string obj)
+                   obj))))
+
+  #_function ; TODO
+  #_(-pr-seq [this]
+    (list "#<" (str this) ">"))
+
+  #_js/Date
+  #_(-pr-seq [d _]
+    (let [normalize (fn [n len]
+                      (loop [ns (str n)]
+                        (if (< (count ns) len)
+                          (recur (str "0" ns))
+                          ns)))]
+      (list
+       (str "#inst \""
+            (.getUTCFullYear d)                   "-"
+            (normalize (inc (.getUTCMonth d)) 2)  "-"
+            (normalize (.getUTCDate d) 2)         "T"
+            (normalize (.getUTCHours d) 2)        ":"
+            (normalize (.getUTCMinutes d) 2)      ":"
+            (normalize (.getUTCSeconds d) 2)      "."
+            (normalize (.getUTCMilliseconds d) 3) "-"
+            "00:00\""))))
+
+  LazySeq
+  (-pr-seq [coll opts] ^:deprecation-nowarn (pr-sequential pr-seq "(" " " ")" opts coll))
+
+  IndexedSeq
+  (-pr-seq [coll opts] ^:deprecation-nowarn (pr-sequential pr-seq "(" " " ")" opts coll))
+
+  PersistentTreeMapSeq
+  (-pr-seq [coll opts] ^:deprecation-nowarn (pr-sequential pr-seq "(" " " ")" opts coll))
+
+  NodeSeq
+  (-pr-seq [coll opts] ^:deprecation-nowarn (pr-sequential pr-seq "(" " " ")" opts coll))
+
+  ArrayNodeSeq
+  (-pr-seq [coll opts] ^:deprecation-nowarn (pr-sequential pr-seq "(" " " ")" opts coll))
+
+  List
+  (-pr-seq [coll opts] ^:deprecation-nowarn (pr-sequential pr-seq "(" " " ")" opts coll))
+
+  Cons
+  (-pr-seq [coll opts] ^:deprecation-nowarn (pr-sequential pr-seq "(" " " ")" opts coll))
+
+  EmptyList
+  (-pr-seq [coll opts] (list "()"))
+
+  PersistentVector
+  (-pr-seq [coll opts] ^:deprecation-nowarn (pr-sequential pr-seq "[" " " "]" opts coll))
+
+  ChunkedCons
+  (-pr-seq [coll opts] ^:deprecation-nowarn (pr-sequential pr-seq "(" " " ")" opts coll))
+
+  ChunkedSeq
+  (-pr-seq [coll opts] ^:deprecation-nowarn (pr-sequential pr-seq "(" " " ")" opts coll))
+
+  Subvec
+  (-pr-seq [coll opts] ^:deprecation-nowarn (pr-sequential pr-seq "[" " " "]" opts coll))
+
+  BlackNode
+  (-pr-seq [coll opts] ^:deprecation-nowarn (pr-sequential pr-seq "[" " " "]" opts coll))
+
+  RedNode
+  (-pr-seq [coll opts] ^:deprecation-nowarn (pr-sequential pr-seq "[" " " "]" opts coll))
+
+  PersistentArrayMap
+  (-pr-seq [coll opts]
+    (let [pr-pair (fn [keyval _ _] ^:deprecation-nowarn (pr-sequential pr-seq "" " " "" opts keyval))]
+      ^:deprecation-nowarn (pr-sequential pr-pair "{" ", " "}" opts coll)))
+
+  PersistentHashMap
+  (-pr-seq [coll opts]
+    (let [pr-pair (fn [keyval _ _] ^:deprecation-nowarn (pr-sequential pr-seq "" " " "" opts keyval))]
+      ^:deprecation-nowarn (pr-sequential pr-pair "{" ", " "}" opts coll)))
+
+  PersistentTreeMap
+  (-pr-seq [coll opts]
+    (let [pr-pair (fn [keyval _ _] ^:deprecation-nowarn (pr-sequential pr-seq "" " " "" opts keyval))]
+      ^:deprecation-nowarn (pr-sequential pr-pair "{" ", " "}" opts coll)))
+
+  PersistentHashSet
+  (-pr-seq [coll opts] ^:deprecation-nowarn (pr-sequential pr-seq "#{" " " "}" opts coll))
+
+  PersistentTreeSet
+  (-pr-seq [coll opts] ^:deprecation-nowarn (pr-sequential pr-seq "#{" " " "}" opts coll))
+
+  Range
+  (-pr-seq [coll opts] ^:deprecation-nowarn (pr-sequential pr-seq "(" " " ")" opts coll)))
+
+(extend-protocol IPrintWithWriter
+  Boolean
+  (-pr-writer [bool writer opts] (-write writer (str bool)))
+
+  Float
+  (-pr-writer [n writer opts] #_(/ 1 0) (-write writer (str n)))
+
+  Integer
+  (-pr-writer [n writer opts] #_(/ 1 0) (-write writer (str n)))
+
+  Array
+  (-pr-writer [a writer opts]
+    ^:deprecation-nowarn (pr-sequential-writer writer pr-writer "#<Array [" ", " "]>" opts a))
+
+  Symbol
+  (-pr-writer [s writer _]
+    (do
+      (when-let [nspc (namespace s)]
+        (write-all writer (str nspc) "/"))
+      (-write writer (name s))))
+
+  String
+  (-pr-writer [obj writer opts]
+    (cond
+     (keyword? obj)
+       (do
+         (-write writer ":")
+         (when-let [nspc (namespace obj)]
+           (write-all writer (str nspc) "/"))
+         (-write writer (name obj)))
+     :else (if (:readably opts)
+             (-write writer (quote-string obj))
+             (-write writer obj))))
+
+  #_function
+  #_(-pr-writer [this writer _]
+    (write-all writer "#<" (str this) ">"))
+
+  #_js/Date
+  #_(-pr-writer [d writer _]
+    (let [normalize (fn [n len]
+                      (loop [ns (str n)]
+                        (if (< (count ns) len)
+                          (recur (str "0" ns))
+                          ns)))]
+      (write-all writer
+        "#inst \""
+        (str (.getUTCFullYear d))             "-"
+        (normalize (inc (.getUTCMonth d)) 2)  "-"
+        (normalize (.getUTCDate d) 2)         "T"
+        (normalize (.getUTCHours d) 2)        ":"
+        (normalize (.getUTCMinutes d) 2)      ":"
+        (normalize (.getUTCSeconds d) 2)      "."
+        (normalize (.getUTCMilliseconds d) 3) "-"
+        "00:00\"")))
+
+  LazySeq
+  (-pr-writer [coll writer opts] ^:deprecation-nowarn (pr-sequential-writer writer pr-writer "(" " " ")" opts coll))
+
+  IndexedSeq
+  (-pr-writer [coll writer opts] ^:deprecation-nowarn (pr-sequential-writer writer pr-writer "(" " " ")" opts coll))
+
+  PersistentTreeMapSeq
+  (-pr-writer [coll writer opts] ^:deprecation-nowarn (pr-sequential-writer writer pr-writer "(" " " ")" opts coll))
+
+  NodeSeq
+  (-pr-writer [coll writer opts] ^:deprecation-nowarn (pr-sequential-writer writer pr-writer "(" " " ")" opts coll))
+
+  ArrayNodeSeq
+  (-pr-writer [coll writer opts] ^:deprecation-nowarn (pr-sequential-writer writer pr-writer "(" " " ")" opts coll))
+
+  List
+  (-pr-writer [coll writer opts] ^:deprecation-nowarn (pr-sequential-writer writer pr-writer "(" " " ")" opts coll))
+
+  Cons
+  (-pr-writer [coll writer opts] ^:deprecation-nowarn (pr-sequential-writer writer pr-writer "(" " " ")" opts coll))
+
+  EmptyList
+  (-pr-writer [coll writer opts] (-write writer "()"))
+
+  PersistentVector
+  (-pr-writer [coll writer opts] ^:deprecation-nowarn (pr-sequential-writer writer pr-writer "[" " " "]" opts coll))
+
+  ChunkedCons
+  (-pr-writer [coll writer opts] ^:deprecation-nowarn (pr-sequential-writer writer pr-writer "(" " " ")" opts coll))
+
+  ChunkedSeq
+  (-pr-writer [coll writer opts] ^:deprecation-nowarn (pr-sequential-writer writer pr-writer "(" " " ")" opts coll))
+
+  Subvec
+  (-pr-writer [coll writer opts] ^:deprecation-nowarn (pr-sequential-writer writer pr-writer "[" " " "]" opts coll))
+
+  BlackNode
+  (-pr-writer [coll writer opts] ^:deprecation-nowarn (pr-sequential-writer writer pr-writer "[" " " "]" opts coll))
+
+  RedNode
+  (-pr-writer [coll writer opts] ^:deprecation-nowarn (pr-sequential-writer writer pr-writer "[" " " "]" opts coll))
+
+  PersistentArrayMap
+  (-pr-writer [coll writer opts]
+    (let [pr-pair (fn [keyval _ _] ^:deprecation-nowarn (pr-sequential-writer writer pr-writer "" " " "" opts keyval))]
+      ^:deprecation-nowarn (pr-sequential-writer writer pr-pair "{" ", " "}" opts coll)))
+
+  PersistentHashMap
+  (-pr-writer [coll writer opts]
+    (let [pr-pair (fn [keyval _ _] ^:deprecation-nowarn (pr-sequential-writer writer pr-writer "" " " "" opts keyval))]
+      ^:deprecation-nowarn (pr-sequential-writer writer pr-pair "{" ", " "}" opts coll)))
+
+  PersistentTreeMap
+  (-pr-writer [coll writer opts]
+    (let [pr-pair (fn [keyval _ _] ^:deprecation-nowarn (pr-sequential-writer writer pr-writer "" " " "" opts keyval))]
+      ^:deprecation-nowarn (pr-sequential-writer writer pr-pair "{" ", " "}" opts coll)))
+
+  PersistentHashSet
+  (-pr-writer [coll writer opts] ^:deprecation-nowarn (pr-sequential-writer writer pr-writer "#{" " " "}" opts coll))
+
+  PersistentTreeSet
+  (-pr-writer [coll writer opts] ^:deprecation-nowarn (pr-sequential-writer writer pr-writer "#{" " " "}" opts coll))
+
+  Range
+  (-pr-writer [coll writer opts] ^:deprecation-nowarn (pr-sequential-writer writer pr-writer "(" " " ")" opts coll)))
+
+
+
+(defn- pr-sb [objs opts]
+  (loop [sb (sb-make)
+         objs (seq objs)
+         need-sep false]
+    (if objs
+      (recur (loop [sb (if need-sep (-append! sb " ") sb)
+                    strings (seq (pr-seq (first objs) opts))]
+               (if strings
+                 (recur (-append! sb (first strings))
+                        (next strings))
+                 sb))
+             (next objs)
+             true)
+      sb)))
+
 
 ;; IComparable
 (extend-protocol IComparable
@@ -5731,6 +6345,28 @@ reduces them without incurring seq initialization"
   Removes a watch (set by add-watch) from a reference"
   [iref key]
   (-remove-watch iref key))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; gensym ;;;;;;;;;;;;;;;;
+;; Internal - do not use!
+(def gensym_counter nil)
+
+(defn gensym
+  "Returns a new symbol with a unique name. If a prefix string is
+  supplied, the name is prefix# where # is some unique number. If prefix
+  is not supplied, the prefix is 'G__'. It is ensured to emit different
+  ids than the static cljc compiler."
+  ([] (gensym "G__"))
+  ([prefix-string]
+     (when (nil? gensym_counter)
+       (set! gensym_counter (atom 0)))
+     (symbol (str prefix-string "_" (swap! gensym_counter inc)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Fixtures ;;;;;;;;;;;;;;;;
+
+(def fixture1 1)
+(def fixture2 2)
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Delay ;;;;;;;;;;;;;;;;;;;;
 
@@ -6042,7 +6678,194 @@ reduces them without incurring seq initialization"
   "Given a multimethod, returns a map of preferred value -> set of other values"
   [multifn] (-prefers multifn))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Strings ;;;;;;;;;;;;;;;;
+;; UUID
+
+(deftype UUID [uuid]
+;  Object
+; (toString [this]
+;    (pr-str this))
+
+  IEquiv
+  (-equiv [_ other]
+    (and (instance? UUID other)
+         (= uuid (.-uuid other)))) ; was identical?
+
+  ^:deprecation-nowarn IPrintable
+  (-pr-seq [_ _]
+    (list (str "#uuid \"" uuid "\"")))
+
+  IPrintWithWriter
+  (-pr-writer [_ writer _]
+    (-write writer (str "#uuid \"" uuid "\"")))
+
+  IHash
+  (-hash [this]
+    (-hash (pr-str this))))
+
+
+;;;;;;;;;;;;;;;;;; Destructuring ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn destructure [bindings]
+  (let [bents (partition 2 bindings)
+         pb (fn pb [bvec b v]
+              (let [pvec
+                     (fn [bvec b val]
+                       (let [gvec (gensym "vec__")]
+                         (loop [ret (-> bvec (conj gvec) (conj val))
+                                     n 0
+                                     bs b
+                                     seen-rest? false]
+                           (if (seq bs)
+                             (let [firstb (first bs)]
+                               (cond
+                                 (= firstb '&) (recur (pb ret (second bs) (list `cljc.core/nthnext gvec n))
+                                                      n
+                                                      (nnext bs)
+                                                      true)
+                                 (= firstb :as) (pb ret (second bs) gvec)
+                                 :else (if seen-rest?
+                                         (throw (new Exception "Unsupported binding form, only :as can follow & parameter"))
+                                         (recur (pb ret firstb  (list `cljc.core/nth gvec n nil))
+                                                (inc n)
+                                                (next bs)
+                                                seen-rest?))))
+                             ret))))
+                     pmap
+                     (fn [bvec b v]
+                       (let [gmap (gensym "map__")
+                                  defaults (:or b)]
+                         (loop [ret (-> bvec (conj gmap) (conj v)
+                                             (conj gmap) (conj `(if (cljc.core/seq? ~gmap) (cljc.core/apply cljc.core/hash-map ~gmap) ~gmap))
+                                             ((fn [ret]
+                                                (if (:as b)
+                                                  (conj ret (:as b) gmap)
+                                                  ret))))
+                                     bes (reduce
+                                          (fn [bes entry]
+                                            (reduce #(assoc %1 %2 ((val entry) %2))
+                                                    (dissoc bes (key entry))
+                                                    ((key entry) bes)))
+                                          (dissoc b :as :or)
+                                          {:keys #(keyword (str %)), :strs str, :syms #(list `quote %)})]
+                           (if (seq bes)
+                             (let [bb (key (first bes))
+                                        bk (val (first bes))
+                                        has-default (contains? defaults bb)]
+                               (recur (pb ret bb (if has-default
+                                                   (list `cljc.core/get gmap bk (defaults bb))
+                                                   (list `cljc.core/get gmap bk)))
+                                      (next bes)))
+                             ret))))]
+                    (cond
+                      (symbol? b) (-> bvec (conj b) (conj v))
+                      (vector? b) (pvec bvec b v)
+                      (map? b) (pmap bvec b v)
+                      :else (throw (Exception. (str "Unsupported binding form: " b))))))
+         process-entry (fn [bvec b] (pb bvec (first b) (second b)))]
+        (if (every? symbol? (map first bents))
+          bindings
+          (reduce process-entry [] bents))))
+
+
+;;;;;;;;;;;;;;;;;; Namespace/Vars/Macro hackery ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(def namespaces (atom '{cljc.core {:name cljc.core}
+                        cljc.user {:name cljc.user}}))
+
+(def ^:dynamic *ns-sym* nil)
+
+(defn find-ns
+  "Returns the namespace named by the symbol or nil if it doesn't
+  exist."
+  [sym]
+  (@namespaces sym))
+
+(defn create-ns
+  "Create a new namespace named by the symbol if one doesn't already
+  exist, returns it or the already-existing namespace of the same
+  name."
+  [sym]
+  (let [ns (find-ns sym)]
+    (if ns
+      ns
+      (do
+        (swap! namespaces assoc-in [sym :name] sym)
+        (find-ns sym)))))
+
+
+;; TODO: this belongs in REPL environment only
+;; Implicitly depends on cljs.analyzer
+(ns cljc.analyzer)
+
+(declare *cljc-ns*
+         resolve-var
+         *cljc-warn-on-undeclared*
+         resolve-existing-var warning
+         *cljc-warn-protocol-deprecated*
+         warning)
+
+(ns cljc.core)
+
+(defn in-ns [name]
+  (assert (symbol? name) "Unable to resolve namespace name")
+  (set! cljc.analyzer/*cljc-ns* name)
+  (set! *ns-sym* name))
+
+(defn ns-resolve
+  "Returns the \"var\" to which a symbol will be resolved in the
+  namespace, else nil."
+  {:added "1.0"
+   :static true}
+  [ns sym]
+  (get-in ns [:defs sym]))
+
+(defn resolve
+  "same as (ns-resolve (find-ns *ns-sym*) symbol)"
+  [sym]
+  (ns-resolve (find-ns *ns-sym*) sym))
+
+;;;;;;;;;;;;;;;;;;; File loading ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; Implicitly depends on cljc.analyzer and cljc.compiler namespaces
+(defn load-file*
+  "Sequentially read and evaluate the set of forms contained in the
+  file. Returns a compile-forms* map that contains the emitted
+  JavaScript string (:emit-str) and the output (:output)."
+  [name]
+  ;; Use binding to restore *ns-sym* and *cljs-ns* after we're done
+  "TODO"
+  #_(binding [*ns-sym* *ns-sym*
+            cljs.analyzer/*cljs-ns* cljs.analyzer/*cljs-ns*]
+    (cljs.compiler/compile-and-eval-forms
+      (cljs.compiler/forms-seq name))))
+
+(defn load-file
+  "Sequentially read and evaluate the set of forms contained in the
+  file."
+  [name]
+  (let [lf (load-file* name)]
+    (print (:output lf))
+    (dissoc lf :output :emit-str)))
+
+(defn- root-resource
+  "Returns the root directory path for a lib"
+  {:tag String}
+  [lib]
+  (str \/
+       (-> (name lib)
+           (cljc.string/replace \- \_)
+           (cljc.string/replace \. \/))))
+
+(defn- lib->path
+  [lib]
+  (str "../src/cljc" (root-resource lib) ".cljc"))
+
+(defn require [& libs]
+  (doseq [lib libs]
+    (when-not (get-in @namespaces [lib :defs])
+      (load-file (lib->path lib)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Strings ;;;;;;;;;;;;;;;;
 
 (if-objc
   nil
@@ -6097,158 +6920,6 @@ reduces them without incurring seq initialization"
                               char
                               0)))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Regular Expressions ;;;;;;;;;;;;;;;;
-
-(defprotocol IPattern)
-
-(if-objc
- (extend-type (§ NSRegularExpression)
-   IPattern
-   IPrintable
-   (-pr-seq [p opts]
-     (list "(re-pattern \"" (§ p :pattern) "\")")))
- (deftype Pattern [pattern re]
-   IPattern
-   IPrintable
-   (-pr-seq [p opts]
-     (list "(re-pattern \"" (string-quote pattern) "\")"))))
-
-(defn re-pattern [s]
-  "Returns a pattern for use by re-seq, etc. (Currently accepts PCRE syntax.)"
-  (if (satisfies? IPattern s)
-    s
-    (if-objc
-     (let [re (§ (§ NSRegularExpression)
-                 :regularExpressionWithPattern s
-                 :options UIKit/NSRegularExpressionCaseInsensitive
-                 :error nil)]
-       (if re
-         re
-         (throw (Exception. (str "Invalid regular expression pattern " s)))))
-     (let [result (c* "pcre_pattern (~{})" s)]
-       (when (has-type? result Array)
-         (let [[msg offset] result]
-           (throw (Exception. (str "Cannot compile pattern " (pr-str s)
-                                   " (" msg "; index " offset ")")))))
-       (Pattern. s result)))))
-
-(if-objc
- (defn- text-checking-result->matches [s num-groups tcr]
-   (let [matches (map (fn [i]
-                        ;; FIXME: handle NSNotFound
-                        (§ s :substringWithRange (§ tcr :rangeAtIndex i)))
-                      (range (inc num-groups)))]
-     (if (zero? num-groups)
-       (first matches)
-       matches)))
- (defn- pcre-match-offsets
-   ([re s offset]
-      (let [offsets (c* "pcre_match_offsets (~{}, ~{}, ~{})" (.-re re) s offset)]
-        (when offsets
-          (if (integer? offsets)
-            (throw (Exception. (str "PCRE search error " offsets " for pattern "
-                                    (pr-str re) " against " (pr-str s)
-                                    " at offset " offset))))
-          offsets)))
-   ([re s]
-      (pcre-match-offsets re s 0))))
-
-(defn- re-offsets->matches
-  "Returns \"whole-match\" if there were no captures, otherwise
-   [\"whole-match\" \"capture-1\" \"capture-2\" ...]."
-  [s offsets]
-  (if (= 2 (count offsets))
-    (apply subs s offsets)
-    (map #(apply subs s %)
-         (partition-all 2 offsets))))
-
-(def ^:private re-first-match-range
-  (if-objc
-   (fn [re s offset]
-     (let [string-length (§ s :length)
-           range-length (- string-length offset)
-           tcr (§ re :firstMatchInString s :options 0 :range (UIKit/NSMakeRange offset range-length))]
-       (when tcr
-         (mapcat (fn [i]
-                   (let [match-location (c* "make_integer ([objc_object_get (~{}) rangeAtIndex: integer_get (~{})].location)" tcr i)
-                         match-length (c* "make_integer ([objc_object_get (~{}) rangeAtIndex: integer_get (~{})].length)" tcr i)]
-                     [match-location (+ match-location match-length)]))
-                 (range (§ tcr :numberOfRanges))))))
-   pcre-match-offsets))
-
-(defn re-seq
-  "Returns a lazy sequence of successive matches of regex re in string s.
-   Each match will be \"whole-match\" if re has no captures, otherwise
-   [\"whole-match\" \"capture-1\" \"capture-2\" ...]."
-  [re s]
-  (if-objc
-   (let [num-groups (§ re :numberOfCaptureGroups)
-         string-length (§ s :length)
-         tcrs (§ re :matchesInString s :options 0 :range (UIKit/NSMakeRange 0 string-length))]
-     (map #(text-checking-result->matches s num-groups %) tcrs))
-   (when-let [offsets (pcre-match-offsets re s)]
-     (lazy-seq
-      (cons (re-offsets->matches s offsets)
-            (re-seq re (subs s (max 1 (nth offsets 1)))))))))
-
-(defn re-find
-  "Returns the first match for regex re in string s or nil.  The
-   match, if any, will be \"whole-match\" if re has no captures,
-   otherwise [\"whole-match\" \"capture-1\" \"capture-2\" ...]."
-  [re s]
-  (first (re-seq re s)))
-
-(defn re-matches
-  "Returns the match for regex re in string s, if and only if re
-   matches s completely.  The match, if any, will be \"whole-match\"
-   if re has no captures, otherwise [\"whole-match\" \"capture-1\"
-   \"capture-2\" ...]."
-  [re s]
-  (if-objc
-   (let [num-groups (§ re :numberOfCaptureGroups)
-         string-length (§ s :length)
-         tcr (§ re :firstMatchInString s :options 0 :range (UIKit/NSMakeRange 0 string-length))
-         matched (and tcr (c* "make_boolean ([objc_object_get (~{}) range].location != NSNotFound)" tcr))]
-     (when matched
-       (let [match-location (c* "make_integer ([objc_object_get (~{}) range].location)" tcr)
-             match-length (c* "make_integer ([objc_object_get (~{}) range].length)" tcr)]
-         (when (and (= match-location 0) (= match-length string-length))
-           (text-checking-result->matches s num-groups tcr)))))
-   (let [offsets (pcre-match-offsets re s)]
-     (when (and offsets (= (count s) (- (nth offsets 1) (nth offsets 0))))
-       (re-offsets->matches s offsets)))))
-
-(defn re-partition
-  "Splits the string into a lazy sequence of substrings, alternating
-   between substrings that match the pattern and the substrings
-   between the matches.  The sequence always starts with the substring
-   before the first match, or an empty string if the beginning of the
-   string matches.
-
-   For example: (re-partition #\"[a-z]+\" \"abc123def\")
-
-   Returns: (\"\" \"abc\" \"123\" \"def\")"
-  ;; This is modeled after clojure-contrib.str-util/partition, but
-  ;; behaves differently in part due to the fact that PCRE matches
-  ;; differently.  For example, with PCRE the empty string matches
-  ;; nothing.  In Java, it matches everything.
-  [re s]
-  (let [s-len (count s)]
-    ((fn step [prev-end search-i]
-       (lazy-seq
-        (if-let [offsets (re-first-match-range re s search-i)]
-          (let [[match-start match-end] offsets
-                matches (re-offsets->matches s offsets)]
-            (cons (subs s prev-end match-start)
-                  (cons matches
-                        (step match-end
-                              (if (= match-start match-end)
-                                (inc match-end)
-                                match-end)))))
-          (when (< prev-end s-len)
-            (list (subs s prev-end))))))
-     0 0)))
-
 (ns cljc.string)
 
 (def split
@@ -6286,6 +6957,23 @@ reduces them without incurring seq initialization"
   "Splits s on \\n or \\r\\n."
   [s]
   (split s (re-pattern "\r?\n")))
+
+(defn ^String join
+  "Returns a string of all elements in coll, as returned by (seq coll),
+separated by an optional separator."
+  {:added "1.2"}
+  ([coll]
+     (apply str coll))
+  ([separator coll]
+     (loop [sb (sb-make (str (first coll)))
+            more (next coll)
+            sep (str separator)]
+       (if more
+         (recur (-> sb (-append! sep) (-append! (str (first more))))
+                (next more)
+                sep)
+         (str sb)))))
+
 
 (defn index-of
   "Returns the first index of needle in haystack, or nil.  A negative
@@ -6337,7 +7025,7 @@ reduces them without incurring seq initialization"
           (fn [match]
             (let [match-item (vec match)]
               (loop [parts replacement-parts
-                     result (sb-make "")]
+                     result (sb-make)]
                 (if-not (seq parts)
                   (-to-string result)
                   (let [[part & remainder] parts]
@@ -6380,7 +7068,7 @@ reduces them without incurring seq initialization"
          s-len (count s)]
      (loop [offset 0
             prev-match-end 0
-            result (sb-make "")]
+            result (sb-make)]
        (if-let [match-pos (index-of s match offset)]
          (let [result (-> result
                           (-append! (subs s prev-match-end match-pos))
@@ -6400,7 +7088,7 @@ reduces them without incurring seq initialization"
      (let [s-len (count s)]
        (loop [offset 0
               prev-match-end 0
-              result (sb-make "")]
+              result (sb-make)]
          (if (> offset s-len)
            (-to-string (-append! result (subs s prev-match-end)))
            (if-let [match-offsets (re-first-match-range match s offset)]

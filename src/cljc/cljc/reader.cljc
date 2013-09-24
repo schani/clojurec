@@ -147,7 +147,7 @@ nil if the end of stream has been reached")
             radix (nth a 1)]
         (if (nil? n)
           nil
-                                        ; TODO radix
+                                        ; TODO
           #_(* negate (string/parse-integer n radix))
           (* negate (string/parse-integer n)))))))
 
@@ -160,7 +160,7 @@ nil if the end of stream has been reached")
      (/ (string/parse-integer numinator) (string/parse-integer denominator))))
 
  (defn- match-float
-   ; TODO possibly need extension of underlying strtod
+   ; TODO probably need extension of underlying strtod
    [s]
    (let [groups (re-find* float-pattern s)
          group1 (nth groups 0)]
@@ -171,9 +171,10 @@ nil if the end of stream has been reached")
 
  (defn- re-matches*
    [re s]
+   (println "re: " re " " s)
    (let [dirt-matches (re-seq re s)
          [matches] dirt-matches]
-     #_(println "matches: " dirt-matches)
+;     (println "matches: " dirt-matches)
      (when (and (not (nil? matches))
                 (= (nth matches 0) s))
        (if (== (count matches) 1)
@@ -334,7 +335,7 @@ nil if the end of stream has been reached")
 
  (defn read-string*
    [reader _]
-   (loop [buffer (sb-make "") #_(gstring/StringBuffer.)
+   (loop [buffer (sb-make)
           ch (read-char reader)]
      (cond
       (nil? ch) (reader-error reader "EOF while reading")
@@ -441,11 +442,11 @@ nil if the end of stream has been reached")
  ;; omitted by design: var reader, eval reader
  (defn dispatch-macros [s]
    (cond
-    (= s "{") read-set
-    (= s "<") (throwing-reader "Unreadable form")
-    (= s "\"") read-regex
-    (= s"!") read-comment
-    (= s "_") read-discard
+    (= s \{) read-set
+    (= s \<) (throwing-reader "Unreadable form")
+    (= s \") read-regex
+    (= s \!) read-comment
+    (= s \_) read-discard
     :else nil))
 
  (defn read
@@ -570,8 +571,7 @@ nil if the end of stream has been reached")
 (defn ^:private read-uuid
   [uuid]
   (if (string? uuid)
-    "TODO UUID"
-    #_(UUID. uuid)
+    (UUID. uuid)
     (reader-error nil "UUID literal expects a string as its representation.")))
 
 (def *tag-table* (atom {"inst"  read-date

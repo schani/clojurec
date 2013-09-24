@@ -52,6 +52,10 @@
 (defmacro false? [x]
   (bool-expr (list 'c* "(make_boolean (~{} == value_false))" x)))
 
+(defmacro undefined? [x]
+  ; TODO reasonable?
+  (bool-expr (list 'c* "(make_boolean ((void*)~{} == 0))" x)))
+
 (defmacro has-type? [val t]
   ;; FIXME: This is a horrible hack - it can't cope with user types
   ;; because they need to be resolved to get their namespaces.
@@ -461,7 +465,7 @@
 (defmacro *
   ([] 1)
   ([x] x)
-  ([x y] `(math-op * ~x ~y))  
+  ([x y] `(math-op * ~x ~y))
   ([x y & more] `(* (* ~x ~y) ~@more)))
 
 (defmacro number-as-float [n]
@@ -484,22 +488,22 @@
 
 (defmacro <
   ([x] true)
-  ([x y] (bool-expr `(math-op-as-bool < ~x ~y)))  
+  ([x y] (bool-expr `(math-op-as-bool < ~x ~y)))
   ([x y & more] `(and (< ~x ~y) (< ~y ~@more))))
 
 (defmacro >
   ([x] true)
-  ([x y] (bool-expr `(math-op-as-bool > ~x ~y)))  
+  ([x y] (bool-expr `(math-op-as-bool > ~x ~y)))
   ([x y & more] `(and (> ~x ~y) (> ~y ~@more))))
 
 (defmacro <=
   ([x] true)
-  ([x y] (bool-expr `(math-op-as-bool <= ~x ~y)))  
+  ([x y] (bool-expr `(math-op-as-bool <= ~x ~y)))
   ([x y & more] `(and (<= ~x ~y) (<= ~y ~@more))))
 
 (defmacro >=
   ([x] true)
-  ([x y] (bool-expr `(math-op-as-bool >= ~x ~y)))  
+  ([x y] (bool-expr `(math-op-as-bool >= ~x ~y)))
   ([x y & more] `(and (>= ~x ~y) (>= ~y ~@more))))
 
 (defmacro mod [num div]
@@ -689,8 +693,8 @@
 
 (defmacro amap
   "Maps an expression across an array a, using an index named idx, and
-  return value named ret, initialized to a clone of a, then setting 
-  each element of ret to the evaluation of expr, returning the new 
+  return value named ret, initialized to a clone of a, then setting
+  each element of ret to the evaluation of expr, returning the new
   array ret."
   [a idx ret expr]
   `(let [a# ~a
@@ -704,7 +708,7 @@
 
 (defmacro areduce
   "Reduces an expression across an array a, using an index named idx,
-  and return value named ret, initialized to init, setting ret to the 
+  and return value named ret, initialized to init, setting ret to the
   evaluation of expr at each step, returning ret."
   [a idx ret init expr]
   `(let [a# ~a]

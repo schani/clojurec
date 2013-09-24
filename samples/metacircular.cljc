@@ -1,5 +1,6 @@
 (ns sample.metacircular
-  (:use [cljc.reader :only [read-string]]))
+  (:use [cljc.analyzer :only [analyze]]
+        [cljc.reader :only [read-string]]))
 
 ; WIP, reader not yet implemented in cljc
 ; otherwise works already, also in clojure
@@ -260,6 +261,7 @@
         (list '+ +)
         (list '* *)
         (list 'env print-env)
+        (list 'analyze #(analyze (cljc.analyzer/empty-env) %))
         (list 'eval #(seval % the-global-environment))
         (list 'apply #(sapply % the-global-environment))))
 
