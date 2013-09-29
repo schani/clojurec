@@ -7,7 +7,6 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns cljc.reader
-  (:require [cljc.string :as string])
   #_(:require [goog.string :as gstring]))
 
 
@@ -43,8 +42,8 @@ nil if the end of stream has been reached")
 (defn- ^boolean whitespace?
   "Checks whether a given character is whitespace"
   [ch]
-  (string/blank-char? ch)
-  #_(or #_(gstring/isBreakingWhitespace ch)
+  (cljc.string/blank-char? ch)
+  #_(or #_(gcljc.string/isBreakingWhitespace ch)
       (= " " ch)
       (= \n ch)
       (= \r ch)
@@ -141,15 +140,15 @@ nil if the end of stream has been reached")
                (nth groups 3) (array (nth groups 3) 10)
                (nth groups 4) (array (nth groups 4) 16)
                (nth groups 5) (array (nth groups 5) 8)
-               (nth groups 7) (array (nth groups 7) (string/parse-integer (nth groups 7)))
+               (nth groups 7) (array (nth groups 7) (cljc.string/parse-integer (nth groups 7)))
                :default (array nil nil))
             n (nth a 0)
             radix (nth a 1)]
         (if (nil? n)
           nil
                                         ; TODO radix
-          #_(* negate (string/parse-integer n radix))
-          (* negate (string/parse-integer n)))))))
+          #_(* negate (cljc.string/parse-integer n radix))
+          (* negate (cljc.string/parse-integer n)))))))
 
 
  (defn- match-ratio
@@ -157,7 +156,7 @@ nil if the end of stream has been reached")
    (let [groups (re-find* ratio-pattern s)
          numinator (nth groups 1)
          denominator (nth groups 2)]
-     (/ (string/parse-integer numinator) (string/parse-integer denominator))))
+     (/ (cljc.string/parse-integer numinator) (cljc.string/parse-integer denominator))))
 
  (defn- match-float
    ; TODO possibly need extension of underlying strtod
@@ -166,7 +165,7 @@ nil if the end of stream has been reached")
          group1 (nth groups 0)]
     (if-not (or (nil? group1)
             (< (count group1) 1))
-      (string/parse-float s)))
+      (cljc.string/parse-float s)))
    #_(js/parseFloat s))
 
  (defn- re-matches*
@@ -228,7 +227,7 @@ nil if the end of stream has been reached")
 
  (defn make-unicode-char [code-str]
    "TODO UNICODE"
-     #_(let [code (string/parse-integer code-str 16)]
+     #_(let [code (cljc.string/parse-integer code-str 16)]
        (.fromCharCode js/String code)))
 
  (defn escape-char
@@ -334,7 +333,7 @@ nil if the end of stream has been reached")
 
  (defn read-string*
    [reader _]
-   (loop [buffer (sb-make "") #_(gstring/StringBuffer.)
+   (loop [buffer (sb-make "") #_(gcljc.string/StringBuffer.)
           ch (read-char reader)]
      (cond
       (nil? ch) (reader-error reader "EOF while reading")
@@ -351,14 +350,14 @@ nil if the end of stream has been reached")
     :else not-found))
 
  (defn- contains
-   ([s t] (not (nil? (string/index-of s t)))))
+   ([s t] (not (nil? (cljc.string/index-of s t)))))
 
  (defn read-symbol
    [reader initch]
    (let [token (read-token reader initch)]
      (if (contains token "/")
-       (symbol (subs token 0 (string/index-of token "/"))
-               (subs token (inc (string/index-of token "/")) (count token)))
+       (symbol (subs token 0 (cljc.string/index-of token "/"))
+               (subs token (inc (cljc.string/index-of token "/")) (count token)))
        (special-symbols token (symbol token)))))
 
  (defn read-keyword
@@ -371,10 +370,10 @@ nil if the end of stream has been reached")
      (if (or (and (not (empty? ns)) ; was js undefined?
                   (= (subs ns (- (count ns) 2) (count ns)) ":/"))
              (= (nth name (dec (count name))) ":")
-             (not (nil? (string/index-of token "::" 1))))
+             (not (nil? (cljc.string/index-of token "::" 1))))
        (reader-error reader "Invalid token: " token)
        (if (and (not (empty? ns)) (> (count ns) 0))
-         (keyword (subs ns 0 (string/index-of ns "/")) name)
+         (keyword (subs ns 0 (cljc.string/index-of ns "/")) name)
          (keyword token)))))
 
  (defn desugar-meta
@@ -507,8 +506,8 @@ nil if the end of stream has been reached")
  (def ^:private timestamp-regex #"(\d\d\d\d)(?:-(\d\d)(?:-(\d\d)(?:[T](\d\d)(?::(\d\d)(?::(\d\d)(?:[.](\d+))?)?)?)?)?)?(?:[Z]|([-+])(\d\d):(\d\d))?")
 
  (defn ^:private parse-int [s]
-   (string/parse-integer s)
-   #_(let [n (string/parse-integer s)]
+   (cljc.string/parse-integer s)
+   #_(let [n (cljc.string/parse-integer s)]
     (if-not (js/isNaN n)
       n)))
 
