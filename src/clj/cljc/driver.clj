@@ -166,15 +166,15 @@
   (str (cljc/munge namespace) "-exports.clj"))
 
 (defn spit-driver [init-name main-name with-core out-dir]
-  (let [used-namespaces (concat (if init-name
-                                  []
-                                  [(namespace main-name)])
-                                (if with-core
+  (let [used-namespaces (concat (if with-core
                                   ['cljc.core]
                                   [])
                                 (if (and with-core (:objc *build-options*))
                                   ['cljc.objc]
-                                  []))
+                                  [])
+                                (if init-name
+                                  []
+                                  [(namespace main-name)]))
         main-string (standard-init-or-main-function nil main-name
                                                     (if init-name
                                                       (str init-name " ();\n")
