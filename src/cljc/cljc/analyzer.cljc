@@ -9,13 +9,13 @@
 ;; (set! *warn-on-reflection* true)
 
 (ns cljc.analyzer
+  (:use [cljc.reader :only [push-back-reader read]])
   (:refer-clojure :exclude [macroexpand-1])
-  (:require ;; [clojure.java.io :as io]
+  #_(:require ;; [clojure.java.io :as io]
             [cljc.string :as string]
             [cljc.reader :as reader]
             ;;[cljc.tagged-literals :as tags]
             )
-  ; TODO port and disable identity mapping
   ;;(:use-macros [cljc.analyzer-macros :only [disallowing-recur]])
   ;;(:import java.lang.StringBuilder)
   )
@@ -124,8 +124,8 @@
            {:name (symbol (str full-ns) (str (name sym)))
             :ns full-ns}))
 
-       (and (not= ".." s) (>= (string/index-of s ".") 0))
-       (let [idx (string/index-of s ".")
+       (and (not= ".." s) (>= (cljc.string/index-of s ".") 0))
+       (let [idx (cljc.string/index-of s ".")
              prefix (symbol (subs s 0 idx))
              suffix (subs s (inc idx))
              lb (-> env :locals prefix)]
@@ -169,8 +169,8 @@
              ns (if (= "clojure.core" ns) "cljc.core" ns)]
          {:name (symbol (str (resolve-ns-alias env ns)) (name sym))})
 
-       (and (not= ".." s) (>= (string/index-of s ".") 0))
-       (let [idx (string/index-of s ".")
+       (and (not= ".." s) (>= (cljc.string/index-of s ".") 0))
+       (let [idx (cljc.string/index-of s ".")
              prefix (symbol (subs s 0 idx))
              suffix (subs s idx)
              lb (-> env :locals prefix)]
@@ -470,7 +470,7 @@
                 bindings (seq (partition 2 bindings))]
            (if-let [[name init] (first bindings)]
              (do
-               (assert (not (or (namespace name) (>= (string/index-of (str name) ".") 0))) (str "Invalid local name: " name))
+               (assert (not (or (namespace name) (>= (cljc.string/index-of (str name) ".") 0))) (str "Invalid local name: " name))
                (let [init-expr (analyze env init)
                      be {:name name
                          :init init-expr
@@ -583,7 +583,7 @@
   #_(clojure.lang.Compiler/munge (str ss)))
 
 (defn ns->relpath [s]
-  (str (string/replace (munge-path s) \. \/) ".cljc"))
+  (str (cljc.string/replace (munge-path s) \. \/) ".cljc"))
 
 (declare analyze-file)
 
@@ -646,7 +646,7 @@
                             (assert (and (symbol? spec) (nil? (namespace spec)))
                                     (error-msg spec "Only lib.Ctor specs supported in :import"))
                             (swap! deps conj spec)
-                            (let [ctor-sym (symbol (last (string/split (str spec) #"\.")))]
+                            (let [ctor-sym (symbol (last (cljc.string/split (str spec) #"\.")))]
                               {:import  {ctor-sym spec}
                                :require {ctor-sym spec}}))
         spec-parsers {:require        (partial parse-require-spec false)
@@ -798,20 +798,20 @@
   (if args
     (disallowing-recur
      (let [seg (fn seg [^String s]
-                 (let [idx (string/index-of s "~{")]
+                 (let [idx (cljc.string/index-of s "~{")]
                    (if (= -1 idx)
                      (list s)
-                     (let [end (string/index-of s "}" idx)]
+                     (let [end (cljc.string/index-of s "}" idx)]
                        (cons (subs s 0 idx) (seg (subs s (inc end))))))))
            enve (assoc env :context :expr)
            argexprs (vec (map #(analyze enve %) args))]
        {:env env :op :js :segs (seg jsform) :args argexprs
         :tag (-> form meta :tag) :form form :children argexprs}))
     (let [interp (fn interp [^String s]
-                   (let [idx (string/index-of s "~{")]
+                   (let [idx (cljc.string/index-of s "~{")]
                      (if (= -1 idx)
                        (list s)
-                       (let [end (string/index-of s "}" idx)
+                       (let [end (cljc.string/index-of s "}" idx)
                              inner (:name (resolve-existing-var env (symbol (subs s (+ 2 idx) end))))]
                          (cons (subs s 0 idx) (cons inner (interp (subs s (inc end)))))))))]
       {:env env :op :js :form form :code (apply str (interp jsform))
@@ -967,10 +967,10 @@
               *cljc-file* f
               cljc.core/*ns-sym* *reader-ns-name*]
       (let [env (empty-env)
-            pbr (reader/push-back-reader raw-string)
+            pbr (cljc.reader/push-back-reader raw-string)
             eof "TODO_EOF_OBJECT" #_(js/Object.)]
-        (loop [r (reader/read pbr false eof false)]
+        (loop [r (cljc.reader/read pbr false eof false)]
           (let [env (assoc env :ns (find-ns *cljc-ns*))]
             (when-not (identical? eof r)
               (analyze env r)
-              (recur (reader/read pbr false eof false)))))))))
+              (recur (cljc.reader/read pbr false eof false)))))))))

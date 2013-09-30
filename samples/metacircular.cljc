@@ -71,6 +71,8 @@
 (defn self-evaluating? [exp]
   (cond (number? exp) true
         (string? exp) true
+        (vector? exp) true ; TODO remove after
+        (map? exp) true ; analyzer testing
         :else false))
 
 (defn quoted? [exp]
