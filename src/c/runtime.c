@@ -580,12 +580,12 @@ string_hash_code (const char *utf8)
         return hashmurmur3_32(utf8, len);
 }
 
-value_t* // was static symbol_t*
+static symbol_t*
 make_symbol (const char *utf8)
 {
 	symbol_t *sym = (symbol_t*)alloc_value_retired (PTABLE_NAME (cljc_DOT_core_SLASH_Symbol), sizeof (symbol_t));
 	sym->utf8 = strdup( utf8 );
-	return &sym->val;
+	return sym;
 }
 
 KHASH_MAP_INIT_STR (SYMBOLS, symbol_t*);
@@ -620,12 +620,12 @@ symbol_get_utf8 (value_t *v)
 	return s->utf8;
 }
 
-value_t*
+static keyword_t*
 make_keyword (const char *utf8)
 {
 	keyword_t *kw = (keyword_t*)alloc_value_retired (PTABLE_NAME (cljc_DOT_core_SLASH_Keyword), sizeof (keyword_t));
 	kw->utf8 = utf8;
-	return &kw->val;
+	return kw;
 }
 
 KHASH_MAP_INIT_STR (KEYWORDS, keyword_t*);
@@ -950,8 +950,10 @@ string_index_of (value_t *haystack, value_t *needle, value_t *offset)
 {
 	// FIXME: adjust for string length caching when available.
 	long long c_off = integer_get (offset);
+        value_t* not_found = make_integer( -1 );
+
 	if (c_off > LONG_MAX)
-		return value_nil;
+		return not_found;
 	if (c_off < 0)
 		c_off = 0;
 
@@ -972,7 +974,7 @@ string_index_of (value_t *haystack, value_t *needle, value_t *offset)
 			if (g_utf8_strlen (c_needle, -1) == 0)
 				return make_integer (hay_len);
 			else
-				return value_nil;
+				return not_found;
 		}
 		// FIXME: step backwards if c_off is in the last 1/4 of string.
 		start = g_utf8_offset_to_pointer (c_hay, c_off);
@@ -988,7 +990,7 @@ string_index_of (value_t *haystack, value_t *needle, value_t *offset)
 	if (g_utf8_strlen (c_needle, -1) == 0)
 		return make_integer (hay_len);
 	else
-		return value_nil;
+		return not_found;
 }
 
 ////////////////////////////////////////////////////////////

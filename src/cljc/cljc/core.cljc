@@ -896,19 +896,18 @@ reduces them without incurring seq initialization"
   (has-type? s Symbol))
 
 (declare str)
+(declare println)
 (defn keyword
   "Returns a Keyword with the given namespace and name.  Do not use :
   in the keyword strings, it will be added automatically."
-  ([name] (c* "make_keyword( string_get_utf8(~{}) )" (if (symbol? name)
-                                                       (name name)
-                                                       name))
-     #_(cond ; TODO
-      (keyword? name) (Keyword. nil name name nil)
-      (symbol? name) (Keyword. nil (name name) (name name) nil)
-      :else (Keyword. nil name name nil)))
-  ([ns name] (c* "make_keyword( string_get_utf8(~{}) )" (str ns "/" name))
-     #_(Keyword. ns name (str (when ns (str ns "/")) name) nil)))
-
+  ([name]
+     (if (keyword? name)
+       name
+       (let [name (str name)]
+         (c* "intern_keyword( string_get_utf8(~{}), true )" name))))
+  ([ns name]
+     (println "creating keyword: " name " with ns: " ns)
+     (c* "intern_keyword( string_get_utf8(~{}), true )" (str (when ns (str ns "/")) name))))
 
 
 
@@ -918,10 +917,10 @@ reduces them without incurring seq initialization"
        name
        (symbol nil name)))
   ([ns name]
-     (let [sym-str (if-not (nil? ns)
+     (let [sym-str (if-not (or (nil? ns) (empty? ns))
                      (str ns "/" name)
                      name)]
-       (c* "make_symbol( string_get_utf8( ~{} ))" sym-str))))
+       (c* "intern_symbol( string_get_utf8(~{}), true )" sym-str))))
 
 
 
@@ -5674,7 +5673,7 @@ reduces them without incurring seq initialization"
   (if-objc
    (let [num-groups (§ re :numberOfCaptureGroups)
          string-length (§ s :length)
-         tcr (§ re :firstMatchInString s :options 0 :range (UIKit/NSMakeRange 0 string-length))
+         ecr (§ re :firstMatchInString s :options 0 :range (UIKit/NSMakeRange 0 string-length))
          matched (and tcr (c* "make_boolean ([objc_object_get (~{}) range].location != NSNotFound)" tcr))]
      (when matched
        (let [match-location (c* "make_integer ([objc_object_get (~{}) range].location)" tcr)
@@ -6976,7 +6975,7 @@ separated by an optional separator."
 
 
 (defn index-of
-  "Returns the first index of needle in haystack, or nil.  A negative
+  "Returns the first index of needle in haystack, or -1.  A negative
    offset is treated as zero, and an offset greater than the string
    length is treated as the string length."
   ([haystack needle offset]
@@ -6990,8 +6989,9 @@ separated by an optional separator."
                                   :options UIKit/NSLiteralSearch
                                   :range (UIKit/NSMakeRange offset len))
                 found-offset (c* "make_integer (((NSRange*)compound_get_data_ptr (~{}))->location)" range)]
-            (when (not= found-offset UIKit/NSNotFound)
-              found-offset))))
+            (if (not= found-offset UIKit/NSNotFound)
+              found-offset
+              -1))))
       (c* "string_index_of (~{}, ~{}, ~{})" haystack needle offset)))
   ([haystack needle]
      (index-of haystack needle 0)))

@@ -170,10 +170,8 @@ nil if the end of stream has been reached")
 
  (defn- re-matches*
    [re s]
-   (println "re: " re " " s)
-   (let [dirt-matches (re-seq re s)
-         [matches] dirt-matches]
-;     (println "matches: " dirt-matches)
+   ; why are the matches in a double seq?
+   (let [[matches] (re-seq re s)]
      (when (and (not (nil? matches))
                 (= (nth matches 0) s))
        (if (== (count matches) 1)
@@ -371,7 +369,7 @@ nil if the end of stream has been reached")
      (if (or (and (not (empty? ns)) ; was js undefined?
                   (= (subs ns (- (count ns) 2) (count ns)) ":/"))
              (= (nth name (dec (count name))) ":")
-             (not (nil? (cljc.string/index-of token "::" 1))))
+             (not (neg? (cljc.string/index-of token "::" 1))))
        (reader-error reader "Invalid token: " token)
        (if (and (not (empty? ns)) (> (count ns) 0))
          (keyword (subs ns 0 (cljc.string/index-of ns "/")) name)

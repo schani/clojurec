@@ -71,8 +71,12 @@
 (defn self-evaluating? [exp]
   (cond (number? exp) true
         (string? exp) true
-        (vector? exp) true ; TODO remove after
-        (map? exp) true ; analyzer testing
+        ; TODO remove after analyzer testing
+        (vector? exp) true
+        (map? exp) true
+        (set? exp) true
+        (keyword? exp) true
+        (satisfies? IPattern exp) true
         :else false))
 
 (defn quoted? [exp]
