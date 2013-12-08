@@ -56,6 +56,8 @@
              (§ view :addSubview label)
              (§ view :addSubview button)
 
+             (§ view :setBackgroundColor (§ (§ UIColor) :whiteColor))
+
              (§ window :addSubview view)
              (§ window :makeKeyAndVisible)
 
