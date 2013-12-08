@@ -13,6 +13,7 @@ typedef gunichar cljc_unichar_t;
 
 #ifdef HAVE_IOS
 #define GC_malloc malloc
+#define GC_malloc_uncollectable malloc
 #define GC_INIT()
 #else
 #include <gc.h>

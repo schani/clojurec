@@ -266,7 +266,10 @@
 					"$(inherited)",
 					"HAVE_OBJC=1",
 				);
-				HEADER_SEARCH_PATHS = "\"$(SRCROOT)\"/../thirdparty/klib";
+				HEADER_SEARCH_PATHS = (
+					"\"$(SRCROOT)\"/../thirdparty/klib",
+					"\"$(SRCROOT)\"/../../src/c",
+				);
 				INFOPLIST_FILE = "ClojureCApp/ClojureCApp-Info.plist";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				WRAPPER_EXTENSION = app;
@@ -282,7 +285,10 @@
 					"HAVE_IOS=1",
 					"HAVE_OBJC=1",
 				);
-				HEADER_SEARCH_PATHS = "\"$(SRCROOT)\"/../thirdparty/klib";
+				HEADER_SEARCH_PATHS = (
+					"\"$(SRCROOT)\"/../thirdparty/klib",
+					"\"$(SRCROOT)\"/../src/c",
+				);
 				INFOPLIST_FILE = "ClojureCApp/ClojureCApp-Info.plist";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				WRAPPER_EXTENSION = app;
