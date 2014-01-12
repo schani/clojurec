@@ -585,13 +585,13 @@
         (emitln "*/")))))
 
 (defmethod emit :def
-  [{:keys [name init env]}]
+  [{:keys [name init env extern]}]
   (emit-declaration
    ;; FIXME: This should really init to VALUE_NONE, but we have
    ;; defining inits in preamble.c for apply and print, which would
    ;; conflict with core.cljc.  It's probably better to make them
    ;; non-defining.
-   (emitln (if init "" "extern ") "value_t *VAR_NAME (" name ");"))
+   (emitln (if extern "extern " "") "value_t *VAR_NAME (" name ");"))
   (when init
     (let [init-name (emit init)]
       (emitln "VAR_NAME (" name ") = " init-name ";")
@@ -1158,14 +1158,16 @@
           fn-var? (and init-expr (= (:op init-expr) :fn))
           export-as (when-let [export-val (-> sym meta :export)]
                       (if (= true export-val) name export-val))
-          doc (or (:doc args) (-> sym meta :doc))]
-      (when-let [v (get-in @namespaces [ns-name :defs sym])]
-        (when (and *cljs-warn-on-fn-var*
-                   (not (-> sym meta :declared))
-                   (and (:fn-var v) (not fn-var?)))
-          (warning env
-            (str "WARNING: " (symbol (str ns-name) (str sym))
-                 " no longer fn, references are stale"))))
+          doc (or (:doc args) (-> sym meta :doc))
+          extern (when-let [v (get-in @namespaces [ns-name :defs sym])]
+                   (when (and *cljs-warn-on-fn-var*
+                              (not (-> sym meta :declared))
+                              (and (:fn-var v) (not fn-var?)))
+                     (warning env
+                       (str "WARNING: " (symbol (str ns-name) (str sym))
+                            " no longer fn, references are stale")))
+                   (or (:extern v)
+                       (not (contains? v :defrecord))))]
       (let [entry (merge {:name name}
                          (when tag {:tag tag})
                          (when dynamic {:dynamic true})
@@ -1181,7 +1183,8 @@
                             :max-fixed-arity (:max-fixed-arity init-expr)
                             :method-params (map (fn [m]
                                                   (:params m))
-                                                (:methods init-expr))}))]
+                                                (:methods init-expr))})
+                         (when extern {:extern true}))]
         (swap! namespaces update-in [ns-name :defs sym] merge entry)
         (swap! exports conj [:namespaces [ns-name :defs sym] entry]))
       (merge {:env env :op :def :form form
@@ -1189,7 +1192,8 @@
              (when tag {:tag tag})
              (when dynamic {:dynamic true})
              (when export-as {:export export-as})
-             (when init-expr {:children [init-expr]})))))
+             (when init-expr {:children [init-expr]})
+             (when extern {:extern true})))))
 
 (defn- analyze-fn-method [env locals meth]
   (letfn [(uniqify [[p & r]]
@@ -1518,13 +1522,17 @@
   [_ env [_ tsym fields pmasks :as form] _]
   (let [t (munge (:name (resolve-var (dissoc env :locals) tsym)))
         ns-name (-> env :ns :name)
+        extern (when-let [v (get-in @namespaces [ns-name :defs tsym])]
+                 (or (:extern v)
+                     (not (contains? v :defrecord))))
         entry (merge {:name t
                       :defrecord (:defrecord (meta tsym))
                       :fields fields
                       :num-fields (count fields)}
                      (if-let [line (:line env)]
                        {:file *cljs-file* :line line}
-                       {}))]
+                       {})
+                     (if extern {:extern true}))]
     (swap! namespaces update-in [ns-name :defs tsym] merge entry)
     (swap! exports conj [:namespaces [ns-name :defs tsym] entry])
     {:env env :op :deftype* :as form :t t :fields fields :pmasks pmasks}))
