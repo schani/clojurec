@@ -1420,7 +1420,7 @@
 
 (defn analyze-deps [deps]
   (doseq [dep deps]
-    (doseq [[kind info entry] (read-string ((var-get #'*read-exports-fn*) dep))]
+    (doseq [[kind info entry] ((var-get #'*read-exports-fn*) dep)]
       (case kind
         :defined-fields
         (emit-declaration

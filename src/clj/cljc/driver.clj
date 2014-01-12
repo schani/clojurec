@@ -117,7 +117,7 @@
 (defn read-exports-fn-for-dir [dir]
   (fn [ns]
     (let [file (io/file dir (str (cljc/munge ns) "-exports.clj"))]
-      (slurp file))))
+      (read-string (slurp file)))))
 
 (defn compile-expr [ns-name with-core expr]
   (binding [*build-options* (assoc *build-options*
