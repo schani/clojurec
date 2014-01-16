@@ -1769,6 +1769,14 @@ reduces them without incurring seq initialization"
   (-pr-seq [s opts]
     (list (str s))))
 
+(extend-type Var
+  IPrintable
+  (-pr-seq [v opts]
+    (list
+     (if-objc
+      (c* "make_objc_object ([NSString stringWithFormat: @\"#<closure@%p:%p>\", ((closure_t*)~{})->fn, ((closure_t*)~{})->env])" c c)
+      (c* "make_string_copy_free (g_strdup_printf (\"#'%s\", symbol_get_utf8 (((var_t*)~{})->name)))" v)))))
+
 ; could use reify
 ;;; LazySeq ;;;
 

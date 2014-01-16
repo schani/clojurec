@@ -92,6 +92,12 @@ typedef struct {
 
 typedef struct {
 	value_t val;
+	symbol_t *name;
+	value_t *binding;
+} var_t;
+
+typedef struct {
+	value_t val;
 	const char *utf8;
 } keyword_t;
 
@@ -151,6 +157,7 @@ struct ptable {
 #ifndef HAVE_OBJC
 #define TYPE_String	8
 #endif
+#define TYPE_Var	15
 #define TYPE_Symbol	9
 #define TYPE_Keyword	10
 #define TYPE_RawPointer	11
@@ -159,7 +166,7 @@ struct ptable {
 #define TYPE_ObjCObject	13
 #define TYPE_ObjCSelector	14
 #endif
-#define FIRST_TYPE	15
+#define FIRST_TYPE	16
 
 #define FIRST_FIELD	1
 
@@ -210,6 +217,7 @@ extern value_t* VAR_NAME (cljc_DOT_core_SLASH_Character);
 #ifndef HAVE_OBJC
 extern value_t* VAR_NAME (cljc_DOT_core_SLASH_String);
 #endif
+extern value_t* VAR_NAME (cljc_DOT_core_SLASH_Var);
 extern value_t* VAR_NAME (cljc_DOT_core_SLASH_Symbol);
 extern value_t* VAR_NAME (cljc_DOT_core_SLASH_Keyword);
 extern value_t* VAR_NAME (cljc_DOT_core_SLASH_RawPointer);
@@ -225,6 +233,7 @@ extern ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Character);
 #ifndef HAVE_OBJC
 extern ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_String);
 #endif
+extern ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Var);
 extern ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Symbol);
 extern ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_Keyword);
 extern ptable_t* PTABLE_NAME (cljc_DOT_core_SLASH_RawPointer);
@@ -285,6 +294,7 @@ extern value_t* make_string_from_unichar (cljc_unichar_t c);
 extern value_t* make_string_from_buf (const char *start, const char *end);
 extern const char* string_get_utf8 (value_t *v);
 extern uint32_t string_hash_code (const char *utf8);
+extern value_t* intern (const symbol_t* name, const value_t *value);
 extern value_t* intern_symbol (const char *utf8, bool copy);
 extern const char* symbol_get_utf8 (value_t *v);
 extern value_t* symbol_get_name (value_t *v);

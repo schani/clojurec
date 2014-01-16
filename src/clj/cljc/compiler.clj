@@ -585,17 +585,22 @@
         (emitln "*/")))))
 
 (defmethod emit :def
-  [{:keys [name init env extern]}]
+  [{:keys [name init env extern form]}]
   (emit-declaration
    ;; FIXME: This should really init to VALUE_NONE, but we have
    ;; defining inits in preamble.c for apply and print, which would
    ;; conflict with core.cljc.  It's probably better to make them
    ;; non-defining.
    (emitln (if extern "extern " "") "value_t *VAR_NAME (" name ");"))
-  (when init
-    (let [init-name (emit init)]
-      (emitln "VAR_NAME (" name ") = " init-name ";")
-      init-name)))
+  (let [sym (emit {:op :constant
+                   :env (assoc env :context :expr)
+                   :form (symbol (clojure.core/name (-> env :ns :name))
+                                 (clojure.core/name (second form)))})]
+    (if init
+      (let [init-name (emit init)]
+        (emitln "VAR_NAME (" name ") = " init-name ";")
+        (emit-value-wrap :var nil (emits "intern ((symbol_t*)" sym ", " init-name ")")))
+      (emit-value-wrap :var nil (emits "intern ((symbol_t*)" sym ", NULL)")))))
 
 (defn- emit-val-init [vi]
   (if (string? vi)
