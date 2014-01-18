@@ -333,7 +333,10 @@
 (defmethod emit-constant Boolean [x] (if x "value_true" "value_false"))
 
 (defmethod emit-constant java.util.regex.Pattern [x]
-  (FIXME-IMPLEMENT))
+  (emit-value-wrap :pattern-const
+                   nil
+                   (emits "FUNCALL1 ((closure_t*)VAR_NAME (cljc_DOT_core_SLASH_re_pattern), make_string ("
+                          (wrap-in-double-quotes (escape-string (str x))) "))")))
 
 (defmethod emit-constant clojure.lang.Keyword [x]
   (emit-value-wrap :keyword nil
