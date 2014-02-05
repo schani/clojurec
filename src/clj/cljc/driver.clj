@@ -281,6 +281,8 @@
 (defn run-expr [ns-name with-core expr]
   (binding [cljc/*objc* (:objc *build-options*)]
     (compile-cljc-core-if-needed)
+    (compile-system-namespace-if-needed 'cljc.reader)
+    (compile-system-namespace-if-needed 'cljc.analyzer)
     (run-code ns-name (compile-expr ns-name with-core expr) with-core)))
 
 (comment
