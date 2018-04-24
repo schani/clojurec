@@ -667,7 +667,7 @@ extract_name (const char *utf8)
 	const char *ptr = g_utf8_strrchr (utf8, -1, '/');
 	if (ptr != NULL)
 		return make_string (g_utf8_next_char (ptr));
-	return make_string (utf8);
+	return make_string ((char *) utf8);
 }
 
 static value_t*
