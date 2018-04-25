@@ -50,7 +50,7 @@ If you do the following in the `clojurec` directory
     lein run -c samples/echo.cljc cljc.user run run
 	lein run -d cljc.user/-main run
     cd run
-    make
+    make -f c/Makefile
 
 you should have a `cljc` executable in the `run` directory that acts mostly like `echo`.
 
