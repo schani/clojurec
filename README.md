@@ -2,6 +2,66 @@
 
 This is compiler for the Clojure programming language that targets C as a backend.  It is based on ClojureScript and was started off ClojureScript's commit `0e0aa7fdd379649bf87f8fff5c6a64e37fe616a4`.
 
+# Status
+
+This project is no longer actively maintained, though PRs and such are still welcome.
+
+# Background, Features, and Limitations
+
+Forked off of a version of ClojureScript circa 2012 (prior to Clojure and ClojureScript being refactored to use the same compiler or front end), ClojureC provides:
+
+* Generation of C or Objective-C code, enabling faster startup than JVM-based executables
+
+    Objective-C message sending uses the section character (§) in place of the at-sign (@), as the latter is already used by Clojure.
+
+* Ability to statically expose any C function to ClojureC (dynamic loading might be possible but is not currently implemented)
+
+    See **clojurec/binder/**.
+
+* An implementation of the Boehm Garbage Collector (GC)
+
+* Incomplete support for native threads
+
+    Exception handling currently uses two global variables (could be replaced with thread-local vars?).
+
+    Extending protocols might also not be threadsafe.
+
+* No support for "modern" Clojure language features such as transducers
+
+* No **eval**
+
+* Limited optimization, really only as demanded by the language
+
+    For example, **loop**/**recur** is turned into a real loop.
+
+* Exception support
+
+    Implemented via **setjmp**/**longjmp**.
+
+# Alternatives to ClojureC
+
+If native threads are not important, but fast startup is, consider using **ClojureScript** instead of ClojureC, as the startup time for the **v8** engine is reportedly much faster than for the JVM.
+
+# Future Plans
+
+As there seem to be few known use cases for programs that need to both start up quickly _and_ use native threading, it is perhaps not surprising that there's little apparent interest in making the necessary changes to "productize" ClojureC. Such changes could include:
+
+* Full support for native threads
+
+* Supporting the latest version of the Clojure language
+
+* Supporting a C++ back end
+
+* Retargeting the GCC compiler back end
+
+* Implementing a proper optimizer
+
+* Providing improved debugger support
+
+Other than (perhaps) full native-thread support, each of the above item would represent a substantial investment of resources that are not, at present, available.
+
+# Historical Info
+
 ## Community and Organization
 
 We use a [Trello board](https://trello.com/board/clojurec/500e79c3b8ec5a3d7f1786d1) to keep track of ideas, proposals, TODOs, bugs and who's doing what.  If you plan to contribute, please do join the board.
